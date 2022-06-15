@@ -15,13 +15,13 @@ board *get_starting_position() {
     if (!bb) {
         return NULL;
     }
-    // ranks: [1, 8]
-    // file : [0, 7]
+    
     memset(&bb->squares, 0, 64);
     memset(&bb->pieces, 0, 32 * sizeof(piece));
 
     bb->squares[SQUARE(a, 1)] = ROOK | WHITE;
-    bb->pieces[0].piece_data = ROOK | WHITE;
+    SET_QUEEN_ROOK(bb->squares[SQUARE(a, 1)]);
+    bb->pieces[0].piece_data = bb->squares[SQUARE(a, 1)];
     bb->pieces[0].file = a;
     bb->pieces[0].rank = 1;
 
@@ -60,7 +60,8 @@ board *get_starting_position() {
     bb->pieces[6].rank = 1;
     
     bb->squares[SQUARE(h, 1)] = ROOK | WHITE;
-    bb->pieces[7].piece_data = ROOK | WHITE;
+    SET_KING_ROOK(bb->squares[SQUARE(h, 1)]);
+    bb->pieces[7].piece_data = bb->squares[SQUARE(h, 1)];
     bb->pieces[7].file = h;
     bb->pieces[7].rank = 1;
 
@@ -72,7 +73,8 @@ board *get_starting_position() {
     }
 
     bb->squares[SQUARE(a, 8)] = ROOK | BLACK;
-    bb->pieces[16].piece_data = ROOK | BLACK;
+    SET_QUEEN_ROOK(bb->squares[SQUARE(a, 8)]);
+    bb->pieces[16].piece_data = bb->squares[SQUARE(a, 8)];
     bb->pieces[16].file = a;
     bb->pieces[16].rank = 8;
 
@@ -110,7 +112,8 @@ board *get_starting_position() {
     bb->pieces[22].rank = 8;
 
     bb->squares[SQUARE(h, 8)] = ROOK | BLACK;
-    bb->pieces[23].piece_data = ROOK | BLACK;
+    SET_KING_ROOK(bb->squares[SQUARE(h, 8)]);
+    bb->pieces[23].piece_data = bb->squares[SQUARE(h, 8)];
     bb->pieces[23].file = h;
     bb->pieces[23].rank = 8;
 
@@ -124,6 +127,17 @@ board *get_starting_position() {
     bb->num_uncaptured = 32;
     bb->move = WHITE;
 
+    // Move the white king to index 0
+    
+    piece swap = bb->pieces[0];
+    bb->pieces[0] = bb->pieces[4];
+    bb->pieces[4] = swap;
+
+    // Move the black king to index 0
+    swap = bb->pieces[1];
+    bb->pieces[1] = bb->pieces[20];
+    bb->pieces[20] = swap;
+    
     return bb;
 }
 
@@ -142,9 +156,6 @@ board *load_fen(char *fen) {
 
     unsigned short i = 0;
     char rank = 8, file = 0;
-
-    piece *white_king = NULL, *black_king = NULL;
-
     
     uint8_t segment_lengths[4] = {0, 0, 0, 0};
     char mode = 0;
@@ -188,6 +199,8 @@ board *load_fen(char *fen) {
         }
     }
 
+    piece *white_king = NULL, *black_king = NULL;
+
     while (fen_segments[0][i]) {
         bool add_piece = true;
         if (fen_segments[0][i] >= '0' && fen_segments[0][i] <= '9') {
@@ -205,6 +218,13 @@ board *load_fen(char *fen) {
             break; 
             case 'r':
                 bb->pieces[bb->num_uncaptured].piece_data = BLACK | ROOK;
+                if (rank == 8) {
+                    if (file == a) {
+                        SET_QUEEN_ROOK(bb->pieces[bb->num_uncaptured].piece_data);
+                    } else if (file == h) {
+                        SET_KING_ROOK(bb->pieces[bb->num_uncaptured].piece_data);
+                    }
+                }
             break;
             case 'n':
                 bb->pieces[bb->num_uncaptured].piece_data = BLACK | KNIGHT;
@@ -217,13 +237,19 @@ board *load_fen(char *fen) {
             break;
             case 'k':
                 bb->pieces[bb->num_uncaptured].piece_data = BLACK | KING;
-                black_king = &bb->pieces[bb->num_uncaptured];
             break;
             case 'P':
                 bb->pieces[bb->num_uncaptured].piece_data = WHITE | PAWN;
             break;
             case 'R':
                 bb->pieces[bb->num_uncaptured].piece_data = WHITE | ROOK;
+                if (rank == 1) {
+                    if (file == a) {
+                        SET_QUEEN_ROOK(bb->pieces[bb->num_uncaptured].piece_data);
+                    } else if (file == h) {
+                        SET_KING_ROOK(bb->pieces[bb->num_uncaptured].piece_data);
+                    }
+                }
             break;
             case 'N':
                 bb->pieces[bb->num_uncaptured].piece_data = WHITE | KNIGHT;
@@ -236,7 +262,6 @@ board *load_fen(char *fen) {
             break; 
             case 'K':
                 bb->pieces[bb->num_uncaptured].piece_data = WHITE | KING;
-                white_king = &bb->pieces[bb->num_uncaptured];
             break;
             default:
                 for (uint8_t j = 0; j < 4; ++j) {
@@ -252,7 +277,26 @@ board *load_fen(char *fen) {
             bb->pieces[bb->num_uncaptured].file = file;
             ++(bb->num_uncaptured);
         }
+        
+        // If the last piece added was a white king
+        if (bb->pieces[bb->num_uncaptured - 1].piece_data == (KING | WHITE)) {
+            // Move the white king to index 0
+            piece swap = bb->pieces[0];
+            bb->pieces[0] = bb->pieces[bb->num_uncaptured - 1];
+            bb->pieces[bb->num_uncaptured - 1] = swap;
 
+            white_king = &bb->pieces[0];
+        } 
+        // If the last piece added was a black king
+        else if (bb->pieces[bb->num_uncaptured - 1].piece_data == (KING | BLACK)) {
+            // Move the black king to index 1
+            piece swap = bb->pieces[1];
+            bb->pieces[1] = bb->pieces[bb->num_uncaptured - 1];
+            bb->pieces[bb->num_uncaptured - 1] = swap;
+            
+            black_king = &bb->pieces[1];
+        }
+        
         ++i;
         ++file;
     }
@@ -288,7 +332,6 @@ board *load_fen(char *fen) {
         printf("Failed to load FEN: Move specifier should be 'w' for white or 'b' for black!\n");
         return NULL;
     }
-    
     i = 0;
     char *wk_pd = &(white_king->piece_data), *bk_pd = &(black_king->piece_data);
     while (fen_segments[2][i]) {

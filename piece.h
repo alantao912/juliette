@@ -30,6 +30,12 @@
 #define PAWN_MOVED_TWO(pawn) (((1 << 6) & pawn) != 0)
 #define SET_PAWN_MOVED_TWO(pawn) (pawn = (pawn | (1 << 6)))
 #define REM_PAWN_MOVED_TWO(pawn) (pawn = (pawn & ~(1 << 6)))
+
+#define IS_KING_ROOK(rook) ((rook & (1 << 5)) != 0)
+#define SET_KING_ROOK(rook) (rook = (rook | (1 << 5)))
+
+#define IS_QUEEN_ROOK(rook) ((rook & (1 << 6)) != 0)
+#define SET_QUEEN_ROOK(rook) (rook = (rook | (1 << 6)))
 /*
     ___ ___ ___ ___ ___ ___ ___ ___
      7   6   5   4   3   2   1   0
