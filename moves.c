@@ -10,10 +10,12 @@
 
 #define MAX_DEPTH 256
 /* Every time a capture is made, push captured piece's data onto this stack. Every time a capture move is restored, pop from stack to restore captured piece's piece_data */
-static char captured_piece_stack[32], piece_data_stack[MAX_DEPTH], num_captured = 0, curr_move_depth = 0;
+static char captured_piece_stack[32], piece_data_stack[MAX_DEPTH], num_captured = 0;
 static uint16_t move_stack[MAX_DEPTH];
 
 static char *board_last_pawn_data;
+
+char curr_move_depth = 0;
 
 static int resize(move_list *ml) {
     short *new_buff = (short *) malloc(2 * sizeof(uint16_t) * ml->capacity);
@@ -992,7 +994,7 @@ void make_move(board *bb, uint16_t move) {
                     }
                 }
             }
-        }
+        }   
         REM_CASTLE_LONG(src_piece_data);
         REM_CASTLE_SHORT(src_piece_data);
     } else if (PIECE_TYPE(src_piece_data) == PAWN) {
@@ -1013,17 +1015,38 @@ void make_move(board *bb, uint16_t move) {
             if (src_file == a && src_rank == 1) {
 
                 // remove long castling for white
-                REM_CASTLE_LONG(bb->pieces[0].piece_data);
+                if (CAN_CASTLE_LONG(bb->pieces[0].piece_data)) {
+                    REM_CASTLE_LONG(bb->pieces[0].piece_data);
+
+                    // IS_ENPASSANT() bit is used to denote that this rook move, removed the king's right to castle
+                    move_stack[curr_move_depth - 1] = move_stack[curr_move_depth - 1] | IS_ENPASSANT();
+                }
+                
             } else if (src_file == h && src_rank == 1) {
                 // remove castle short for white
-                REM_CASTLE_SHORT(bb->pieces[0].piece_data);
+                if (CAN_CASTLE_SHORT(bb->pieces[0].piece_data)) {
+                    REM_CASTLE_SHORT(bb->pieces[0].piece_data);
+
+                     // IS_ENPASSANT() bit is used to denote that this rook move, removed the king's right to castle
+                    move_stack[curr_move_depth - 1] = move_stack[curr_move_depth - 1] | IS_ENPASSANT();
+                }
             }
         } else if (src_file == a && src_rank == 8) {
-                // remove castle long for black
+            // remove castle long for black
+            if (CAN_CASTLE_LONG(bb->pieces[1].piece_data)) {
                 REM_CASTLE_LONG(bb->pieces[1].piece_data);
+
+                 // IS_ENPASSANT() bit is used to denote that this rook move, removed the king's right to castle
+                move_stack[curr_move_depth - 1] = move_stack[curr_move_depth - 1] | IS_ENPASSANT();
+            }
         } else if (src_file == h && src_rank == 8) {
-                // remove castle short for black
+            // remove castle short for black
+            if (CAN_CASTLE_SHORT(bb->pieces[1].piece_data)) {
                 REM_CASTLE_SHORT(bb->pieces[1].piece_data);
+
+                 // IS_ENPASSANT() bit is used to denote that this rook move, removed the king's right to castle
+                move_stack[curr_move_depth - 1] = move_stack[curr_move_depth - 1] | IS_ENPASSANT();
+            }
                 
         }
     }
@@ -1113,5 +1136,5 @@ void make_move(board *bb, uint16_t move) {
 }
 
 void unmake_move(board *bb) {
-
+    
 }

@@ -5,20 +5,29 @@
 #include "piece.h"
 #include "moves.h"
 
+extern char curr_move_depth;
+
 int main(int argc, char *argv[]) {
-    board *init_state = load_fen("r3k2r/8/8/8/8/8/8/R3K2R w KQkq --");
+    board *bb = get_starting_position();
     system("clear");
     while (1) {
-        print_board(init_state);
-        move_list *ml = generate_moves(init_state);
+        print_board(bb);
+        move_list *ml = generate_moves(bb);
         for (int i = 0; i < ml->size; ++i) {
             printf("%d. ", i + 1);
-            print_move(init_state, ml->moves[i]);
+            print_move(bb, ml->moves[i]);
         }
 
         int move_no;
         scanf("%d", &move_no);
-        make_move(init_state, ml->moves[move_no - 1]);
+        if (move_no != 0) {
+            make_move(bb, ml->moves[move_no - 1]);
+        } else if (curr_move_depth > 0) {
+            unmake_move(bb);
+        } else {
+            printf("Cannot unmake move!\n");
+        }
+
         system("clear");
         free(ml);
     }
