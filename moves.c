@@ -1012,34 +1012,29 @@ void make_move(board *bb, uint16_t move) {
         }
     } else if (PIECE_TYPE(src_piece_data) == ROOK) {
         if (bb->move == WHITE) {
-            if (src_file == a && src_rank == 1) {
-
+            if (IS_QUEEN_ROOK(src_piece_data)) {
                 // remove long castling for white
                 if (CAN_CASTLE_LONG(bb->pieces[0].piece_data)) {
                     REM_CASTLE_LONG(bb->pieces[0].piece_data);
-
                     // IS_ENPASSANT() bit is used to denote that this rook move, removed the king's right to castle
                     move_stack[curr_move_depth - 1] = move_stack[curr_move_depth - 1] | IS_ENPASSANT();
                 }
-                
-            } else if (src_file == h && src_rank == 1) {
+            } else if (IS_KING_ROOK(src_piece_data)) {
                 // remove castle short for white
                 if (CAN_CASTLE_SHORT(bb->pieces[0].piece_data)) {
                     REM_CASTLE_SHORT(bb->pieces[0].piece_data);
-
                      // IS_ENPASSANT() bit is used to denote that this rook move, removed the king's right to castle
                     move_stack[curr_move_depth - 1] = move_stack[curr_move_depth - 1] | IS_ENPASSANT();
                 }
             }
-        } else if (src_file == a && src_rank == 8) {
+        } else if (IS_QUEEN_ROOK(src_piece_data)) {
             // remove castle long for black
             if (CAN_CASTLE_LONG(bb->pieces[1].piece_data)) {
                 REM_CASTLE_LONG(bb->pieces[1].piece_data);
-
                  // IS_ENPASSANT() bit is used to denote that this rook move, removed the king's right to castle
                 move_stack[curr_move_depth - 1] = move_stack[curr_move_depth - 1] | IS_ENPASSANT();
             }
-        } else if (src_file == h && src_rank == 8) {
+        } else if (IS_KING_ROOK(src_piece_data)) {
             // remove castle short for black
             if (CAN_CASTLE_SHORT(bb->pieces[1].piece_data)) {
                 REM_CASTLE_SHORT(bb->pieces[1].piece_data);
@@ -1047,7 +1042,6 @@ void make_move(board *bb, uint16_t move) {
                  // IS_ENPASSANT() bit is used to denote that this rook move, removed the king's right to castle
                 move_stack[curr_move_depth - 1] = move_stack[curr_move_depth - 1] | IS_ENPASSANT();
             }
-                
         }
     }
     
@@ -1137,4 +1131,123 @@ void make_move(board *bb, uint16_t move) {
 
 void unmake_move(board *bb) {
     
+    --curr_move_depth;
+    uint16_t prev_move = move_stack[curr_move_depth];
+
+    char src_file = GET_SRC_FILE(prev_move), src_rank = GET_SRC_RANK(prev_move);
+    char dest_file = GET_DEST_FILE(prev_move), dest_rank = GET_DEST_RANK(prev_move);
+
+    char prev_piece_data = piece_data_stack[curr_move_depth];
+
+    /* Move piece back to the square it came from, and then clear the square it was at. */
+    bb->squares[SQUARE(src_file, src_rank)] = bb->squares[SQUARE(dest_file, dest_rank)];
+    bb->squares[SQUARE(dest_file, dest_rank)] = EMPTY_SQUARE;
+
+    if (GET_CAPTURED_PIECE(prev_move) != EMPTY_SQUARE) {
+        /* The captured piece must be restored to the destination square of the previous move. */
+        if (PIECE_TYPE(prev_piece_data) == PAWN && GET_IS_ENPASSANT(prev_move)) {
+            /* Last move was an en passant capture. The rank of the restored piece must be given the appropriate offset. */
+            dest_rank += 1 + -2 * IS_WHITE(bb->squares[SQUARE(src_file, src_rank)]);
+        }
+
+        --num_captured;
+        char captured_piece_data = captured_piece_stack[num_captured];
+
+        bb->squares[SQUARE(dest_file, dest_rank)] = captured_piece_data;
+        bb->pieces[bb->num_uncaptured].piece_data = captured_piece_data;
+        bb->pieces[bb->num_uncaptured].file = dest_file;
+        bb->pieces[bb->num_uncaptured].rank = dest_rank;
+        ++bb->num_uncaptured;
+    }
+
+    switch (PIECE_TYPE(prev_piece_data)) {
+        case KING: {
+            char rook_piece_data, rook_og_rank, rook_og_file;
+            if (dest_file - src_file == 2) {
+                /* Previous move was long castle */
+                rook_piece_data = bb->squares[SQUARE(dest_file + 1, dest_rank)];
+                bb->squares[SQUARE(dest_file + 1, dest_rank)] = EMPTY_SQUARE;
+
+                rook_og_file = a;
+                rook_og_rank = 1 + 7 * IS_BLACK(prev_piece_data);
+                bb->squares[SQUARE(rook_og_file, rook_og_rank)] = rook_piece_data;
+
+
+                for (char i = 0; i < bb->num_uncaptured; ++i) {
+                    if (bb->pieces[i].file == dest_file + 1 && bb->pieces[i].rank == dest_rank) {
+                        bb->pieces[i].file = rook_og_file;
+                        bb->pieces[i].rank = rook_og_rank;
+                        break;
+                    }
+                }
+
+            } else if (dest_file - src_file == -2) {
+                /* Previous move was short castle */
+                rook_piece_data = bb->squares[SQUARE(dest_file - 1, dest_rank)];
+                bb->squares[SQUARE(dest_file - 1, dest_rank)] = EMPTY_SQUARE;
+
+                rook_og_file = h;
+                rook_og_rank = 1 + 7 * IS_BLACK(prev_piece_data);
+                bb->squares[SQUARE(rook_og_file, rook_og_rank)] = rook_piece_data;
+
+                for (char i = 0; i < bb->num_uncaptured; ++i) {
+                    if (bb->pieces[i].file == dest_file - 1 && bb->pieces[i].rank == dest_rank) {
+                        bb->pieces[i].file = rook_og_file;
+                        bb->pieces[i].rank = rook_og_rank;
+                        break;
+                    }
+                }
+            }
+        }
+        break;
+        case ROOK:
+            if (GET_IS_ENPASSANT(prev_move)) {
+                if (IS_BLACK(prev_piece_data)) {
+                    if (IS_QUEEN_ROOK(prev_piece_data)) {
+                        // Black queen side rook. Restore black's ability to castle queen side
+                        SET_CASTLE_LONG(bb->pieces[1].piece_data);
+                        SET_CASTLE_LONG(bb->squares[SQUARE(bb->pieces[1].file, bb->pieces[1].rank)]);
+                    } else {
+                        // Black king side rook. Restore black's ability to castle king side
+                        SET_CASTLE_SHORT(bb->pieces[1].piece_data);
+                        SET_CASTLE_SHORT(bb->squares[SQUARE(bb->pieces[1].file, bb->pieces[1].rank)]);
+                    }
+                } else {
+                    if (IS_QUEEN_ROOK(prev_piece_data)) {
+                        // White queen side rook. Restore black's ability to castle queen side
+                        SET_CASTLE_LONG(bb->pieces[0].piece_data);
+                        SET_CASTLE_LONG(bb->squares[SQUARE(bb->pieces[0].file, bb->pieces[0].rank)]);
+                    } else {
+                        // White king side rook. Restore black's ability to castle king side
+                        SET_CASTLE_SHORT(bb->pieces[0].piece_data);
+                        SET_CASTLE_SHORT(bb->squares[SQUARE(bb->pieces[0].file, bb->pieces[0].rank)]);
+                    }
+                }
+            }
+        break;
+    }
+
+    if (curr_move_depth > 0) {
+        // peek at the top of the move stack
+        uint16_t peeked = move_stack[curr_move_depth - 1];
+
+        if (PIECE_TYPE(bb->squares[SQUARE(GET_DEST_FILE(peeked), GET_DEST_RANK(peeked))]) == PAWN && abs(GET_DEST_RANK(peeked) - GET_SRC_RANK(peeked)) == 2) {
+            SET_PAWN_MOVED_TWO(bb->squares[SQUARE(GET_DEST_FILE(peeked), GET_DEST_RANK(peeked))]);
+        }
+    }
+
+    for (char i = 0; i < bb->num_uncaptured; ++i) {
+        if (bb->pieces[i].file == dest_file && bb->pieces[i].rank == dest_rank) {
+            bb->pieces[i].file = src_file;
+            bb->pieces[i].rank = src_rank;
+            bb->pieces[i].piece_data = prev_piece_data;
+            break;
+        }
+    }
+
+    if (bb->move == BLACK) {
+        bb->move = WHITE;
+    } else {
+        bb->move = WHITE;
+    }
 }
