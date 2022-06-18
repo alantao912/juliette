@@ -1230,9 +1230,9 @@ void unmake_move(board *bb) {
     if (curr_move_depth > 0) {
         // peek at the top of the move stack
         uint16_t peeked = move_stack[curr_move_depth - 1];
-
-        if (PIECE_TYPE(bb->squares[SQUARE(GET_DEST_FILE(peeked), GET_DEST_RANK(peeked))]) == PAWN && abs(GET_DEST_RANK(peeked) - GET_SRC_RANK(peeked)) == 2) {
-            SET_PAWN_MOVED_TWO(bb->squares[SQUARE(GET_DEST_FILE(peeked), GET_DEST_RANK(peeked))]);
+        char *pd = &bb->squares[SQUARE(GET_DEST_FILE(peeked), GET_DEST_RANK(peeked))];
+        if (PIECE_TYPE(*pd) == PAWN && abs(GET_DEST_RANK(peeked) - GET_SRC_RANK(peeked)) == 2) {
+            SET_PAWN_MOVED_TWO(*pd);
         }
     }
 
