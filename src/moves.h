@@ -1,9 +1,11 @@
 #ifndef MOVES_H
 #define MOVES_H
 
+#include <stdbool.h>
 #include <stddef.h>
 
 #include "board.h"
+
 #define OOM -1
 
 #define SRC_FILE(file) file
@@ -63,5 +65,14 @@ void make_move(board *bb, uint16_t move);
  */
 
 void unmake_move(board *bb);
+
+/**
+ * @brief Pretty self explanatory
+ * 
+ * @param bb 
+ * @param ml 
+ */
+
+void remove_illegal_moves(board *bb, move_list *ml);
 
 #endif

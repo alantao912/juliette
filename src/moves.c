@@ -41,6 +41,22 @@ static void add_king_moves(board *bb, char piece_index, move_list *ml);
 
 static void add_queen_moves(board *bb, char piece_index, move_list *ml);
 
+static bool is_king_in_check(board *bb);
+
+// TODO: Implement the following functions
+
+static bool can_pawn_attack_square(board *bb, char src_file, char src_rank, char dest_file, char dest_rank);
+
+static bool can_knight_attack_square(board *bb, char src_file, char src_rank, char dest_file, char dest_rank);
+
+static bool can_bishop_attack_square(board *bb, char src_file, char src_rank, char dest_file, char dest_rank);
+
+static bool can_rook_attack_square(board *bb, char src_file, char src_rank, char dest_file, char dest_rank);
+
+static bool can_queen_attack_square(board *bb, char src_file, char src_rank, char dest_file, char dest_rank);
+
+static bool can_king_attack_square(board *bb, char src_file, char src_rank, char dest_file, char dest_rank);
+
 void add_move(move_list *ml, uint16_t move) {
     if (ml->size == ml->capacity) {
         resize(ml);
@@ -1249,5 +1265,62 @@ void unmake_move(board *bb) {
         bb->move = WHITE;
     } else {
         bb->move = WHITE;
+    }
+}
+
+static bool is_king_in_check(board *bb) {
+    for (char i = 0; i < bb->num_uncaptured; ++i) {
+        if (IS_BLACK(bb->pieces[i].piece_data) == IS_BLACK(bb->move)) {
+            switch (PIECE_TYPE(bb->pieces[i].piece_data)) {
+                case ROOK:
+                    if (can_rook_attack_square(bb, bb->pieces[i].file, bb->pieces[i].rank, bb->pieces[IS_WHITE(bb->move)].file, bb->pieces[!IS_WHITE(bb->move)].rank)) {
+                        return true;
+                    }
+                break;
+                case BISHOP:
+                    if (can_bishop_attack_square(bb, bb->pieces[i].file, bb->pieces[i].rank, bb->pieces[IS_WHITE(bb->move)].file, bb->pieces[!IS_WHITE(bb->move)].rank)) {
+                        return true;
+                    }
+                break;
+                case KNIGHT:
+                    if (can_knight_attack_square(bb, bb->pieces[i].file, bb->pieces[i].rank, bb->pieces[IS_WHITE(bb->move)].file, bb->pieces[!IS_WHITE(bb->move)].rank)) {
+                        return true;
+                    }
+                
+                break;
+                case PAWN:
+                    if (can_pawn_attack_square(bb, bb->pieces[i].file, bb->pieces[i].rank, bb->pieces[IS_WHITE(bb->move)].file, bb->pieces[!IS_WHITE(bb->move)].rank)) {
+                        return true;
+                    }
+                break;
+                case KING:
+                    if (can_king_attack_square(bb, bb->pieces[i].file, bb->pieces[i].rank, bb->pieces[IS_WHITE(bb->move)].file, bb->pieces[!IS_WHITE(bb->move)].rank)) {
+                        return true;
+                    }
+                break;
+                case QUEEN:
+                    if (can_queen_attack_square(bb, bb->pieces[i].file, bb->pieces[i].rank, bb->pieces[IS_WHITE(bb->move)].file, bb->pieces[!IS_WHITE(bb->move)].rank)) {
+                        return true;
+                    }
+                break;
+            }
+        }
+    }
+    return false;
+}
+
+void remove_illegal_moves(board *bb, move_list *ml) {
+    uint16_t i = 0;
+    while (i < ml->size) {
+        uint16_t move = ml->moves[i];
+        make_move(bb, move);
+
+        if (is_king_in_check(bb)) {
+            --ml->size;
+            ml->moves[i] = ml->moves[ml->size];
+        } else {
+            ++i;
+        }
+        unmake_move(bb);
     }
 }
