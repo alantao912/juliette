@@ -64,7 +64,7 @@ void make_move(board *bb, uint16_t move);
  * @param bb Pointer to board data.
  */
 
-void unmake_move(board *bb);
+uint16_t unmake_move(board *bb);
 
 /**
  * @brief Pretty self explanatory
