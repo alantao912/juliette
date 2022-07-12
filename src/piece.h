@@ -14,8 +14,8 @@
 #define WHITE 1 << 3
 #define BLACK 1 << 4
 
-#define IS_BLACK(PIECE) ((PIECE & BLACK) != 0)
-#define IS_WHITE(PIECE) ((PIECE & WHITE) != 0)
+#define IS_BLACK(PIECE) ((PIECE & (BLACK)) != 0)
+#define IS_WHITE(PIECE) ((PIECE & (WHITE)) != 0)
 #define PIECE_TYPE(PIECE) (PIECE & 7)
 
 #define CAN_CASTLE_SHORT(king) ((king & (1 << 5)) != 0)
@@ -51,7 +51,7 @@ char get_piece_char(board *bb, char file, char rank);
 
 /*
     ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___
-     15  14  13  12  11  10  9   8   7   6   5   4   3   2   1   0   
+     15  14  13  12  11  10  9   8   7   6   5   4   3   2   1   0
 
     bits 0 - 2: File of piece to move.
     bits 3 - 5: Rank of piece to move.
@@ -65,4 +65,4 @@ char get_piece_char(board *bb, char file, char rank);
 
 char get_piece_rep(char piece);
 
-#endif 
+#endif
