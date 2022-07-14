@@ -968,7 +968,7 @@ void print_move(board *bb, uint16_t move) {
             printf("Q");
         break;
         default:
-            printf("%d", SQUARE(src_file, src_rank));
+            printf("UNKNOWN PIECE");
     }
 
     if (GET_CAPTURED_PIECE(move) != EMPTY_SQUARE) {
@@ -983,6 +983,11 @@ void print_move(board *bb, uint16_t move) {
 }
 
 void make_move(board *bb, uint16_t move) {
+
+    if (board_last_pawn_data) {
+        REM_PAWN_MOVED_TWO(*board_last_pawn_data);
+        board_last_pawn_data = NULL;
+    }
 
     /* Make a local copy of piece data, all modifications of piece data go on local copy */
     char src_file = GET_SRC_FILE(move), src_rank = GET_SRC_RANK(move), src_piece_data = bb->squares[SQUARE(src_file, src_rank)];
@@ -1119,11 +1124,6 @@ void make_move(board *bb, uint16_t move) {
                 move_stack[curr_move_depth - 1] = move_stack[curr_move_depth - 1] | IS_ENPASSANT();
             }
         }
-    }
-
-    if (board_last_pawn_data) {
-        REM_PAWN_MOVED_TWO(*board_last_pawn_data);
-        board_last_pawn_data = NULL;
     }
 
     if (GET_CAPTURED_PIECE(move) != EMPTY_SQUARE) {

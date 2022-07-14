@@ -3,11 +3,18 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <sys/resource.h>
 #include "../src/board.h"
 #include "../src/moves.h"
 #include "../src/piece.h"
 
-#define MAX_DEPTH 8
+#define MAX_DEPTH 64
+
+long get_mem_usage() {
+    struct rusage myusage;
+    getrusage(RUSAGE_SELF, &myusage);
+    return myusage.ru_maxrss;
+}
 
 board *save_board(board *bb) {
     board *copy = (board *) malloc(sizeof(board));
@@ -20,129 +27,82 @@ board *save_board(board *bb) {
 
 bool board_cmp(board *reverted, board *saved) {
     if (strncmp(reverted->squares, saved->squares, 64) != 0) {
-        printf("Discrepancy in board data!\n");
-        return false;
-    }
-
-    if (reverted->num_uncaptured != saved->num_uncaptured) {
-        printf("Missing piece??? %d, %d\n", reverted->num_uncaptured, saved->num_uncaptured);
-        return false;
-    }
-
-    for (char i = 0; i < reverted->num_uncaptured; ++i) {
-        piece p = reverted->pieces[i];
-        bool fm = false;
-        for (char j = 0; j < saved->num_uncaptured; ++j) {
-            if (strncmp((char *) &saved->pieces[j], (char *) &p, sizeof(piece)) == 0) {
-                fm = true;
-                break;
+        for (int i = 0; i < 64; ++i) {
+            if (reverted->squares[i] != saved->squares[i]) {
+                printf("Discrepancy on square %d: Reverted: %d, Saved: %d.\n", i, reverted->squares[i], saved->squares[i]);
+                printf("Reverted board:\n");
+                print_board(reverted);
+                printf("\n\nSaved board:\n");
+                print_board(saved);
             }
         }
-        if (!fm) {
-            printf("Piece data from saved != Piece data from reverted %d\n", i);
-            return false;
-        }
-    }
-
-    for (char i = 0; i < saved->num_uncaptured; ++i) {
-        piece p = saved->pieces[i];
-        bool fm = false;
-        for (char j = 0; j < reverted->num_uncaptured; ++j) {
-            if (strncmp((char *) &reverted->pieces[j], (char *) &p, sizeof(piece)) == 0) {
-                fm = true;
-                break;
-            }
-        }
-        if (!fm) {
-            printf("Piece data from saved != Piece data from reverted %d\n", i);
-            return false;
-        }
+        printf("strncmp failed!\n");
+        return false;
     }
     return true;
-
 }
 
 int main(int argc, char *argv[]) {
-    board *states[MAX_DEPTH];
-
-    board *init_board = load_fen("7K/4P3/8/8/8/8/3p4/k7 w -- -- ");
-    int depth = 0;
-
+    board *bb = get_starting_position();
     time_t t;
-    srand((unsigned) time(&t));
-    int move_num = 1;
+    srand((unsigned int) t);
+    board *saved[MAX_DEPTH];
+    uint8_t curr_depth = 0;
+    // reverted data is not restoring the right to castle in all cases
+    // certain piece data on the still have extraneous details set
 
-    #ifndef TEST
-        while (true) {
-            print_board(init_board);
-            states[depth] = save_board(init_board);
-
-            move_list *possible_moves = generate_moves(init_board);
-            for (int i = 0; i < possible_moves->size; ++i) {
-                printf("%d: ", i + 1);
-                print_move(init_board, possible_moves->moves[i]);
-            }
-            scanf("%d", &move_num);
-
-            if (move_num == 0) {
-                uint16_t prev_move = unmake_move(init_board);
-                if (!board_cmp(init_board, states[depth - 1])) {
-                    printf("Failed to unmake move: ");
-                    print_move(init_board, prev_move);
-                    printf("\n\n");
-                    print_board(init_board);
-                    break;
-                }
-                --depth;
-            } else {
-                make_move(init_board, possible_moves->moves[move_num - 1]);
-                ++depth;
-            }
-            system("clear");
-        }
-    #endif
-
-
-    #ifdef TEST
-        while (depth < MAX_DEPTH) {
-            board *copy = save_board(init_board);
-            states[depth] = copy;
-            ++depth;
-
-            move_list *possible_moves = generate_moves(init_board);
-            if (possible_moves->size == 0) {
-                printf("Out of moves\n");
-                --depth;
+    unsigned int i = 0;
+    while (1) {
+        if (curr_depth == MAX_DEPTH) {
+            --curr_depth;
+            uint16_t move = unmake_move(bb);
+            if (!board_cmp(bb, saved[curr_depth])) {
+                printf("Failed to unmake move after %d cycles\n", i);
+                printf("Last move was ");
+                print_move(saved[curr_depth], move);
                 break;
             }
-            int move_num = rand() % possible_moves->size;
-
-            uint16_t move = possible_moves->moves[move_num];
-
-            printf("%d.", depth);
-            print_move(init_board, move);
-
-            make_move(init_board, move);
-            free(possible_moves);
-        }
-        bool failed = false;
-        while (depth > 0) {
-            uint16_t undone_move = unmake_move(init_board);
-
-            // if (strncmp((char *) init_board, (char *) states[depth - 1], sizeof(board)) != 0) {
-            if (!board_cmp(init_board, states[depth - 1])) {
-                printf("On depth %d: Failed to unmake move: ", depth);
-                print_move(init_board, undone_move);
-                failed = true;
+        } else if (curr_depth == 0){
+            move_list *moves = generate_moves(bb);
+            if (moves->size == 0) {
+                printf("Out of moves after %d cycles!", i);
+                // print_board(bb);
                 break;
             }
-            --depth;
-        }
-        if (!failed) {
-            printf("Done!\n");
+            uint8_t move_num = rand() % moves->size;
+            uint16_t move = moves->moves[move_num];
+
+            saved[curr_depth] = save_board(bb);
+            make_move(bb, move);
+            free(moves);
+            ++curr_depth;
+        } else if (rand() % 2 == 0) {
+            --curr_depth;
+            uint16_t move = unmake_move(bb);
+            if (!board_cmp(bb, saved[curr_depth])) {
+                printf("Failed to unmake move after %d cycles\n", i);
+                printf("Last move was ");
+                print_move(saved[curr_depth], move);
+                break;
+            }
         } else {
-            print_board(states[depth]);
+            move_list *moves = generate_moves(bb);
+            if (moves->size == 0) {
+                printf("Out of moves after %d cycles!\n", i);
+                // print_board(bb);
+                break;
+            }
+            uint8_t move_num = rand() % moves->size;
+
+            uint16_t move = moves->moves[move_num];
+
+            saved[curr_depth] = save_board(bb);
+            make_move(bb, move);
+            free(moves);
+            ++curr_depth;
         }
-        return 0;
-    #endif
+        ++i;
+    }
+    printf("Max memory usage %lfMB.\n", get_mem_usage() / (1024.0 * 1024.0));
+    return 0;
 }
