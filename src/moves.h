@@ -29,7 +29,7 @@
 
 /*
     ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___
-     15  14  13  12  11  10  9   8   7   6   5   4   3   2   1   0   
+     15  14  13  12  11  10  9   8   7   6   5   4   3   2   1   0
 
     bits 0 - 2: File of piece to move.
     bits 3 - 5: Rank of piece to move.
@@ -51,16 +51,16 @@ move_list *generate_moves(board *bb);
 void print_move(board *bb, uint16_t move);
 
 /**
- * @brief Pushes the move onto the move stack, and makes the necessary changes to the board data. 
- * 
- * @param bb   Pointer to board data. 
+ * @brief Pushes the move onto the move stack, and makes the necessary changes to the board data.
+ *
+ * @param bb   Pointer to board data.
  * @param move Move to make
  */
 void make_move(board *bb, uint16_t move);
 
 /**
  * @brief Removes the top move from the move stack, and reverses the last move.
- * 
+ *
  * @param bb Pointer to board data.
  */
 
@@ -68,9 +68,9 @@ uint16_t unmake_move(board *bb);
 
 /**
  * @brief Pretty self explanatory
- * 
- * @param bb 
- * @param ml 
+ *
+ * @param bb
+ * @param ml
  */
 
 void remove_illegal_moves(board *bb, move_list *ml);

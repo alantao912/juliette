@@ -7,7 +7,7 @@
 #include "../src/moves.h"
 #include "../src/piece.h"
 
-#define MAX_DEPTH 128
+#define MAX_DEPTH 8
 
 board *save_board(board *bb) {
     board *copy = (board *) malloc(sizeof(board));
@@ -25,6 +25,7 @@ bool board_cmp(board *reverted, board *saved) {
     }
 
     if (reverted->num_uncaptured != saved->num_uncaptured) {
+        printf("Missing piece??? %d, %d\n", reverted->num_uncaptured, saved->num_uncaptured);
         return false;
     }
 
@@ -64,79 +65,84 @@ bool board_cmp(board *reverted, board *saved) {
 int main(int argc, char *argv[]) {
     board *states[MAX_DEPTH];
 
-    board *init_board = load_fen("r3k2r/8/8/8/8/8/8/R3K2R w KQkq -- ");
+    board *init_board = load_fen("7K/4P3/8/8/8/8/3p4/k7 w -- -- ");
     int depth = 0;
 
     time_t t;
     srand((unsigned) time(&t));
-    
     int move_num = 1;
-    while (true) {
-        print_board(init_board);
 
-        move_list *moves = generate_moves(init_board);
-        for (char i = 0; i < moves->size; ++i) {
-            printf("%d. ", i + 1);
-            print_move(init_board, moves->moves[i]);
+    #ifndef TEST
+        while (true) {
+            print_board(init_board);
+            states[depth] = save_board(init_board);
+
+            move_list *possible_moves = generate_moves(init_board);
+            for (int i = 0; i < possible_moves->size; ++i) {
+                printf("%d: ", i + 1);
+                print_move(init_board, possible_moves->moves[i]);
+            }
+            scanf("%d", &move_num);
+
+            if (move_num == 0) {
+                uint16_t prev_move = unmake_move(init_board);
+                if (!board_cmp(init_board, states[depth - 1])) {
+                    printf("Failed to unmake move: ");
+                    print_move(init_board, prev_move);
+                    printf("\n\n");
+                    print_board(init_board);
+                    break;
+                }
+                --depth;
+            } else {
+                make_move(init_board, possible_moves->moves[move_num - 1]);
+                ++depth;
+            }
+            system("clear");
         }
+    #endif
 
-        scanf("%d", &move_num);
-        if (move_num == -1) {
-            return 0;
-        } else if (move_num == 0) {
-            unmake_move(init_board);
-        } else if (move_num == -2) {
-            
-        } else {
-            make_move(init_board, moves->moves[move_num - 1]);
+
+    #ifdef TEST
+        while (depth < MAX_DEPTH) {
+            board *copy = save_board(init_board);
+            states[depth] = copy;
+            ++depth;
+
+            move_list *possible_moves = generate_moves(init_board);
+            if (possible_moves->size == 0) {
+                printf("Out of moves\n");
+                --depth;
+                break;
+            }
+            int move_num = rand() % possible_moves->size;
+
+            uint16_t move = possible_moves->moves[move_num];
+
+            printf("%d.", depth);
+            print_move(init_board, move);
+
+            make_move(init_board, move);
+            free(possible_moves);
         }
-    }
-    
-    /*
+        bool failed = false;
+        while (depth > 0) {
+            uint16_t undone_move = unmake_move(init_board);
 
-    while (depth < MAX_DEPTH) {
-        board *copy = save_board(init_board);
-        states[depth] = copy;
-        ++depth;
-
-        move_list *possible_moves = generate_moves(init_board);
-        if (possible_moves->size == 0) {
-            printf("Out of moves\n");
+            // if (strncmp((char *) init_board, (char *) states[depth - 1], sizeof(board)) != 0) {
+            if (!board_cmp(init_board, states[depth - 1])) {
+                printf("On depth %d: Failed to unmake move: ", depth);
+                print_move(init_board, undone_move);
+                failed = true;
+                break;
+            }
             --depth;
-            break;
         }
-        int move_num = rand() % possible_moves->size;
-        
-        uint16_t move = possible_moves->moves[move_num];
-        printf("%d.", depth);
-        print_move(init_board, move);
-
-        make_move(init_board, move);
-        free(possible_moves);
-    }
-
-    while (depth > 0) {
-        uint16_t undone_move = unmake_move(init_board);
-
-        // if (strncmp((char *) init_board, (char *) states[depth - 1], sizeof(board)) != 0) {
-        if (!board_cmp(init_board, states[depth - 1])) {
-            printf("On depth %d: Failed to unmake move: ", depth);
-            print_move(init_board, undone_move);
+        if (!failed) {
+            printf("Done!\n");
+        } else {
+            print_board(states[depth]);
         }
-        --depth;
-    }
-    char m = getchar();
-    if (m == ' ') {
         return 0;
-    }
-    while (depth < MAX_DEPTH) {   
-        system("cls"); 
-        print_board(states[depth]);
-        free(states[depth]);
-        getchar();
-        ++depth;
-    }
-    */
-    return 0;
-    
+    #endif
 }

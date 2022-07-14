@@ -236,9 +236,6 @@ static void add_pawn_moves(board *bb, char piece_index, move_list *ml) {
                 }
             }
         }
-
-        // TODO: add en passant capture for black
-
         if (p.rank == 4) {
             if (p.file != a) {
                 square = bb->squares[SQUARE((p.file - 1), p.rank)];
@@ -258,7 +255,6 @@ static void add_pawn_moves(board *bb, char piece_index, move_list *ml) {
                 }
             }
         }
-
     } else {
         square = bb->squares[SQUARE(p.file, p.rank + 1)];
 
@@ -314,7 +310,6 @@ static void add_pawn_moves(board *bb, char piece_index, move_list *ml) {
             }
         }
 
-        // en passant rule for white
         if (p.rank == 5) {
             if (p.file != a) {
                 square = bb->squares[SQUARE(p.file - 1, p.rank)];
@@ -987,20 +982,6 @@ void print_move(board *bb, uint16_t move) {
     printf("\n");
 }
 
-static void remove_castling(board *bb, char color, char direction) {
-    for (char i = 0; i < bb->num_uncaptured; ++i) {
-        if (PIECE_TYPE(bb->pieces[i].piece_data) == KING && IS_BLACK(bb->pieces[i].piece_data) == IS_BLACK(color)) {
-            if (direction == 0) {
-                REM_CASTLE_SHORT(bb->pieces[i].piece_data);
-            } else {
-                REM_CASTLE_LONG(bb->pieces[i].piece_data);
-            }
-            bb->squares[SQUARE(bb->pieces[i].file, bb->pieces[i].rank)] = bb->pieces[i].piece_data;
-            break;
-        }
-    }
-}
-
 void make_move(board *bb, uint16_t move) {
 
     /* Make a local copy of piece data, all modifications of piece data go on local copy */
@@ -1098,6 +1079,10 @@ void make_move(board *bb, uint16_t move) {
             // captured piece is interpreted as promotion to
             src_piece_data = 0 | BLACK | GET_CAPTURED_PIECE(move);
         }
+
+        if (dest_file == src_file) {
+            move = ~(7 << 12) & move;
+        }
     } else if (PIECE_TYPE(src_piece_data) == ROOK) {
         if (bb->move == WHITE) {
             if (IS_QUEEN_ROOK(src_piece_data)) {
@@ -1138,81 +1123,67 @@ void make_move(board *bb, uint16_t move) {
 
     if (board_last_pawn_data) {
         REM_PAWN_MOVED_TWO(*board_last_pawn_data);
+        board_last_pawn_data = NULL;
     }
 
-    if (GET_CAPTURED_PIECE(move) == EMPTY_SQUARE) {
+    if (GET_CAPTURED_PIECE(move) != EMPTY_SQUARE) {
         // No piece was captured during move, only search through piece list to find original piece, and update its location.
-        for (char i = 0; i < bb->num_uncaptured; ++i) {
-            if (bb->pieces[i].file == src_file && bb->pieces[i].rank == src_rank) {
-                bb->pieces[i].file = dest_file;
-                bb->pieces[i].rank = dest_rank;
-                bb->pieces[i].piece_data = src_piece_data;
-                break;
+        if (!GET_IS_ENPASSANT(move)) {
+            // Piece was captured during the move, search through piece list to find original piece, update its location. And push the captured piece onto
+            // captured piece data stack.
+            // Remove captured piece from the board
+            for (char i = 0; i < bb->num_uncaptured; ++i) {
+                if (bb->pieces[i].rank == dest_rank && bb->pieces[i].file == dest_file) {
+                    /* Remove captured piece from the pieces list */
+                    piece captured_piece = bb->pieces[i];
+                    bb->pieces[i] = bb->pieces[bb->num_uncaptured - 1];
+
+                    --bb->num_uncaptured;
+                    /* Push captured piece onto the captured pieces stack */
+                    captured_piece_stack[num_captured] = captured_piece.piece_data;
+                    ++num_captured;
+                    break;
+                }
             }
-        }
-    } else if (GET_IS_ENPASSANT(move)) {
+            bb->squares[SQUARE(dest_file, dest_rank)] = EMPTY_SQUARE;
+        } else if (PIECE_TYPE(src_piece_data) == PAWN) {
 
-        char rank_offset = 1 + (IS_WHITE(src_piece_data) * -2);
+            /* When en-passant is played, the location of the pawn captured is not equal to the destination square of the attacking pawn */
+            /* Rank offset corrects this */
+            char rank_offset = 1 + (IS_WHITE(src_piece_data) * -2);
 
-        for (char i = 0; i < bb->num_uncaptured; ++i) {
-            if (bb->pieces[i].rank == dest_rank + rank_offset && bb->pieces[i].file == dest_file) {
-                /* Remove captured piece from the pieces list */
-                piece captured_piece = bb->pieces[i];
-                bb->pieces[i] = bb->pieces[bb->num_uncaptured - 1];
+            for (char i = 0; i < bb->num_uncaptured; ++i) {
+                if (bb->pieces[i].rank == dest_rank + rank_offset && bb->pieces[i].file == dest_file) {
+                    /* Remove captured piece from the pieces list */
+                    piece captured_piece = bb->pieces[i];
+                    bb->pieces[i] = bb->pieces[bb->num_uncaptured - 1];
 
-                --bb->num_uncaptured;
-                /* Push captured piece onto the captured pieces stack */
-                captured_piece_stack[num_captured] = captured_piece.piece_data;
-                ++num_captured;
-                break;
+                    --bb->num_uncaptured;
+                    /* Push captured piece onto the captured pieces stack */
+                    captured_piece_stack[num_captured] = captured_piece.piece_data;
+                    ++num_captured;
+                    break;
+                }
             }
+            bb->squares[SQUARE(dest_file, dest_rank + rank_offset)] = EMPTY_SQUARE;
         }
-
-        for (char i = 0; i < bb->num_uncaptured; ++i) {
-            if (bb->pieces[i].rank == src_rank && bb->pieces[i].file == src_file) {
-                bb->pieces[i].file = dest_file;
-                bb->pieces[i].rank = dest_rank;
-                bb->pieces[i].piece_data = src_piece_data;
-                break;
-            }
-        }
-
-        bb->squares[SQUARE(dest_file, dest_rank + rank_offset)] = EMPTY_SQUARE;
-    } else {
-        // Piece was captured during the move, search through piece list to find original piece, update its location. And push the captured piece onto
-        // captured piece data stack.
-        // Remove captured piece from the board
-
-        for (char i = 0; i < bb->num_uncaptured; ++i) {
-            if (bb->pieces[i].rank == dest_rank && bb->pieces[i].file == dest_file) {
-                /* Remove captured piece from the pieces list */
-                piece captured_piece = bb->pieces[i];
-                bb->pieces[i] = bb->pieces[bb->num_uncaptured - 1];
-
-                --bb->num_uncaptured;
-                /* Push captured piece onto the captured pieces stack */
-                captured_piece_stack[num_captured] = captured_piece.piece_data;
-                ++num_captured;
-                break;
-            }
-        }
-
-        for (char i = 0; i < bb->num_uncaptured; ++i) {
-            if (bb->pieces[i].rank == src_rank && bb->pieces[i].file == src_file) {
-                bb->pieces[i].file = dest_file;
-                bb->pieces[i].rank = dest_rank;
-                bb->pieces[i].piece_data = src_piece_data;
-                break;
-            }
-        }
-        bb->squares[SQUARE(dest_file, dest_rank)] = EMPTY_SQUARE;
     }
-    /* Store piece data onto the new square the piece is on after the move */
-    bb->squares[SQUARE(dest_file, dest_rank)] = src_piece_data;
 
-    /* The square that the piece was previously on is now empty. */
+    /* Search through piece list to update position, and piece data */
+    for (char i = 0; i < bb->num_uncaptured; ++i) {
+        if (bb->pieces[i].file == src_file && bb->pieces[i].rank == src_rank) {
+            bb->pieces[i].file = dest_file;
+            bb->pieces[i].rank = dest_rank;
+            bb->pieces[i].piece_data = src_piece_data;
+            break;
+        }
+    }
+
+    /* Move piece data to destination square, and clear source square */
+    bb->squares[SQUARE(dest_file, dest_rank)] = src_piece_data;
     bb->squares[SQUARE(src_file, src_rank)] = EMPTY_SQUARE;
 
+    /* Alternate move order */
     if (bb->move == BLACK) {
         bb->move = WHITE;
     } else {
@@ -1233,24 +1204,6 @@ uint16_t unmake_move(board *bb) {
     /* Move piece back to the square it came from, and then clear the square it was at. */
     bb->squares[SQUARE(src_file, src_rank)] = prev_piece_data;
     bb->squares[SQUARE(dest_file, dest_rank)] = EMPTY_SQUARE;
-
-    if (GET_CAPTURED_PIECE(prev_move) != EMPTY_SQUARE) {
-        /* The captured piece must be restored to the destination square of the previous move. */
-        char dest_rank_offset = 0;
-        if (PIECE_TYPE(prev_piece_data) == PAWN && GET_IS_ENPASSANT(prev_move)) {
-            /* Last move was an en passant capture. The rank of the restored piece must be given the appropriate offset. */
-            dest_rank_offset = 1 + -2 * IS_WHITE(bb->squares[SQUARE(src_file, src_rank)]);
-        }
-
-        --num_captured;
-        char captured_piece_data = captured_piece_stack[num_captured];
-
-        bb->squares[SQUARE(dest_file, dest_rank + dest_rank_offset)] = captured_piece_data;
-        bb->pieces[bb->num_uncaptured].piece_data = captured_piece_data;
-        bb->pieces[bb->num_uncaptured].file = dest_file;
-        bb->pieces[bb->num_uncaptured].rank = dest_rank + dest_rank_offset;
-        ++bb->num_uncaptured;
-    }
 
     switch (PIECE_TYPE(prev_piece_data)) {
         case KING: {
@@ -1321,6 +1274,29 @@ uint16_t unmake_move(board *bb) {
                 }
             }
         break;
+        case PAWN:
+            if (src_file == dest_file) {
+                prev_move = ~(7 << 12) & prev_move;
+            }
+        break;
+    }
+
+    if (GET_CAPTURED_PIECE(prev_move) != EMPTY_SQUARE) {
+        /* The captured piece must be restored to the destination square of the previous move. */
+        char dest_rank_offset = 0;
+        if (PIECE_TYPE(prev_piece_data) == PAWN && GET_IS_ENPASSANT(prev_move)) {
+            /* Last move was an en passant capture. The rank of the restored piece must be given the appropriate offset. */
+            dest_rank_offset = 1 + -2 * IS_WHITE(bb->squares[SQUARE(src_file, src_rank)]);
+        }
+
+        --num_captured;
+        char captured_piece_data = captured_piece_stack[num_captured];
+
+        bb->squares[SQUARE(dest_file, dest_rank + dest_rank_offset)] = captured_piece_data;
+        bb->pieces[bb->num_uncaptured].piece_data = captured_piece_data;
+        bb->pieces[bb->num_uncaptured].file = dest_file;
+        bb->pieces[bb->num_uncaptured].rank = dest_rank + dest_rank_offset;
+        ++bb->num_uncaptured;
     }
 
     if (curr_move_depth > 0) {
@@ -1401,7 +1377,6 @@ void remove_illegal_moves(board *bb, move_list *ml) {
     uint16_t i = 0;
     while (i < ml->size) {
         uint16_t move = ml->moves[i];
-        print_move(bb, move);
         make_move(bb, move);
         if (is_king_in_check(bb)) {
             --ml->size;
