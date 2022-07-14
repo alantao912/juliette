@@ -29,21 +29,13 @@ static int resize(move_list *ml) {
     return 0;
 }
 
-static void add_pawn_moves(board *bb, char piece_index, move_list *ml);
-
-static void add_knight_moves(board *bb, char piece_index, move_list *ml);
-
-static void add_bishop_moves(board *bb, char piece_index, move_list *ml);
-
-static void add_rook_moves(board *bb, char piece_index, move_list *ml);
-
-static void add_king_moves(board *bb, char piece_index, move_list *ml);
-
-static void add_queen_moves(board *bb, char piece_index, move_list *ml);
-
-static bool is_king_in_check(board *bb);
-
-// TODO: Implement the following functions
+static void add_move(move_list *ml, uint16_t move) {
+    if (ml->size == ml->capacity) {
+        resize(ml);
+    }
+    ml->moves[ml->size] = move;
+    ++ml->size;
+}
 
 static bool can_pawn_attack_square(board *bb, char src_file, char src_rank, char dest_file, char dest_rank) {
     if (IS_BLACK(bb->squares[SQUARE(src_file, src_rank)])) {
@@ -62,10 +54,9 @@ static bool can_knight_attack_square(board *bb, char src_file, char src_rank, ch
 
 static bool can_bishop_attack_square(board *bb, char src_file, char src_rank, char dest_file, char dest_rank) {
     if (abs(src_file - dest_file) != abs(src_rank - dest_rank)) {
-        // Two points are not on the same diagonal, return false.
+        /* The two points here are not on the same diagonal*/
         return false;
     }
-    // Two points here are guaranteed to be on the same diagonal.
     char dx = 1 - (2 * (src_file > dest_file));
     char dy = 1 - (2 * (src_rank > dest_rank));
 
@@ -87,6 +78,7 @@ static bool can_rook_attack_square(board *bb, char src_file, char src_rank, char
     int dx = dest_file - src_file;
     int dy = dest_rank - src_rank;
     if (dx != 0 && dy != 0) {
+        /* The two points here are not on the same diagonal */
         return false;
     }
 
@@ -120,73 +112,15 @@ static bool can_king_attack_square(board *bb, char src_file, char src_rank, char
     return abs(dx) <= 1 && abs(dy) <= 1;
 }
 
-void add_move(move_list *ml, uint16_t move) {
-    if (ml->size == ml->capacity) {
-        resize(ml);
-    }
-    ml->moves[ml->size] = move;
-    ++ml->size;
-}
-
-move_list *generate_moves(board *bb) {
-    move_list *ml = (move_list *) malloc(sizeof(move_list));
-    if (!ml) {
-        return NULL;
-    }
-    ml->size = 0;
-    ml->capacity = 20;
-    ml->moves = (short *) malloc(2 * ml->capacity);
-
-    if (!ml->moves) {
-        free(ml);
-        return NULL;
-    }
-
-
-    for (char i = 0; i < bb->num_uncaptured; ++i) {
-        char piece_data = bb->pieces[i].piece_data;
-
-        if (IS_BLACK(bb->move) != IS_BLACK(piece_data)) {
-            continue;
-        }
-
-        switch(PIECE_TYPE(piece_data)) {
-        case PAWN:
-            add_pawn_moves(bb, i, ml);
-            break;
-        case KNIGHT:
-            add_knight_moves(bb, i, ml);
-            break;
-        case BISHOP:
-            add_bishop_moves(bb, i, ml);
-            break;
-        case ROOK:
-            add_rook_moves(bb, i, ml);
-            break;
-        case QUEEN:
-            add_queen_moves(bb, i, ml);
-            break;
-        case KING:
-            add_king_moves(bb, i, ml);
-            break;
-        }
-    }
-    remove_illegal_moves(bb, ml);
-    return ml;
-}
-
 static void add_pawn_moves(board *bb, char piece_index, move_list *ml) {
     piece p = bb->pieces[piece_index];
-
     char square;
+
     if (IS_BLACK(p.piece_data)) {
-
         square = bb->squares[SQUARE(p.file, (p.rank - 1))];
-
         if (PIECE_TYPE(square) == EMPTY_SQUARE) {
             uint16_t move = 0;
             move = move | SRC_FILE(p.file) | SRC_RANK(p.rank) | DEST_FILE(p.file) | DEST_RANK((p.rank - 1));
-
             if (p.rank - 1 == 1) {
                 add_move(ml, move | CAPTURED_PIECE(KNIGHT));
                 add_move(ml, move | CAPTURED_PIECE(BISHOP));
@@ -195,7 +129,6 @@ static void add_pawn_moves(board *bb, char piece_index, move_list *ml) {
             } else {
                 add_move(ml, move);
             }
-
             square = bb->squares[SQUARE(p.file, p.rank - 2)];
             if (p.rank == 7 && PIECE_TYPE(square) == EMPTY_SQUARE) {
                 uint16_t move = 0;
@@ -203,7 +136,6 @@ static void add_pawn_moves(board *bb, char piece_index, move_list *ml) {
                 add_move(ml, move);
             }
         }
-
         if (p.file != a) {
             square = bb->squares[SQUARE((p.file - 1), (p.rank - 1))];
             if (PIECE_TYPE(square) != EMPTY_SQUARE && IS_WHITE(square)) {
@@ -219,7 +151,6 @@ static void add_pawn_moves(board *bb, char piece_index, move_list *ml) {
                 }
             }
         }
-
         if (p.file != h) {
             square = bb->squares[SQUARE(p.file + 1, p.rank - 1)];
             if (PIECE_TYPE(square) != EMPTY_SQUARE && IS_WHITE(square)) {
@@ -257,7 +188,6 @@ static void add_pawn_moves(board *bb, char piece_index, move_list *ml) {
         }
     } else {
         square = bb->squares[SQUARE(p.file, p.rank + 1)];
-
         if (PIECE_TYPE(square) == EMPTY_SQUARE) {
             uint16_t move = 0;
             move = move | SRC_FILE(p.file) | SRC_RANK(p.rank) | DEST_FILE(p.file) | DEST_RANK((p.rank + 1));
@@ -282,7 +212,6 @@ static void add_pawn_moves(board *bb, char piece_index, move_list *ml) {
             if (PIECE_TYPE(square) != EMPTY_SQUARE && IS_BLACK(square)) {
                 uint16_t move = 0;
                 move = move | SRC_FILE(p.file) | SRC_RANK(p.rank) | DEST_FILE((p.file - 1)) | DEST_RANK((p.rank + 1));
-
                 if (p.rank + 1 == 8) {
                     add_move(ml, move | CAPTURED_PIECE(KNIGHT));
                     add_move(ml, move | CAPTURED_PIECE(BISHOP));
@@ -322,7 +251,6 @@ static void add_pawn_moves(board *bb, char piece_index, move_list *ml) {
 
             if (p.file != h) {
                 square = bb->squares[SQUARE(p.file + 1, p.rank)];
-
                 if (PIECE_TYPE(square) == PAWN && IS_BLACK(square) && PAWN_MOVED_TWO(square)) {
                     uint16_t move = 0;
                     move = move | SRC_FILE(p.file) | SRC_RANK(p.rank) | DEST_FILE((p.file + 1)) | DEST_RANK((p.rank + 1)) | CAPTURED_PIECE((PIECE_TYPE(square))) | IS_ENPASSANT();
@@ -337,7 +265,6 @@ static void add_knight_moves(board *bb, char piece_index, move_list *ml) {
     piece p = bb->pieces[piece_index];
     char square;
 
-
     if (p.rank + 2 <= 8 && p.file + 1 <= h) {
         square = bb->squares[SQUARE((p.file + 1), (p.rank + 2))];
 
@@ -351,7 +278,6 @@ static void add_knight_moves(board *bb, char piece_index, move_list *ml) {
             add_move(ml, move);
         }
     }
-
     if (p.rank + 1 <= 8 && p.file + 2 <= h) {
         square = bb->squares[SQUARE((p.file + 2), (p.rank + 1))];
 
@@ -365,7 +291,6 @@ static void add_knight_moves(board *bb, char piece_index, move_list *ml) {
             add_move(ml, move);
         }
     }
-
     if (p.rank - 1 >= 1 && p.file + 2 <= h) {
         square = bb->squares[SQUARE((p.file +  2), (p.rank - 1))];
 
@@ -379,7 +304,6 @@ static void add_knight_moves(board *bb, char piece_index, move_list *ml) {
             add_move(ml, move);
         }
     }
-
     if (p.rank - 2 >= 1 && p.file + 1 <= h) {
         square = bb->squares[SQUARE((p.file + 1), (p.rank - 2))];
 
@@ -393,7 +317,6 @@ static void add_knight_moves(board *bb, char piece_index, move_list *ml) {
             add_move(ml, move);
         }
     }
-
     if (p.rank - 2 >= 1 && p.file - 1 >= a) {
         square = bb->squares[SQUARE((p.file - 1), (p.rank - 2))];
 
@@ -407,7 +330,6 @@ static void add_knight_moves(board *bb, char piece_index, move_list *ml) {
             add_move(ml, move);
         }
     }
-
     if (p.rank - 1 >= 1 && p.file - 2 >= a) {
         square = bb->squares[SQUARE((p.file - 2), (p.rank - 1))];
 
@@ -421,7 +343,6 @@ static void add_knight_moves(board *bb, char piece_index, move_list *ml) {
             add_move(ml, move);
         }
     }
-
     if (p.rank + 1 <= 8 && p.file - 2 >= a) {
         square = bb->squares[SQUARE((p.file - 2), (p.rank + 1))];
 
@@ -435,7 +356,6 @@ static void add_knight_moves(board *bb, char piece_index, move_list *ml) {
             add_move(ml, move);
         }
     }
-
     if (p.rank + 2 <= 8 && p.file - 1 >= a) {
         square = bb->squares[SQUARE((p.file - 1), (p.rank + 2))];
 
@@ -453,7 +373,6 @@ static void add_knight_moves(board *bb, char piece_index, move_list *ml) {
 
 static void add_bishop_moves(board *bb, char piece_index, move_list *ml) {
     piece bishop = bb->pieces[piece_index];
-
     char i = bishop.rank, j = bishop.file, square;
     uint16_t move;
 
@@ -473,10 +392,8 @@ static void add_bishop_moves(board *bb, char piece_index, move_list *ml) {
             break;
         }
     }
-
     i = bishop.rank;
     j = bishop.file;
-
     while (i > 1 && j > a) {
         --i;
         --j;
@@ -493,10 +410,8 @@ static void add_bishop_moves(board *bb, char piece_index, move_list *ml) {
             break;
         }
     }
-
     i = bishop.rank;
     j = bishop.file;
-
     while (i < 8 && j < h) {
         ++i;
         ++j;
@@ -513,10 +428,8 @@ static void add_bishop_moves(board *bb, char piece_index, move_list *ml) {
             break;
         }
     }
-
     i = bishop.rank;
     j = bishop.file;
-
     while (i > 1 && j < h) {
         --i;
         ++j;
@@ -558,7 +471,6 @@ static void add_rook_moves(board *bb, char piece_index, move_list *ml) {
     }
 
     i = rook.file;
-
     while(i > a) {
         --i;
         move = 0;
@@ -576,7 +488,6 @@ static void add_rook_moves(board *bb, char piece_index, move_list *ml) {
     }
 
     i = rook.rank;
-
     while (i < 8) {
         ++i;
         move = 0;
@@ -595,7 +506,6 @@ static void add_rook_moves(board *bb, char piece_index, move_list *ml) {
     }
 
     i = rook.rank;
-
     while (i > 1) {
         --i;
         move = 0;
@@ -629,7 +539,6 @@ static void add_king_moves(board *bb, char piece_index, move_list *ml) {
             move = move | SRC_FILE(king.file) | SRC_RANK(king.rank) | DEST_FILE((king.file + 2)) | DEST_RANK(king.rank);
             add_move(ml, move);
         }
-
         if (CAN_CASTLE_LONG(king.piece_data)
         // Checks if squares d8, c8, b8 are empty
         && PIECE_TYPE(bb->squares[SQUARE(d, 8)]) == EMPTY_SQUARE && PIECE_TYPE(bb->squares[SQUARE(c, 8)]) == EMPTY_SQUARE && PIECE_TYPE(bb->squares[SQUARE(b, 8)]) == EMPTY_SQUARE
@@ -639,9 +548,7 @@ static void add_king_moves(board *bb, char piece_index, move_list *ml) {
             move = move | SRC_FILE(king.file) | SRC_RANK(king.rank) | DEST_FILE((king.file - 2)) | DEST_RANK(king.rank);
             add_move(ml, move);
         }
-
     } else {
-
         if (CAN_CASTLE_SHORT(king.piece_data)
         // Checks if g1, f1 are empty squares
         && PIECE_TYPE(bb->squares[SQUARE(g, 1)]) == EMPTY_SQUARE && PIECE_TYPE(bb->squares[SQUARE(f, 1)]) == EMPTY_SQUARE
@@ -651,7 +558,6 @@ static void add_king_moves(board *bb, char piece_index, move_list *ml) {
             move = move | SRC_FILE(king.file) | SRC_RANK(king.rank) | DEST_FILE((king.file + 2)) | DEST_RANK(king.rank);
             add_move(ml, move);
         }
-
         if (CAN_CASTLE_LONG(king.piece_data)
         // Checks if b1, c1, d1 squares are empty
         && PIECE_TYPE(bb->squares[SQUARE(d, 1)]) == EMPTY_SQUARE && PIECE_TYPE(bb->squares[SQUARE(c, 1)]) == EMPTY_SQUARE && PIECE_TYPE(bb->squares[SQUARE(b, 1)]) == EMPTY_SQUARE
@@ -667,7 +573,6 @@ static void add_king_moves(board *bb, char piece_index, move_list *ml) {
         // king can move up
         move = 0;
         square = bb->squares[SQUARE(king.file, (king.rank + 1))];
-
         if (PIECE_TYPE(square) == EMPTY_SQUARE) {
             move = move | SRC_FILE(king.file) | SRC_RANK(king.rank) | DEST_FILE(king.file) | DEST_RANK((king.rank + 1));
             add_move(ml, move);
@@ -675,7 +580,6 @@ static void add_king_moves(board *bb, char piece_index, move_list *ml) {
             move = move | SRC_FILE(king.file) | SRC_RANK(king.rank) | DEST_FILE(king.file) | DEST_RANK((king.rank + 1)) | CAPTURED_PIECE(PIECE_TYPE(square));
             add_move(ml, move);
         }
-
         if (king.file > a) {
             // king can move left
             move = 0;
@@ -688,7 +592,6 @@ static void add_king_moves(board *bb, char piece_index, move_list *ml) {
                 add_move(ml, move);
             }
         }
-
         if (king.file < h) {
             // king can move right
             move = 0;
@@ -702,7 +605,6 @@ static void add_king_moves(board *bb, char piece_index, move_list *ml) {
             }
         }
     }
-
     if (king.file > a) {
         move = 0;
         square = bb->squares[SQUARE((king.file - 1), king.rank)];
@@ -714,7 +616,6 @@ static void add_king_moves(board *bb, char piece_index, move_list *ml) {
             add_move(ml, move);
         }
     }
-
     if (king.file < h) {
         move = 0;
         square = bb->squares[SQUARE((king.file + 1), king.rank)];
@@ -726,7 +627,6 @@ static void add_king_moves(board *bb, char piece_index, move_list *ml) {
             add_move(ml, move);
         }
     }
-
     if (king.rank > 1) {
         // king can move down
         move = 0;
@@ -739,7 +639,6 @@ static void add_king_moves(board *bb, char piece_index, move_list *ml) {
             move = move | SRC_FILE(king.file) | SRC_RANK(king.rank) | DEST_FILE(king.file) | DEST_RANK((king.rank - 1)) | CAPTURED_PIECE(PIECE_TYPE(square));
             add_move(ml, move);
         }
-
         if (king.file > a) {
             // king can move left
             move = 0;
@@ -752,7 +651,6 @@ static void add_king_moves(board *bb, char piece_index, move_list *ml) {
                 add_move(ml, move);
             }
         }
-
         if (king.file < h) {
             // king can move right
             move = 0;
@@ -770,7 +668,6 @@ static void add_king_moves(board *bb, char piece_index, move_list *ml) {
 
 static void add_queen_moves(board *bb, char piece_index, move_list *ml) {
     piece queen = bb->pieces[piece_index];
-
     char i = queen.rank, j = queen.file, square;
     uint16_t move;
 
@@ -793,7 +690,6 @@ static void add_queen_moves(board *bb, char piece_index, move_list *ml) {
 
     i = queen.rank;
     j = queen.file;
-
     while (i > 1 && j > a) {
         --i;
         --j;
@@ -813,7 +709,6 @@ static void add_queen_moves(board *bb, char piece_index, move_list *ml) {
 
     i = queen.rank;
     j = queen.file;
-
     while (i < 8 && j < h) {
         ++i;
         ++j;
@@ -833,7 +728,6 @@ static void add_queen_moves(board *bb, char piece_index, move_list *ml) {
 
     i = queen.rank;
     j = queen.file;
-
     while (i > 1 && j < h) {
         --i;
         ++j;
@@ -851,9 +745,7 @@ static void add_queen_moves(board *bb, char piece_index, move_list *ml) {
         }
     }
 
-    // ROOK PART
     i = queen.file;
-
     while (i < h) {
         ++i;
         move = 0;
@@ -871,7 +763,6 @@ static void add_queen_moves(board *bb, char piece_index, move_list *ml) {
     }
 
     i = queen.file;
-
     while(i > a) {
         --i;
         move = 0;
@@ -889,7 +780,6 @@ static void add_queen_moves(board *bb, char piece_index, move_list *ml) {
     }
 
     i = queen.rank;
-
     while (i < 8) {
         ++i;
         move = 0;
@@ -907,7 +797,6 @@ static void add_queen_moves(board *bb, char piece_index, move_list *ml) {
     }
 
     i = queen.rank;
-
     while (i > 1) {
         --i;
         move = 0;
@@ -926,32 +815,27 @@ static void add_queen_moves(board *bb, char piece_index, move_list *ml) {
 }
 
 void print_move(board *bb, uint16_t move) {
-
     char src_file = GET_SRC_FILE(move);
     char src_rank = GET_SRC_RANK(move);
     char dest_file = GET_DEST_FILE(move);
     char dest_rank = GET_DEST_RANK(move);
-
     char piece_data = bb->squares[SQUARE(src_file, src_rank)];
+
     switch (PIECE_TYPE(piece_data)) {
         case PAWN:
             if (GET_CAPTURED_PIECE(move) != EMPTY_SQUARE) {
                 printf("%c", src_file + 'a');
             }
         break;
-
         case KNIGHT:
             printf("N");
         break;
-
         case BISHOP:
             printf("B");
         break;
-
         case ROOK:
             printf("R");
         break;
-
         case KING:
             if (src_file - dest_file == 2) {
                 printf("O-O-O\n");
@@ -963,19 +847,20 @@ void print_move(board *bb, uint16_t move) {
                 printf("K");
             }
         break;
-
         case QUEEN:
             printf("Q");
         break;
         default:
             printf("UNKNOWN PIECE");
     }
-
-    if (GET_CAPTURED_PIECE(move) != EMPTY_SQUARE) {
+    if (PIECE_TYPE(piece_data) == PAWN) {
+        if (src_file != dest_file) {
+            printf("x");
+        }
+    } else if (GET_CAPTURED_PIECE(move) != EMPTY_SQUARE) {
         printf("x");
     }
-    printf("%c%c", dest_file + 'a', dest_rank + '0');
-
+    printf("%c%d", dest_file + 'a', dest_rank);
     if (PIECE_TYPE(piece_data) == PAWN && ((IS_WHITE(piece_data) && dest_rank == 8) || (IS_BLACK(piece_data) && dest_rank == 1))) {
         printf("=%c", get_piece_rep(GET_CAPTURED_PIECE(move)));
     }
@@ -983,7 +868,6 @@ void print_move(board *bb, uint16_t move) {
 }
 
 void make_move(board *bb, uint16_t move) {
-
     if (board_last_pawn_data) {
         REM_PAWN_MOVED_TWO(*board_last_pawn_data);
         board_last_pawn_data = NULL;
@@ -997,11 +881,11 @@ void make_move(board *bb, uint16_t move) {
     piece_data_stack[curr_move_depth] = src_piece_data;
     ++curr_move_depth;
 
-
     char dest_file = GET_DEST_FILE(move), dest_rank = GET_DEST_RANK(move);
 
     /* Manipulate piece data as needed */
     if (PIECE_TYPE(src_piece_data) == KING) {
+        /* Castling is the only time when src_file - dest_file == 2. Thus, we can use this to check if the move is a castle move. */
         if (src_file - dest_file == 2) {
             /* King is long castling: Grab rook data from the board, and move it to the castled square */
             char rook_piece_data;
@@ -1009,27 +893,19 @@ void make_move(board *bb, uint16_t move) {
                 rook_piece_data = bb->squares[SQUARE(a, 8)];
                 bb->squares[SQUARE(a, 8)] = EMPTY_SQUARE;
                 bb->squares[SQUARE(d, 8)] = rook_piece_data;
-
-                /* Update piece information in the pieces list */
-
-                for (char i = 0; i < bb->num_uncaptured; ++i) {
-                    if (bb->pieces[i].file == a && bb->pieces[i].rank == 8) {
-                        bb->pieces[i].file = d;
-                        break;
-                    }
-                }
+                rook_piece_data = 8;
             } else  {
                 /* King is long castling: Grab rook data from the board, and move it to the castled square */
                 rook_piece_data = bb->squares[SQUARE(a, 1)];
                 bb->squares[SQUARE(a, 1)] = EMPTY_SQUARE;
                 bb->squares[SQUARE(d, 1)] = rook_piece_data;
-
-                /* Update piece information in the pieces list */
-                for (char i = 0; i < bb->num_uncaptured; ++i) {
-                    if (bb->pieces[i].file == a && bb->pieces[i].rank == 1) {
-                        bb->pieces[i].file = d;
-                        break;
-                    }
+                rook_piece_data = 1;
+            }
+            /* Update the rook's position in the piece list during long castle*/
+            for (char i = 0; i < bb->num_uncaptured; ++i) {
+                if (bb->pieces[i].file == a && bb->pieces[i].rank == rook_piece_data) {
+                    bb->pieces[i].file = d;
+                    break;
                 }
             }
         } else if (src_file - dest_file == -2) {
@@ -1039,30 +915,28 @@ void make_move(board *bb, uint16_t move) {
                 rook_piece_data = bb->squares[SQUARE(h, 8)];
                 bb->squares[SQUARE(h, 8)] = EMPTY_SQUARE;
                 bb->squares[SQUARE(f, 8)] = rook_piece_data;
-
-                for (char i = 0; i < bb->num_uncaptured; ++i) {
-                    if (bb->pieces[i].file == h && bb->pieces[i].rank == 8) {
-                        bb->pieces[i].file = f;
-                        break;
-                    }
-                }
+                rook_piece_data = 8;
             } else {
                 rook_piece_data = bb->squares[SQUARE(h, 1)];
                 bb->squares[SQUARE(h, 1)] = EMPTY_SQUARE;
                 bb->squares[SQUARE(f, 1)] = rook_piece_data;
-
-                for (char i = 0; i < bb->num_uncaptured; ++i) {
-                    if (bb->pieces[i].file == h && bb->pieces[i].rank == 1) {
-                        bb->pieces[i].file = f;
-                        break;
-                    }
+                rook_piece_data = 1;
+            }
+            /* Update the rook's position in the piece list during short castle */
+            for (char i = 0; i < bb->num_uncaptured; ++i) {
+                if (bb->pieces[i].file == h && bb->pieces[i].rank == rook_piece_data) {
+                    bb->pieces[i].file = f;
+                    break;
                 }
             }
         }
+        /* King's position during castling is updated elsewhere. */
 
+        /* If a king move's at all, it loses both castling rights. */
         REM_CASTLE_LONG(src_piece_data);
         REM_CASTLE_SHORT(src_piece_data);
 
+        /* Removes the king's castling right in the piece list. */
         if (IS_BLACK(src_piece_data)) {
             REM_CASTLE_LONG(bb->pieces[1].piece_data);
             REM_CASTLE_SHORT(bb->pieces[1].piece_data);
@@ -1070,75 +944,83 @@ void make_move(board *bb, uint16_t move) {
             REM_CASTLE_LONG(bb->pieces[0].piece_data);
             REM_CASTLE_SHORT(bb->pieces[0].piece_data);
         }
-
     } else if (PIECE_TYPE(src_piece_data) == PAWN) {
         if (abs(src_rank - dest_rank) == 2) {
-            // pawn just moved two
+            /* Pawn just moved two spaces. Set the pawn's status to 'just_moved_two' */
             SET_PAWN_MOVED_TWO(src_piece_data);
             board_last_pawn_data = &bb->squares[SQUARE(dest_file, dest_rank)];
         }
 
+        /* White pawn has reached 8th rank, or black pawn has reached 1st rank. Handle promotion. */
         if (IS_WHITE(src_piece_data) && dest_rank == 8) {
+            /* Captured piece is interpreted as promoted piece */
             src_piece_data = 0 | WHITE | GET_CAPTURED_PIECE(move);
         } else if (IS_BLACK(src_piece_data) && dest_rank == 1) {
-            // captured piece is interpreted as promotion to
+            /* Captured piece is interpreted as promoted piece */
             src_piece_data = 0 | BLACK | GET_CAPTURED_PIECE(move);
         }
+
+        /*
+            If dest_file == src_file pawn has not captured anything. Used to differentiate promotions from capture-promotions.
+            If non-capture-promotion occurs, set CAPTURED_PIECE_TYPE bits in move to 000. So the following code doesn't think the pawn captured a piece.
+        */
 
         if (dest_file == src_file) {
             move = ~(7 << 12) & move;
         }
     } else if (PIECE_TYPE(src_piece_data) == ROOK) {
+        /*
+            IS_ENPASSANT() flag on rook is used to denote that a certain rook move has removed the king's ability to castle on a given side.
+        */
         if (bb->move == WHITE) {
+            /* Remove castling rights for white */
             if (IS_QUEEN_ROOK(src_piece_data)) {
-                // remove long castling for white
+                /* Remove queen-side castling rights */
                 if (CAN_CASTLE_LONG(bb->pieces[0].piece_data)) {
                     REM_CASTLE_LONG(bb->pieces[0].piece_data);
                     REM_CASTLE_LONG(bb->squares[SQUARE(bb->pieces[0].file, bb->pieces[0].rank)]);
-                    // IS_ENPASSANT() bit is used to denote that this rook move, removed the king's right to castle
                     move_stack[curr_move_depth - 1] = move_stack[curr_move_depth - 1] | IS_ENPASSANT();
                 }
             } else if (IS_KING_ROOK(src_piece_data)) {
-                // remove castle short for white
                 if (CAN_CASTLE_SHORT(bb->pieces[0].piece_data)) {
+                    /* Remove king-side castling rights */
                     REM_CASTLE_SHORT(bb->pieces[0].piece_data);
                     REM_CASTLE_SHORT(bb->squares[SQUARE(bb->pieces[0].file, bb->pieces[0].rank)]);
-                     // IS_ENPASSANT() bit is used to denote that this rook move, removed the king's right to castle
                     move_stack[curr_move_depth - 1] = move_stack[curr_move_depth - 1] | IS_ENPASSANT();
                 }
             }
         } else if (IS_QUEEN_ROOK(src_piece_data)) {
-            // remove castle long for black
+            /* Remove castling rights for black */
+            /* Remove queen-side castling rights */
             if (CAN_CASTLE_LONG(bb->pieces[1].piece_data)) {
                 REM_CASTLE_LONG(bb->pieces[1].piece_data);
                 REM_CASTLE_LONG(bb->squares[SQUARE(bb->pieces[1].file, bb->pieces[1].rank)]);
-                 // IS_ENPASSANT() bit is used to denote that this rook move, removed the king's right to castle
                 move_stack[curr_move_depth - 1] = move_stack[curr_move_depth - 1] | IS_ENPASSANT();
             }
         } else if (IS_KING_ROOK(src_piece_data)) {
-            // remove castle short for black
+            /* Remove king-side castling rights */
             if (CAN_CASTLE_SHORT(bb->pieces[1].piece_data)) {
                 REM_CASTLE_SHORT(bb->pieces[1].piece_data);
                 REM_CASTLE_SHORT(bb->squares[SQUARE(bb->pieces[1].file, bb->pieces[1].rank)]);
-                 // IS_ENPASSANT() bit is used to denote that this rook move, removed the king's right to castle
                 move_stack[curr_move_depth - 1] = move_stack[curr_move_depth - 1] | IS_ENPASSANT();
             }
         }
     }
 
     if (GET_CAPTURED_PIECE(move) != EMPTY_SQUARE) {
-        // No piece was captured during move, only search through piece list to find original piece, and update its location.
-        if (!GET_IS_ENPASSANT(move)) {
-            // Piece was captured during the move, search through piece list to find original piece, update its location. And push the captured piece onto
-            // captured piece data stack.
-            // Remove captured piece from the board
+        /* Piece was captured on this move. */
+        if (!GET_IS_ENPASSANT(move) || PIECE_TYPE(src_piece_data) == ROOK) {
+            /*
+                Capture was not an en passant capture. Find captured piece in the piece-list, and 'remove'
+                it by moving it to the back of the list and decrementing the size by one.
+            */
             for (char i = 0; i < bb->num_uncaptured; ++i) {
                 if (bb->pieces[i].rank == dest_rank && bb->pieces[i].file == dest_file) {
                     /* Remove captured piece from the pieces list */
                     piece captured_piece = bb->pieces[i];
                     bb->pieces[i] = bb->pieces[bb->num_uncaptured - 1];
-
                     --bb->num_uncaptured;
+
                     /* Push captured piece onto the captured pieces stack */
                     captured_piece_stack[num_captured] = captured_piece.piece_data;
                     ++num_captured;
@@ -1157,8 +1039,8 @@ void make_move(board *bb, uint16_t move) {
                     /* Remove captured piece from the pieces list */
                     piece captured_piece = bb->pieces[i];
                     bb->pieces[i] = bb->pieces[bb->num_uncaptured - 1];
-
                     --bb->num_uncaptured;
+
                     /* Push captured piece onto the captured pieces stack */
                     captured_piece_stack[num_captured] = captured_piece.piece_data;
                     ++num_captured;
@@ -1168,7 +1050,6 @@ void make_move(board *bb, uint16_t move) {
             bb->squares[SQUARE(dest_file, dest_rank + rank_offset)] = EMPTY_SQUARE;
         }
     }
-
     /* Search through piece list to update position, and piece data */
     for (char i = 0; i < bb->num_uncaptured; ++i) {
         if (bb->pieces[i].file == src_file && bb->pieces[i].rank == src_rank) {
@@ -1178,7 +1059,6 @@ void make_move(board *bb, uint16_t move) {
             break;
         }
     }
-
     /* Move piece data to destination square, and clear source square */
     bb->squares[SQUARE(dest_file, dest_rank)] = src_piece_data;
     bb->squares[SQUARE(src_file, src_rank)] = EMPTY_SQUARE;
@@ -1192,7 +1072,6 @@ void make_move(board *bb, uint16_t move) {
 }
 
 uint16_t unmake_move(board *bb) {
-
     --curr_move_depth;
     uint16_t prev_move = move_stack[curr_move_depth];
 
@@ -1207,7 +1086,8 @@ uint16_t unmake_move(board *bb) {
 
     switch (PIECE_TYPE(prev_piece_data)) {
         case KING: {
-            char rook_piece_data, rook_og_rank, rook_og_file;
+            char rook_piece_data, rook_og_rank = 1 + 7 * IS_BLACK(prev_piece_data), rook_og_file;
+            bool is_castle = true;
             if (dest_file - src_file == -2) {
 
                 /* Previous move was long castle */
@@ -1215,30 +1095,22 @@ uint16_t unmake_move(board *bb) {
                 bb->squares[SQUARE(dest_file + 1, dest_rank)] = EMPTY_SQUARE;
 
                 rook_og_file = a;
-                rook_og_rank = 1 + 7 * IS_BLACK(prev_piece_data);
                 bb->squares[SQUARE(rook_og_file, rook_og_rank)] = rook_piece_data;
-
-
-                for (char i = 0; i < bb->num_uncaptured; ++i) {
-                    if (bb->pieces[i].file == dest_file + 1 && bb->pieces[i].rank == dest_rank) {
-                        bb->pieces[i].file = rook_og_file;
-                        bb->pieces[i].rank = rook_og_rank;
-                        bb->pieces[i].piece_data = rook_piece_data;
-                        break;
-                    }
-                }
-
             } else if (dest_file - src_file == 2) {
                 /* Previous move was short castle */
                 rook_piece_data = bb->squares[SQUARE(dest_file - 1, dest_rank)];
                 bb->squares[SQUARE(dest_file - 1, dest_rank)] = EMPTY_SQUARE;
 
                 rook_og_file = h;
-                rook_og_rank = 1 + 7 * IS_BLACK(prev_piece_data);
                 bb->squares[SQUARE(rook_og_file, rook_og_rank)] = rook_piece_data;
+            } else {
+                is_castle = false;
+            }
 
+            if (is_castle) {
+                char file_offset = (dest_file - src_file) / -2;
                 for (char i = 0; i < bb->num_uncaptured; ++i) {
-                    if (bb->pieces[i].file == dest_file - 1 && bb->pieces[i].rank == dest_rank) {
+                    if (bb->pieces[i].file == dest_file + file_offset && bb->pieces[i].rank == dest_rank) {
                         bb->pieces[i].file = rook_og_file;
                         bb->pieces[i].rank = rook_og_rank;
                         bb->pieces[i].piece_data = rook_piece_data;
@@ -1251,26 +1123,16 @@ uint16_t unmake_move(board *bb) {
         case ROOK:
             /* IS_ENPASSANT flag for rook moves are used to denote moves that removed the king's right to castle */
             if (GET_IS_ENPASSANT(prev_move)) {
-                if (IS_BLACK(prev_piece_data)) {
-                    if (IS_QUEEN_ROOK(prev_piece_data)) {
-                        // Black queen side rook. Restore black's ability to castle queen side
-                        SET_CASTLE_LONG(bb->pieces[1].piece_data);
-                        SET_CASTLE_LONG(bb->squares[SQUARE(bb->pieces[1].file, bb->pieces[1].rank)]);
-                    } else {
-                        // Black king side rook. Restore black's ability to castle king side
-                        SET_CASTLE_SHORT(bb->pieces[1].piece_data);
-                        SET_CASTLE_SHORT(bb->squares[SQUARE(bb->pieces[1].file, bb->pieces[1].rank)]);
-                    }
+                /*If IS_BLACK() is true, returns 1 which grabs the black king. 0 if false which grabs the white king */
+                piece king = bb->pieces[IS_BLACK(prev_piece_data)];
+                if (IS_QUEEN_ROOK(prev_piece_data)) {
+                    // Black queen side rook. Restore black's ability to castle queen side
+                    SET_CASTLE_LONG(king.piece_data);
+                    SET_CASTLE_LONG(bb->squares[SQUARE(king.file, king.rank)]);
                 } else {
-                    if (IS_QUEEN_ROOK(prev_piece_data)) {
-                        // White queen side rook. Restore black's ability to castle queen side
-                        SET_CASTLE_LONG(bb->pieces[0].piece_data);
-                        SET_CASTLE_LONG(bb->squares[SQUARE(bb->pieces[0].file, bb->pieces[0].rank)]);
-                    } else {
-                        // White king side rook. Restore black's ability to castle king side
-                        SET_CASTLE_SHORT(bb->pieces[0].piece_data);
-                        SET_CASTLE_SHORT(bb->squares[SQUARE(bb->pieces[0].file, bb->pieces[0].rank)]);
-                    }
+                    // Black king side rook. Restore black's ability to castle king side
+                    SET_CASTLE_SHORT(king.piece_data);
+                    SET_CASTLE_SHORT(bb->squares[SQUARE(king.file, king.rank)]);
                 }
             }
         break;
@@ -1289,8 +1151,8 @@ uint16_t unmake_move(board *bb) {
             dest_rank_offset = 1 + -2 * IS_WHITE(bb->squares[SQUARE(src_file, src_rank)]);
         }
 
+        char captured_piece_data = captured_piece_stack[num_captured - 1];
         --num_captured;
-        char captured_piece_data = captured_piece_stack[num_captured];
 
         bb->squares[SQUARE(dest_file, dest_rank + dest_rank_offset)] = captured_piece_data;
         bb->pieces[bb->num_uncaptured].piece_data = captured_piece_data;
@@ -1306,7 +1168,7 @@ uint16_t unmake_move(board *bb) {
             SET_PAWN_MOVED_TWO(*pd);
         }
     }
-
+    /* Searches through the piece-list and restores the former piece file, rank, and piece data. */
     for (char i = 0; i < bb->num_uncaptured; ++i) {
         if (bb->pieces[i].file == dest_file && bb->pieces[i].rank == dest_rank) {
             bb->pieces[i].file = src_file;
@@ -1316,6 +1178,7 @@ uint16_t unmake_move(board *bb) {
         }
     }
 
+    /* Toggle move to opposite color */
     if (bb->move == BLACK) {
         bb->move = WHITE;
     } else {
@@ -1386,4 +1249,52 @@ void remove_illegal_moves(board *bb, move_list *ml) {
         }
         unmake_move(bb);
     }
+}
+
+move_list *generate_moves(board *bb) {
+    move_list *ml = (move_list *) malloc(sizeof(move_list));
+
+    /* OOM Exception handling */
+    if (!ml) {
+        return NULL;
+    }
+    ml->size = 0;
+    ml->capacity = 20;
+    ml->moves = (short *) malloc(2 * ml->capacity);
+
+    /* OOM Exception handling*/
+    if (!ml->moves) {
+        free(ml);
+        return NULL;
+    }
+
+    for (char i = 0; i < bb->num_uncaptured; ++i) {
+        char piece_data = bb->pieces[i].piece_data;
+        /* If color of piece is not equal to color to move, skip the piece. */
+        if (IS_BLACK(bb->move) != IS_BLACK(piece_data)) {
+            continue;
+        }
+        switch(PIECE_TYPE(piece_data)) {
+        case PAWN:
+            add_pawn_moves(bb, i, ml);
+            break;
+        case KNIGHT:
+            add_knight_moves(bb, i, ml);
+            break;
+        case BISHOP:
+            add_bishop_moves(bb, i, ml);
+            break;
+        case ROOK:
+            add_rook_moves(bb, i, ml);
+            break;
+        case QUEEN:
+            add_queen_moves(bb, i, ml);
+            break;
+        case KING:
+            add_king_moves(bb, i, ml);
+            break;
+        }
+    }
+    remove_illegal_moves(bb, ml);
+    return ml;
 }
