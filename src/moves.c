@@ -20,6 +20,7 @@ char curr_move_depth = 0;
 static int resize(move_list *ml) {
     short *new_buff = (short *) malloc(2 * sizeof(uint16_t) * ml->capacity);
     if (!new_buff) {
+        printf("OOM Exception!\n");
         return OOM;
     }
     memcpy(new_buff, ml->moves, sizeof(uint16_t) * ml->capacity);
@@ -1256,6 +1257,7 @@ move_list *generate_moves(board *bb) {
 
     /* OOM Exception handling */
     if (!ml) {
+        printf("OOM Exception");
         return NULL;
     }
     ml->size = 0;
@@ -1264,6 +1266,7 @@ move_list *generate_moves(board *bb) {
 
     /* OOM Exception handling*/
     if (!ml->moves) {
+        printf("OOM Exception\n");
         free(ml);
         return NULL;
     }
@@ -1297,4 +1300,9 @@ move_list *generate_moves(board *bb) {
     }
     remove_illegal_moves(bb, ml);
     return ml;
+}
+
+void reset() {
+    curr_move_depth = 0;
+    num_captured = 0;
 }

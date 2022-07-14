@@ -75,4 +75,6 @@ uint16_t unmake_move(board *bb);
 
 void remove_illegal_moves(board *bb, move_list *ml);
 
+void reset();
+
 #endif

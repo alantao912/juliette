@@ -8,7 +8,7 @@
 #include "../src/moves.h"
 #include "../src/piece.h"
 
-#define MAX_DEPTH 64
+#define MAX_DEPTH 96
 
 long get_mem_usage() {
     struct rusage myusage;
@@ -39,70 +39,118 @@ bool board_cmp(board *reverted, board *saved) {
         printf("strncmp failed!\n");
         return false;
     }
+
+    for (int i = 0; i < reverted->num_uncaptured; ++i) {
+        piece p = reverted->pieces[i];
+        bool found = false;
+        for (int j = 0; j < saved->num_uncaptured; ++j) {
+            piece q = saved->pieces[j];
+            if (p.file != q.file || p.rank != q.rank) {
+                continue;
+            }
+            if (PIECE_TYPE(p.piece_data) != PIECE_TYPE(q.piece_data)) {
+                continue;
+            }
+            found = true;
+            break;
+        }
+        if (!found) {
+            return false;
+        }
+    }
+
+    for (int i = 0; i < saved->num_uncaptured; ++i) {
+        piece p = saved->pieces[i];
+        bool found = false;
+        for (int j = 0; j < reverted->num_uncaptured; ++j) {
+            piece q = reverted->pieces[j];
+            if (p.file != q.file || p.rank != q.rank) {
+                continue;
+            }
+            if (PIECE_TYPE(p.piece_data) != PIECE_TYPE(q.piece_data)) {
+                continue;
+            }
+            found = true;
+            break;
+        }
+        if (!found) {
+            return false;
+        }
+    }
+
     return true;
 }
 
 int main(int argc, char *argv[]) {
-    board *bb = get_starting_position();
-    time_t t;
-    srand((unsigned int) t);
-    board *saved[MAX_DEPTH];
-    uint8_t curr_depth = 0;
-    // reverted data is not restoring the right to castle in all cases
-    // certain piece data on the still have extraneous details set
+    bool cont = true;
 
-    unsigned int i = 0;
-    while (1) {
-        if (curr_depth == MAX_DEPTH) {
-            --curr_depth;
-            uint16_t move = unmake_move(bb);
-            if (!board_cmp(bb, saved[curr_depth])) {
-                printf("Failed to unmake move after %d cycles\n", i);
-                printf("Last move was ");
-                print_move(saved[curr_depth], move);
-                break;
-            }
-        } else if (curr_depth == 0){
-            move_list *moves = generate_moves(bb);
-            if (moves->size == 0) {
-                printf("Out of moves after %d cycles!", i);
-                // print_board(bb);
-                break;
-            }
-            uint8_t move_num = rand() % moves->size;
-            uint16_t move = moves->moves[move_num];
+    unsigned long long i = 0;
+    while (cont) {
+        board *bb = get_starting_position();
+        time_t t;
+        srand((unsigned int) t);
+        board *saved[MAX_DEPTH];
+        memset(saved, 0, sizeof(board *) * MAX_DEPTH);
+        uint8_t curr_depth = 0;
 
-            saved[curr_depth] = save_board(bb);
-            make_move(bb, move);
-            free(moves);
-            ++curr_depth;
-        } else if (rand() % 2 == 0) {
-            --curr_depth;
-            uint16_t move = unmake_move(bb);
-            if (!board_cmp(bb, saved[curr_depth])) {
-                printf("Failed to unmake move after %d cycles\n", i);
-                printf("Last move was ");
-                print_move(saved[curr_depth], move);
-                break;
-            }
-        } else {
-            move_list *moves = generate_moves(bb);
-            if (moves->size == 0) {
-                printf("Out of moves after %d cycles!\n", i);
-                // print_board(bb);
-                break;
-            }
-            uint8_t move_num = rand() % moves->size;
+        while (1) {
+            if (curr_depth == MAX_DEPTH) {
+                saved[curr_depth] = NULL;
+                --curr_depth;
+                uint16_t move = unmake_move(bb);
+                if (!board_cmp(bb, saved[curr_depth])) {
+                    printf("Failed to unmake move after cycles\n");
+                    printf("Last move was ");
+                    print_move(saved[curr_depth], move);
+                    cont = false;
+                    break;
+                }
+            } else if (curr_depth == 0){
+                move_list *moves = generate_moves(bb);
+                if (moves->size == 0) {
+                    break;
+                }
+                uint8_t move_num = rand() % moves->size;
+                uint16_t move = moves->moves[move_num];
 
-            uint16_t move = moves->moves[move_num];
+                saved[curr_depth] = save_board(bb);
+                make_move(bb, move);
+                free(moves);
+                ++curr_depth;
+            } else if (rand() % 2 == 0) {
+                saved[curr_depth] = NULL;
+                --curr_depth;
+                uint16_t move = unmake_move(bb);
+                if (!board_cmp(bb, saved[curr_depth])) {
+                    printf("Failed to unmake move after cycles\n");
+                    printf("Last move was ");
+                    print_move(saved[curr_depth], move);
+                    cont = false;
+                    break;
+                }
+            } else {
+                move_list *moves = generate_moves(bb);
+                if (moves->size == 0) {
+                    break;
+                }
+                uint8_t move_num = rand() % moves->size;
 
-            saved[curr_depth] = save_board(bb);
-            make_move(bb, move);
-            free(moves);
-            ++curr_depth;
+                uint16_t move = moves->moves[move_num];
+
+                saved[curr_depth] = save_board(bb);
+                make_move(bb, move);
+                free(moves);
+                ++curr_depth;
+            }
+            ++i;
         }
-        ++i;
+        printf("Working %lld cycles!\n", i);
+        for (int i = 0; i < MAX_DEPTH; ++i) {
+            free(saved[i]);
+        }
+        free(bb);
+        reset();
     }
-    printf("Max memory usage %lfMB.\n", get_mem_usage() / (1024.0 * 1024.0));
+    printf("Max memory usage was %lfMB.\n", get_mem_usage() / (1024.0 * 1024.0));
     return 0;
 }
