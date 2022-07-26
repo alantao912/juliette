@@ -14,6 +14,14 @@ void King::add_moves(std::vector<uint32_t> *move_list) {
             continue;
         }
         uint32_t move = create_move(f, r, KING) | REM_LONG_CASTLE | REM_SHORT_CASTLE;
+        if (short_castle_rights) {
+            move = move | REM_SHORT_CASTLE;
+        }
+
+        if (long_castle_rights) {
+            move = move | long_castle_rights;
+        }
+        
         if (move != BREAK) {
             move_list->push_back(move);
         }

@@ -54,11 +54,10 @@ static int evaluate_material(Board *board) {
     }
 
     for (Piece *p : *opponent_pieces) {
-         switch (p->get_type()) {
-            if (p->is_taken) {
-                std::cout << "Found taken piece in opponent pieces!" << std::endl;
+        if (p->is_taken) {
                 continue;
-            }
+        }
+         switch (p->get_type()) {
             case QUEEN:
                 material_evaluation -= QUEEN_MATERIAL;
             break;

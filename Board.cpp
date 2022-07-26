@@ -1,3 +1,4 @@
+#include <cstring>
 #include "Board.h"
 #include "King.h"
 #include "Queen.h"
