@@ -5,7 +5,7 @@
 King::King(Board::Color c, char file, char rank, Board *parent) : Piece(c, file, rank, parent) {}
 
 void King::add_moves(std::vector<uint32_t> *move_list) {
-    for (char *offset : masks) {
+    for (char *offset : masks) { 
         char f = file + offset[0], r = rank + offset[1];
         if (f < A_FILE || f > H_FILE) {
             continue;
@@ -13,18 +13,21 @@ void King::add_moves(std::vector<uint32_t> *move_list) {
         if (r < 1 || r > 8) {
             continue;
         }
-        uint32_t move = create_move(f, r, KING) | REM_LONG_CASTLE | REM_SHORT_CASTLE;
+          
+        uint32_t move = create_move(f, r, KING);
+        if (move == BREAK) {
+            continue;
+        }
+        
         if (short_castle_rights) {
             move = move | REM_SHORT_CASTLE;
         }
 
         if (long_castle_rights) {
-            move = move | long_castle_rights;
+            move = move | REM_LONG_CASTLE;
         }
         
-        if (move != BREAK) {
-            move_list->push_back(move);
-        }
+        move_list->push_back(move);
     }
     if (short_castle_rights && can_castle_short()) {
         uint32_t move = 0 | FROM_FILE(file) | FROM_RANK(rank) | TO_FILE((file + 2)) | TO_RANK(rank) | SET_PIECE_MOVED(KING) | REM_SHORT_CASTLE | SHORT_CASTLING;
@@ -66,7 +69,8 @@ bool King::can_castle_short() {
 bool King::can_castle_long() {
      std::vector<Piece *> *opposite_color_pieces = parent->get_opposite_pieces(color);
      Piece *p;
-    if (!(p = parent->inspect(A_FILE, rank)) || !dynamic_cast< Rook *>(p)) {
+    // TODO: If opposite color rook captures black's rook while it is still on starting square, this logic will return true.
+    if (!(p = parent->inspect(A_FILE, rank)) || !dynamic_cast<Rook *>(p)) {
         return false;
     }
 

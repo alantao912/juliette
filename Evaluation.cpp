@@ -1,7 +1,5 @@
 #include "Evaluation.h"
 
-#include <iostream>
-
 #define NUM_EVALUATORS 1
 static int (*evaluation_functions[NUM_EVALUATORS]) (Board *);
 
@@ -12,7 +10,11 @@ void initialize_evaluators() {
 }
 
 int evaluate(Board *board) {
-    return evaluate_material(board);
+    int evaluation = 0;
+    for (uint8_t i = 0; i < NUM_EVALUATORS; ++i) {
+        evaluation += (evaluation_functions[i]) (board);
+    }
+    return evaluation;
 }
 
 static int evaluate_material(Board *board) {
@@ -31,7 +33,6 @@ static int evaluate_material(Board *board) {
 
     for (Piece *p : *my_pieces) {
         if (p->is_taken) {
-            std::cout << "Found taken piece in own pieces" << std::endl;
             continue;
         }
         switch (p->get_type()) {
@@ -76,6 +77,5 @@ static int evaluate_material(Board *board) {
 
         }
     }
-    std::cout << material_evaluation << std::endl;
     return material_evaluation;
 }

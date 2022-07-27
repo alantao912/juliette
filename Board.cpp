@@ -51,6 +51,9 @@ Board::Board(const char *fen) {
         }
     }
 
+    white_king = nullptr;
+    black_king = nullptr;
+
     while (fen_segments[0][i]) {
         bool add_piece = true;
         if (fen_segments[0][i] >= '0' && fen_segments[0][i] <= '9') {
@@ -168,14 +171,6 @@ Board::Board(const char *fen) {
         ++i;
     }
 
-    for (Piece *p : white_pieces) {
-        squares[offset(p->file, p->rank)] = p;
-    }
-
-    for (Piece *p : black_pieces) {
-        squares[offset(p->file, p->rank)] = p;
-    }
-
     if (strlen(fen_segments[3]) != 2) {
         for (uint8_t j = 0; j < 4; ++j) {
             free(fen_segments[j]);
@@ -225,6 +220,16 @@ Board::Board(const char *fen) {
         pawn->moved_two = true;
     }
 
+    memset((void *) squares, 0, sizeof(Piece *) * 64);
+    prev_jmp_pawn = nullptr;
+    for (Piece *p : white_pieces) {
+        squares[offset(p->file, p->rank)] = p;
+    }
+
+    for (Piece *p : black_pieces) {
+        squares[offset(p->file, p->rank)] = p;
+    }
+
     for (uint8_t j = 0; j < 4; ++j) {
          free(fen_segments[j]);
     }
@@ -264,6 +269,9 @@ Board::Board() {
     black_pieces.push_back(new Knight(BLACK, G_FILE, 8, this));
     black_pieces.push_back(new Rook(BLACK, H_FILE, 8, this));
 
+    prev_jmp_pawn = nullptr;
+    move = Board::WHITE;
+    memset((void *) squares, 0, sizeof(Piece *) * 64);
     for (int i = 0; i < white_pieces.size(); ++i) {
         Piece *p = white_pieces.at(i);
         squares[offset(p->file, p->rank)] = p;
@@ -461,11 +469,10 @@ void Board::print_move(uint32_t move) {
         case PAWN:
         break;
         case KING:
-            char diff = GET_FROM_FILE(move) - GET_TO_FILE(move);
-            if (diff == -2) {
+            if (GET_SHORT_CASTLING(move)) {
                 std::cout << "O-O";
                 return;
-            } else if (diff == 2) {
+            } else if (GET_LONG_CASTLING(move)) {
                 std::cout << "O-O-O";
                 return;
             } else {

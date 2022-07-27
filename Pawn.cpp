@@ -89,6 +89,7 @@ bool Pawn::can_attack(char file, char rank) {
 char Pawn::get_piece_char() {
     if (color == Board::BLACK) {
         return 'p';
+        
     }
     return 'P';
 }
