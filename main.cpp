@@ -4,7 +4,7 @@
 #include "King.h"
 
 int main(int argc, char *argv[]) {
-    Board *board = new Board();
+    Board *board = new Board(START_POSITION);
     initialize_evaluators();
     while (true) {
         board->print_board();

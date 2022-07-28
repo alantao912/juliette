@@ -6,6 +6,9 @@
 
 class Bishop : public Piece {
 
+private:
+    static short middle_game_incentives[64];
+
 public:
 
     Bishop(Board::Color c, char file, char rank, Board *parent);
@@ -19,4 +22,6 @@ public:
     char get_piece_char();
 
     char get_type();
+
+    short calculate_placement_value();
 };

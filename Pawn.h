@@ -27,4 +27,6 @@ public:
     char get_direction();
 
     char get_type();
+
+    short calculate_placement_value();
 };

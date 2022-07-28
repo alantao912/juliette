@@ -24,4 +24,6 @@ bool can_castle_short();
     bool can_attack(char file, char rank);
 
     char get_piece_char();
+
+    short calculate_placement_value();
 };

@@ -14,6 +14,8 @@
 #include <vector>
 #include <iostream>
 
+#define START_POSITION "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq --"
+
 class King;
 class Pawn;
 class Piece;
@@ -21,21 +23,38 @@ class Piece;
 class Board {
 public:
 
-    enum Color {WHITE, BLACK, EMPTY};
+    enum Color { WHITE, BLACK, EMPTY};
+
+    enum Progression { OPENING, MIDDLEGAME, ENDGAME};
 
     Color move;
 
-    Board(const char *fen);
+    Progression stage;
 
-    Board();
+    Board(const char *fen);
 
     std::vector<uint32_t> *generate_moves();
 
     Piece *inspect(char file, char rank);
 
+    char offset(char file, char rank);
+
+    char offset_invert_rank(char file, char rank);
+
     std::vector<Piece *> *get_opposite_pieces(Color color);
 
-    std::vector<Piece *> *get_current_pieces();
+    /**
+     * @brief Get the pieces of the color it is to move.
+     * 
+     * @param color 
+     * @return std::vector<Piece *>* 
+     */
+
+    std::vector<Piece *> *get_pieces_of_color(Color color);
+
+    /**
+     * @brief Gets the white pieces of the board.
+     */
 
     std::vector<Piece *> *get_white_pieces();
 
@@ -62,13 +81,33 @@ private:
 
     Piece *squares[64];
 
+    uint64_t *squares_hit_by_pieces;
+
     Pawn *prev_jmp_pawn;
+
+    /**
+     * @brief Takes a vector of moves and takes out the moves that results in the king being in check.
+     */
 
     void remove_illegal_moves(std::vector<uint32_t> *move_list);
 
-    Pawn *find_parent_pawn(Piece *promoted);
+    /**
+     * @brief Given the amount of material on the board, determines whether the game is in the opening, middlegame, or endgame.
+     * 
+     * @return Progression. Either OPENING, MIDDLEGAME, or ENDGAME
+     */
 
-    char offset(char file, char rank);
+    Progression determine_game_stage();
+
+    /**
+     * @brief When reverting pawn promotion moves, we need to find the pawn containing the promoted piece, and delete its 'promoted_piece' 
+     * field, and put the old pawn back on the board. This method finds the pawn that a given piece was promoted from.
+     * 
+     * @param promoted Piece that was promoted from a pawn.
+     * @return Pawn* A pointer to the pawn that promoted to the given piece.
+     */
+
+    Pawn *find_parent_pawn(Piece *promoted);
 
     void print_rank(char rank);
 };

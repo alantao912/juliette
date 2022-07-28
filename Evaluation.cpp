@@ -1,40 +1,70 @@
 #include "Evaluation.h"
+#include "Knight.h"
 
-#define NUM_EVALUATORS 1
-static int (*evaluation_functions[NUM_EVALUATORS]) (Board *);
-
-static int evaluate_material(Board *board);
-
-void initialize_evaluators() {
-    evaluation_functions[0] = &evaluate_material;
+namespace MiddleGame {
+    static short placement_incentives[][64] = {
+        {
+            0 ,  0,  0 ,   0,   0,   0,   0,   0,
+            0 , 20, 30 ,  30,  30,  30,  20,   0,
+            0 , 20, 40 ,  40,  40,  40,  20,   0,
+            0 ,  0, 20 ,  20,  20,  20,   0,   0,
+            -20, -10, 20 ,  20,  20,  20, -10, -20,
+            -20, -20,  0 ,   0,   0,   0, -20, -20,
+            -20, -20, -10, -10, -10, -10, -20, -20,
+            -30, -20, -20, -20, -20, -20, -20, -30,
+        },
+        {
+            // Bishop placement
+        },
+        {
+            // Rook placement
+        },
+        {
+            // Queen
+        },
+        {
+            // King
+        },
+        {
+            // Pawn
+        }
+    };
 }
 
+static int evaluate_material();
+
+static short evaluate_placement();
+
+static Board *evaluated_board = nullptr;
+
+std::vector<Piece *> *my_pieces = nullptr;
+std::vector<Piece *> *opponent_pieces = nullptr;
+
 int evaluate(Board *board) {
-    int evaluation = 0;
-    for (uint8_t i = 0; i < NUM_EVALUATORS; ++i) {
-        evaluation += (evaluation_functions[i]) (board);
+    evaluated_board = board;
+
+    if (evaluated_board->move == Board::WHITE) {
+        my_pieces = evaluated_board->get_white_pieces();
+        opponent_pieces = evaluated_board->get_black_pieces();
+    } else {
+        my_pieces = evaluated_board->get_black_pieces();
+        opponent_pieces = evaluated_board->get_white_pieces();
     }
+
+    int evaluation = 0;
+    evaluation += evaluate_material();
+    evaluation += evaluate_placement();
     return evaluation;
 }
 
-static int evaluate_material(Board *board) {
+static int evaluate_material() {
     int material_evaluation = 0;
-
-    std::vector<Piece *> *my_pieces = nullptr;
-    std::vector<Piece *> *opponent_pieces = nullptr;
-
-    if (board->move == Board::WHITE) {
-        my_pieces = board->get_white_pieces();
-        opponent_pieces = board->get_black_pieces();
-    } else {
-        my_pieces = board->get_black_pieces();
-        opponent_pieces = board->get_white_pieces();
-    }
 
     for (Piece *p : *my_pieces) {
         if (p->is_taken) {
             continue;
         }
+        char index = evaluated_board->offset(p->file, p->rank);
         switch (p->get_type()) {
             case QUEEN:
                 material_evaluation += QUEEN_MATERIAL;
@@ -58,7 +88,8 @@ static int evaluate_material(Board *board) {
         if (p->is_taken) {
                 continue;
         }
-         switch (p->get_type()) {
+        char offset = evaluated_board->offset(p->file, p->rank);
+        switch (p->get_type()) {
             case QUEEN:
                 material_evaluation -= QUEEN_MATERIAL;
             break;
@@ -78,4 +109,23 @@ static int evaluate_material(Board *board) {
         }
     }
     return material_evaluation;
+}
+
+static short evaluate_placement() {
+    int placement_evaluation = 0;
+
+    for (Piece *p : *my_pieces) {
+        if (p->is_taken) {
+            continue;
+        }
+        placement_evaluation += p->calculate_placement_value();
+    }
+
+    for (Piece *p : *opponent_pieces) {
+        if (p->is_taken) {
+            continue;
+        }
+        placement_evaluation -= p->calculate_placement_value();
+    }
+    return placement_evaluation;
 }

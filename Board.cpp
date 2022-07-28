@@ -222,65 +222,24 @@ Board::Board(const char *fen) {
 
     memset((void *) squares, 0, sizeof(Piece *) * 64);
     prev_jmp_pawn = nullptr;
+    stage = OPENING;
+
+    uint8_t i = 0;
     for (Piece *p : white_pieces) {
         squares[offset(p->file, p->rank)] = p;
+        p->squares_hit = &(this->squares_hit_by_pieces[i]);
+        ++i;
     }
 
     for (Piece *p : black_pieces) {
         squares[offset(p->file, p->rank)] = p;
+        ++i;
     }
 
     for (uint8_t j = 0; j < 4; ++j) {
          free(fen_segments[j]);
     }
     std::cout << "Successfully loaded FEN!" << std::endl;
-}
-
-Board::Board() {
-    for (char i = 0; i < 8; ++i) {
-        white_pieces.push_back(new Pawn(WHITE, i, 2, this));
-    }
-    for (char i = 0; i < 8; ++i) {
-        black_pieces.push_back(new Pawn(BLACK, i, 7, this));
-    }
-    white_pieces.push_back(new Rook(WHITE, A_FILE, 1, this));
-    white_pieces.push_back(new Knight(WHITE, B_FILE, 1, this));
-    white_pieces.push_back(new Bishop(WHITE, C_FILE, 1, this));
-    white_pieces.push_back(new Queen(WHITE, D_FILE, 1, this));
-    King *wk = new King(WHITE, E_FILE, 1, this);
-    wk->short_castle_rights = true;
-    wk->long_castle_rights = true;
-    white_king = wk;
-    white_pieces.push_back(wk);
-    white_pieces.push_back(new Bishop(WHITE, F_FILE, 1, this));
-    white_pieces.push_back(new Knight(WHITE, G_FILE, 1, this));
-    white_pieces.push_back(new Rook(WHITE, H_FILE, 1, this));
-
-    black_pieces.push_back(new Rook(BLACK, A_FILE, 8, this));
-    black_pieces.push_back(new Knight(BLACK, B_FILE, 8, this));
-    black_pieces.push_back(new Bishop(BLACK, C_FILE, 8, this));
-    black_pieces.push_back(new Queen(BLACK, D_FILE, 8, this));
-    King *bk = new King(BLACK, E_FILE, 8, this);
-    bk->short_castle_rights = true;
-    bk->long_castle_rights = true;
-    black_king = bk;
-    black_pieces.push_back(bk);
-    black_pieces.push_back(new Bishop(BLACK, F_FILE, 8, this));
-    black_pieces.push_back(new Knight(BLACK, G_FILE, 8, this));
-    black_pieces.push_back(new Rook(BLACK, H_FILE, 8, this));
-
-    prev_jmp_pawn = nullptr;
-    move = Board::WHITE;
-    memset((void *) squares, 0, sizeof(Piece *) * 64);
-    for (int i = 0; i < white_pieces.size(); ++i) {
-        Piece *p = white_pieces.at(i);
-        squares[offset(p->file, p->rank)] = p;
-    }
-
-    for (int i = 0; i < black_pieces.size(); ++i) {
-        Piece *p = black_pieces.at(i);
-        squares[offset(p->file, p->rank)] = p;
-    }
 }
 
  Piece *Board::inspect(char file, char rank)  {
@@ -291,6 +250,10 @@ char Board::offset(char file, char rank) {
     return (rank - 1) * 8 + file;
 }
 
+char Board::offset_invert_rank(char file, char rank) {
+    return (8 - rank) * 8 + file;
+}
+
  std::vector<Piece *> *Board::get_opposite_pieces(Color color)  {
     if (color == WHITE) {
         return &black_pieces;
@@ -298,8 +261,8 @@ char Board::offset(char file, char rank) {
     return &white_pieces;
 }
 
-std::vector<Piece *> *Board::get_current_pieces() {
-    if (move == WHITE) {
+std::vector<Piece *> *Board::get_pieces_of_color(Color color) {
+    if (color == WHITE) {
         return &white_pieces;
     }
     return &black_pieces;
@@ -342,12 +305,11 @@ std::vector<uint32_t> *Board::generate_moves() {
 }
 
 void Board::remove_illegal_moves(std::vector<uint32_t> *move_list) {
-    Color move = this->move;
     King *king = get_my_king(this->move);
     for (size_t i = 0; i < move_list->size(); ++i) {
         uint32_t candidate_move = move_list->at(i);
         make_move(candidate_move);
-        std::vector<Piece *> *opposite_pieces = get_current_pieces();
+        std::vector<Piece *> *opposite_pieces = get_pieces_of_color(this->move);
         for (Piece *opponent_piece : *opposite_pieces) {
             if (opponent_piece->can_attack(king->file, king->rank)) {
                 /* King is in check as a result of the candidate move. Thus candidate move is illegal. */
@@ -403,10 +365,10 @@ void Board::print_rank(char rank) {
 
     for (char file = 0; file < 8; ++file) {
         if ((rank + file) % 2 == 0) {
-            // white square
+            /* White square */
             std::cout << ("   ");
         } else {
-            // black square
+            /* Black square */
             std::cout << ("***");
         }
         std::cout << ("||");
@@ -416,7 +378,7 @@ void Board::print_rank(char rank) {
 
         Piece *p = squares[offset(file, rank)];
         if ((rank + file) % 2 == 0) {
-            // white square
+            /* White square */
             std::cout << (" ");
             if (p) {
                 std::cout << p->get_piece_char();
@@ -425,7 +387,7 @@ void Board::print_rank(char rank) {
             }
             std::cout << (" ");
         } else {
-            // black square
+            /* Black square */
             std::cout << ("*");
             if (p) {
                 std::cout << p->get_piece_char();
@@ -439,10 +401,10 @@ void Board::print_rank(char rank) {
     std::cout << ("\n||");
     for (char file = 0; file < 8; ++file) {
         if ((rank + file) % 2 == 0) {
-            // white square
+            /* White square */
             std::cout << ("   ");
         } else {
-            // black square
+            /* Black square */
             std::cout << ("***");
         }
         std::cout << ("||");
@@ -451,7 +413,6 @@ void Board::print_rank(char rank) {
 }
 
 void Board::print_move(uint32_t move) {
-    /* */
     char piece_moved = GET_PIECE_MOVED(move);
     switch (piece_moved) {
         case QUEEN:

@@ -15,10 +15,11 @@ void King::add_moves(std::vector<uint32_t> *move_list) {
         }
           
         uint32_t move = create_move(f, r, KING);
+        *squares_hit = *squares_hit | (parent->offset(f, r));
         if (move == BREAK) {
             continue;
         }
-        
+        /* Only remove castling rights that it has. unmake_move() uses these flags to determine which castling rights to restore */
         if (short_castle_rights) {
             move = move | REM_SHORT_CASTLE;
         }
@@ -49,7 +50,8 @@ void King::add_moves(std::vector<uint32_t> *move_list) {
 bool King::can_castle_short() {
      std::vector<Piece *> *opposite_color_pieces = parent->get_opposite_pieces(color);
      Piece *p;
-    if (!(p = parent->inspect(H_FILE, rank)) || !dynamic_cast< Rook *>(p)) {
+    
+    if (!(p = parent->inspect(H_FILE, rank)) || !dynamic_cast< Rook *>(p) || p->color != this->color) {
         return false;
     }
 
@@ -67,10 +69,10 @@ bool King::can_castle_short() {
 }
 
 bool King::can_castle_long() {
-     std::vector<Piece *> *opposite_color_pieces = parent->get_opposite_pieces(color);
-     Piece *p;
-    // TODO: If opposite color rook captures black's rook while it is still on starting square, this logic will return true.
-    if (!(p = parent->inspect(A_FILE, rank)) || !dynamic_cast<Rook *>(p)) {
+    std::vector<Piece *> *opposite_color_pieces = parent->get_opposite_pieces(color);
+    Piece *p;
+    
+    if (!(p = parent->inspect(A_FILE, rank)) || !dynamic_cast<Rook *>(p) || p->color != this->color) {
         return false;
     }
 
@@ -96,4 +98,8 @@ char King::get_piece_char() {
         return 'k';
     }
     return 'K';
+}
+
+short King::calculate_placement_value() {
+    return 0;
 }

@@ -5,7 +5,9 @@
 
 class Knight : public Piece {
 private:
-    static  char masks[8][2];
+    static char masks[8][2];
+
+    static short middle_game_incentives[64];
 
 public:
     Knight(Board::Color c, char file, char rank, Board *parent);
@@ -17,4 +19,6 @@ public:
     char get_piece_char();
 
     char get_type();
+
+    short calculate_placement_value();
 };

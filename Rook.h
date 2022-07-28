@@ -17,4 +17,6 @@ public:
     char get_piece_char();
 
     char get_type();
+
+    short calculate_placement_value();
 };

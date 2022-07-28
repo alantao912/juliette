@@ -8,6 +8,7 @@ void Queen::add_moves(std::vector<uint32_t> *move_list) {
     while (i > A_FILE) {
         --i;
         uint32_t move = create_move(i, rank, QUEEN);
+        *squares_hit = *squares_hit | (1 << parent->offset(file, rank));
         if (move == BREAK) {
             break;
         }
@@ -20,6 +21,7 @@ void Queen::add_moves(std::vector<uint32_t> *move_list) {
     while (i < H_FILE) {
         ++i;
         uint32_t move = create_move(i, rank, QUEEN);
+        *squares_hit = *squares_hit | (1 << parent->offset(file, rank));
         if (move == BREAK) {
             break;
         }
@@ -32,6 +34,7 @@ void Queen::add_moves(std::vector<uint32_t> *move_list) {
     while (i > 1) {
         --i;
         uint32_t move = create_move(file, i, QUEEN);
+        *squares_hit = *squares_hit | (1 << parent->offset(file, rank));
         if (move == BREAK) {
             break;
         }
@@ -44,6 +47,7 @@ void Queen::add_moves(std::vector<uint32_t> *move_list) {
     while (i < 8) {
         ++i;
         uint32_t move = create_move(file, i, QUEEN);
+        *squares_hit = *squares_hit | (1 << parent->offset(file, rank));
         if (move == BREAK) {
             break;
         }
@@ -59,6 +63,7 @@ void Queen::add_moves(std::vector<uint32_t> *move_list) {
         --i;
         --r;
         uint32_t move = create_move(i, r, QUEEN);
+        *squares_hit = *squares_hit | (1 << parent->offset(file, rank));
         if (move == BREAK) {
             break;
         }
@@ -72,6 +77,7 @@ void Queen::add_moves(std::vector<uint32_t> *move_list) {
         --i;
         ++r;
         uint32_t move = create_move(i, r, QUEEN);
+        *squares_hit = *squares_hit | (1 << parent->offset(file, rank));
         if (move == BREAK) {
             break;
         }
@@ -85,6 +91,7 @@ void Queen::add_moves(std::vector<uint32_t> *move_list) {
         ++i;
         ++r;
         uint32_t move = create_move(i, r, QUEEN);
+        *squares_hit = *squares_hit | (1 << parent->offset(file, rank));
         if (move == BREAK) {
             break;
         }
@@ -98,6 +105,7 @@ void Queen::add_moves(std::vector<uint32_t> *move_list) {
         ++i;
         --r;
         uint32_t move = create_move(i, r, QUEEN);
+        *squares_hit = *squares_hit | (1 << parent->offset(file, rank));
         if (move == BREAK) {
             break;
         }
@@ -121,4 +129,8 @@ char Queen::get_piece_char() {
 
 char Queen::get_type() {
     return QUEEN;
+}
+
+short Queen::calculate_placement_value() {
+    return 0;
 }

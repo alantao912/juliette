@@ -15,37 +15,53 @@ void Rook::add_moves(std::vector<uint32_t> *move_list) {
     while (i > A_FILE) {
         --i;
         move = mask | create_move(i, rank, ROOK);
+        *squares_hit = *squares_hit | (1 << parent->offset(file, rank));
         if (move == BREAK) {
             break;
         }
         move_list->push_back(move);
+        if (GET_IS_CAPTURE(move)) {
+            break;
+        }
     }
     i = file;
     while (i < H_FILE) {
         ++i;
         move = mask | create_move(i, rank, ROOK);
+        *squares_hit = *squares_hit | (1 << parent->offset(file, rank));
         if (move == BREAK) {
             break;
         }
         move_list->push_back(move);
+        if (GET_IS_CAPTURE(move)) {
+            break;
+        }
     }
     i = rank;
     while (i > 1) {
         --i;
         move = mask | create_move(file, i, ROOK);
+        *squares_hit = *squares_hit | (1 << parent->offset(file, rank));
         if (move == BREAK) {
             break;
         }
         move_list->push_back(move);
+        if (GET_IS_CAPTURE(move)) {
+            break;
+        }
     }
     i = rank;
     while (i < 8) {
         ++i;
         move = mask | create_move(file, i, ROOK);
+        *squares_hit = *squares_hit | (1 << parent->offset(file, rank));
         if (move == BREAK) {
             break;
         }
         move_list->push_back(move);
+        if (GET_IS_CAPTURE(move)) {
+            break;
+        }
     }
 }
 
@@ -83,4 +99,8 @@ char Rook::get_piece_char() {
 
 char Rook::get_type() {
     return ROOK;
+}
+
+short Rook::calculate_placement_value() {
+    return 0;
 }

@@ -1,5 +1,9 @@
 #include "Bishop.h"
 
+short Bishop::middle_game_incentives[64] = {
+    
+};
+
 Bishop::Bishop(Board::Color c, char file, char rank, Board *p) : Piece(c, file, rank, p) {}
 
 void Bishop::add_moves(std::vector<uint32_t> *move_list) {
@@ -8,6 +12,7 @@ void Bishop::add_moves(std::vector<uint32_t> *move_list) {
         --f;
         --r;
         uint32_t move = create_move(f, r, BISHOP);
+        *squares_hit = *squares_hit | (1 << parent->offset(f, r));
         if (move == BREAK) {
             break;
         }
@@ -21,6 +26,7 @@ void Bishop::add_moves(std::vector<uint32_t> *move_list) {
         --f;
         ++r;
         uint32_t move = create_move(f, r, BISHOP);
+        *squares_hit = *squares_hit | (1 << parent->offset(f, r));
         if (move == BREAK) {
             break;
         }
@@ -34,6 +40,7 @@ void Bishop::add_moves(std::vector<uint32_t> *move_list) {
         ++f;
         ++r;
         uint32_t move = create_move(f, r, BISHOP);
+        *squares_hit = *squares_hit | (1 << parent->offset(f, r));
         if (move == BREAK) {
             break;
         }
@@ -47,6 +54,7 @@ void Bishop::add_moves(std::vector<uint32_t> *move_list) {
         ++f;
         --r;
         uint32_t move = create_move(f, r, BISHOP);
+        *squares_hit = *squares_hit | (1 << parent->offset(f, r));
         if (move == BREAK) {
             break;
         }
@@ -92,4 +100,8 @@ char Bishop::get_piece_char() {
         return 'b';
     }
     return 'B';
+}
+
+short Bishop::calculate_placement_value() {
+    return 0;
 }

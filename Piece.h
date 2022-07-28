@@ -66,6 +66,8 @@ protected:
 
 public:
 
+    uint64_t *squares_hit;
+
     char file, rank;
 
     bool is_taken;
@@ -81,4 +83,6 @@ public:
     virtual char get_piece_char() { return ' ';};
 
     virtual char get_type() {return KING;};
+
+    virtual short calculate_placement_value() { return 0;}
 };
