@@ -44,7 +44,6 @@ static int material_score();
 static short piece_placement_score(Board::Color color, uint8_t (Board::*indexing_function) (uint8_t, uint8_t));
 
 /* Pointer to board object that we are currently evaluating */
-
 static Board *subject = nullptr;
 
 /* Pieces of the current turn color. */
@@ -63,11 +62,11 @@ int evaluate(Board *board) {
 
     uint8_t (Board::*current_indexing_function) (uint8_t, uint8_t) = Board::offset;
     uint8_t (Board::*opponent_indexing_function) (uint8_t, uint8_t) = Board::offset_invert_rank;
-
     if (subject->move == Board::BLACK) {
         current_indexing_function = Board::offset_invert_rank;
         opponent_indexing_function = Board::offset;
     }
+    
     evaluation += (piece_placement_score(subject->move, current_indexing_function) - piece_placement_score((Board::Color) ((subject->move + 1) % 2), opponent_indexing_function));
     return evaluation;
 }
@@ -128,7 +127,6 @@ static short piece_placement_score(Board::Color color, uint8_t (Board::*indexing
     short placement_evaluation = 0;
     /* Collection of pieces of the same type */
     std::vector<Piece *> *piece_collection = nullptr;
-
     /* 64-bit bitboard which indicate the squares hit by each of the collective piece types. */
     uint64_t hitboard = (uint64_t) 0;
     piece_collection = subject->get_collection(color, KNIGHT);
