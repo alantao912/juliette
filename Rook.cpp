@@ -1,9 +1,9 @@
 #include "Rook.h"
 
-Rook::Rook(Board::Color c, char file, char rank, Board *parent) : Piece(c, file, rank, parent) {}
+Rook::Rook(Board::Color c, uint8_t file, uint8_t rank, Board *parent) : Piece(c, file, rank, parent) {}
 
 void Rook::add_moves(std::vector<uint32_t> *move_list) {
-    char i = file;
+    uint8_t i = file;
 
     uint32_t move, mask = 0;
     King *my_king = parent->get_my_king(this->color);
@@ -15,7 +15,7 @@ void Rook::add_moves(std::vector<uint32_t> *move_list) {
     while (i > A_FILE) {
         --i;
         move = mask | create_move(i, rank, ROOK);
-        *squares_hit = *squares_hit | (1 << parent->offset(file, rank));
+        squares_hit |= (1ULL << parent->offset(i, rank));
         if (move == BREAK) {
             break;
         }
@@ -28,7 +28,7 @@ void Rook::add_moves(std::vector<uint32_t> *move_list) {
     while (i < H_FILE) {
         ++i;
         move = mask | create_move(i, rank, ROOK);
-        *squares_hit = *squares_hit | (1 << parent->offset(file, rank));
+        squares_hit |= (1ULL << parent->offset(i, rank));
         if (move == BREAK) {
             break;
         }
@@ -41,7 +41,7 @@ void Rook::add_moves(std::vector<uint32_t> *move_list) {
     while (i > 1) {
         --i;
         move = mask | create_move(file, i, ROOK);
-        *squares_hit = *squares_hit | (1 << parent->offset(file, rank));
+        squares_hit |= (1ULL << parent->offset(file, i));
         if (move == BREAK) {
             break;
         }
@@ -54,7 +54,7 @@ void Rook::add_moves(std::vector<uint32_t> *move_list) {
     while (i < 8) {
         ++i;
         move = mask | create_move(file, i, ROOK);
-        *squares_hit = *squares_hit | (1 << parent->offset(file, rank));
+        squares_hit |= (1ULL << parent->offset(file, i));
         if (move == BREAK) {
             break;
         }
@@ -65,9 +65,9 @@ void Rook::add_moves(std::vector<uint32_t> *move_list) {
     }
 }
 
-bool Rook::can_attack(char from_file, char from_rank, char to_file, char to_rank, Board *parent) {
-    char dx = (to_file > from_file) - (to_file < from_file);
-    char dy = (to_rank > from_rank) - (to_rank < from_rank);
+bool Rook::can_attack(uint8_t from_file, uint8_t from_rank, uint8_t to_file, uint8_t to_rank, Board *parent) {
+    uint8_t dx = (to_file > from_file) - (to_file < from_file);
+    uint8_t dy = (to_rank > from_rank) - (to_rank < from_rank);
 
     if (dx != 0 && dy != 0) {
         return false;
@@ -86,21 +86,17 @@ bool Rook::can_attack(char from_file, char from_rank, char to_file, char to_rank
     return true;
 }
 
-bool Rook::can_attack(char dest_file, char dest_rank) {
+bool Rook::can_attack(uint8_t dest_file, uint8_t dest_rank) {
     return Rook::can_attack(this->file, this->rank, dest_file, dest_rank, parent);
 }
 
-char Rook::get_piece_char() {
+uint8_t Rook::get_piece_uint8_t() {
     if (color == Board::BLACK) {
         return 'r';
     }
     return 'R';
 }
 
-char Rook::get_type() {
+uint8_t Rook::get_type() {
     return ROOK;
-}
-
-short Rook::calculate_placement_value() {
-    return 0;
 }

@@ -8,7 +8,7 @@ class Pawn : public Piece {
 private:
     void check_promotion(std::vector<uint32_t> *move_list, uint32_t move);
 
-    char direction_offset, starting_rank, promotion_rank, en_passant_rank;
+    uint8_t direction_offset, starting_rank, promotion_rank, en_passant_rank;
 
 public:
 
@@ -16,17 +16,15 @@ public:
 
     Piece *promoted_piece;
 
-    Pawn(Board::Color color, char file, char rank, Board *parent);
+    Pawn(Board::Color color, uint8_t file, uint8_t rank, Board *parent);
 
     void add_moves(std::vector<uint32_t> *move_list);
 
-    bool can_attack(char file, char rank);
+    bool can_attack(uint8_t file, uint8_t rank);
 
-    char get_piece_char();
+    uint8_t get_piece_uint8_t();
 
-    char get_direction();
+    uint8_t get_direction();
 
-    char get_type();
-
-    short calculate_placement_value();
+    uint8_t get_type();
 };

@@ -9,15 +9,13 @@
 class Queen : public Piece {
 
 public:
-    Queen(Board::Color c, char file, char rank, Board *parent);
+    Queen(Board::Color c, uint8_t file, uint8_t rank, Board *parent);
 
     void add_moves(std::vector<uint32_t> *move_list);
 
-    bool can_attack(char file, char rank);
+    bool can_attack(uint8_t file, uint8_t rank);
 
-    char get_piece_char();
+    uint8_t get_piece_uint8_t();
 
-    char get_type();
-
-    short calculate_placement_value();
+    uint8_t get_type();
 };

@@ -9,10 +9,10 @@
 
 Board::Board(const char *fen) {
     uint32_t i = 0;
-    char rank = 8, file = 0;
+    uint8_t rank = 8, file = 0;
 
     uint8_t segment_lengths[4] = {0, 0, 0, 0};
-    char mode = 0;
+    uint8_t mode = 0;
     for (unsigned short j = 0, k = strlen(fen), l = 0; j < k; ++j) {
         if (fen[j] == ' ') {
             while (fen[j + 1] == ' ') {
@@ -29,7 +29,7 @@ Board::Board(const char *fen) {
         fen_segments[i] = (char *) malloc(segment_lengths[i] + 1);
 
         if (!fen_segments[i]) {
-            for (unsigned char j = 0; j < i; ++j) {
+            for (uint8_t j = 0; j < i; ++j) {
                 free(fen_segments[j]);
                 return;
             }
@@ -54,6 +54,10 @@ Board::Board(const char *fen) {
     white_king = nullptr;
     black_king = nullptr;
 
+    for (uint8_t i = 0; i < 10; ++i) {
+        pieces_collections[i] = new std::vector<Piece *>();
+    }
+
     while (fen_segments[0][i]) {
         bool add_piece = true;
         if (fen_segments[0][i] >= '0' && fen_segments[0][i] <= '9') {
@@ -66,49 +70,81 @@ Board::Board(const char *fen) {
                 file = -1;
                 add_piece = false;
             break;
-            case 'p':
+            case 'p': {
+                Pawn *p = new Pawn(BLACK, file, rank, this);
                 black_pieces.push_back(new Pawn(BLACK, file, rank, this));
-            break;
-            case 'r':
-                black_pieces.push_back(new Rook(BLACK, file, rank, this));
-            break;
-            case 'n':
-                black_pieces.push_back(new Knight(BLACK, file, rank, this));
-            break;
-            case 'b':
-                black_pieces.push_back(new Bishop(BLACK, file, rank, this));
-            break;
-            case 'q':
-                black_pieces.push_back(new Queen(BLACK, file, rank, this));
-            break;
-            case 'k':
+                pieces_collections[BLACK_PAWN]->push_back(p);
+                break;
+            }
+            case 'r': {
+                Rook *r = new Rook(BLACK, file, rank, this);
+                black_pieces.push_back(r);
+                pieces_collections[BLACK_ROOK]->push_back(r);
+                break;
+            }
+            case 'n': {
+                Knight *n = new Knight(BLACK, file, rank, this);
+                black_pieces.push_back(n);
+                pieces_collections[BLACK_KNIGHT]->push_back(n);
+                break;
+            }
+            case 'b': {
+                Bishop *b = new Bishop(BLACK, file, rank, this);
+                black_pieces.push_back(b);
+                pieces_collections[BLACK_BISHOP]->push_back(b);
+                break;
+            }
+            case 'q': {
+                Queen *q = new Queen(BLACK, file, rank, this);
+                black_pieces.push_back(q);
+                pieces_collections[BLACK_QUEEN]->push_back(q);
+                break;
+            }
+            case 'k': {
                 black_king = new King(BLACK, file, rank, this);
                 black_pieces.push_back(black_king);
-            break;
-            case 'P':
-                white_pieces.push_back(new Pawn(WHITE, file, rank, this));
-            break;
-            case 'R':
-                white_pieces.push_back(new Rook(WHITE, file, rank, this));
-            break;
-            case 'N':
-                white_pieces.push_back(new Knight(WHITE, file, rank, this));
-            break;
-            case 'B':
-                white_pieces.push_back(new Bishop(WHITE, file, rank, this));
-            break;
-            case 'Q':
-                white_pieces.push_back(new Queen(WHITE, file, rank, this));
-            break;
-            case 'K':
+                break;
+            }
+            case 'P': {
+                Pawn *p = new Pawn(WHITE, file, rank, this);
+                white_pieces.push_back(p);
+                pieces_collections[WHITE_PAWN]->push_back(p);
+                break;
+            }
+            case 'R': {
+                Rook *r = new Rook(WHITE, file, rank, this);
+                white_pieces.push_back(r);
+                pieces_collections[WHITE_ROOK]->push_back(r);
+                break;
+            }
+            case 'N': {
+                Knight *n = new Knight(WHITE, file, rank, this);
+                white_pieces.push_back(n);
+                pieces_collections[WHITE_KNIGHT]->push_back(n);
+                break;
+            }
+            case 'B': {
+                Bishop *b = new Bishop(WHITE, file, rank, this);
+                white_pieces.push_back(b);
+                pieces_collections[WHITE_BISHOP]->push_back(b);
+                break;
+            }
+            case 'Q': {
+                Queen *q = new Queen(WHITE, file, rank, this);
+                white_pieces.push_back(q);
+                pieces_collections[WHITE_QUEEN]->push_back(q);
+                break;
+            }
+            case 'K': {
                 white_king = new King(WHITE, file, rank, this);
                 white_pieces.push_back(white_king);
-            break;
+                break;
+            }
             default:
                 for (uint8_t j = 0; j < 4; ++j) {
                     free(fen_segments[j]);
                 }
-                std::cout << "Failed to load FEN: Invalid FEN character " << fen_segments[0][i] << std::endl;
+                std::cout << "Failed to load FEN: Invalid FEN uint8_tacter " << fen_segments[0][i] << std::endl;
                 return;
         }
         ++i;
@@ -183,7 +219,7 @@ Board::Board(const char *fen) {
         rank = fen_segments[3][1] - '0';
         rank += 1 + ((move == WHITE) * -2);
         file = fen_segments[3][0] - 'a';
-        char piece_index = offset(file, rank);
+        uint8_t piece_index = offset(file, rank);
         if (piece_index < 0 || piece_index > 63) {
             for (uint8_t j = 0; j < 4; ++j) {
                 free(fen_segments[j]);
@@ -222,18 +258,14 @@ Board::Board(const char *fen) {
 
     memset((void *) squares, 0, sizeof(Piece *) * 64);
     prev_jmp_pawn = nullptr;
-    stage = OPENING;
+    stage = MIDDLEGAME;
 
-    uint8_t i = 0;
     for (Piece *p : white_pieces) {
         squares[offset(p->file, p->rank)] = p;
-        p->squares_hit = &(this->squares_hit_by_pieces[i]);
-        ++i;
     }
 
     for (Piece *p : black_pieces) {
         squares[offset(p->file, p->rank)] = p;
-        ++i;
     }
 
     for (uint8_t j = 0; j < 4; ++j) {
@@ -242,16 +274,16 @@ Board::Board(const char *fen) {
     std::cout << "Successfully loaded FEN!" << std::endl;
 }
 
- Piece *Board::inspect(char file, char rank)  {
+ Piece *Board::inspect(uint8_t file, uint8_t rank)  {
     return squares[(rank - 1) * 8 + file];
 }
 
-char Board::offset(char file, char rank) {
+uint8_t Board::offset(uint8_t file, uint8_t rank) {
     return (rank - 1) * 8 + file;
 }
 
-char Board::offset_invert_rank(char file, char rank) {
-    return (8 - rank) * 8 + file;
+uint8_t Board::offset_invert_rank(uint8_t file, uint8_t rank) {
+    return offset(file, 9 - rank);
 }
 
  std::vector<Piece *> *Board::get_opposite_pieces(Color color)  {
@@ -322,6 +354,24 @@ void Board::remove_illegal_moves(std::vector<uint32_t> *move_list) {
     }
 }
 
+void Board::remove_from_collection(std::vector<Piece *> *collection, Piece *p) {
+    for (size_t i = 0; i < collection->size(); ++i) {
+        if (collection->at(i) == p) {
+            collection->at(i) = collection->at(collection->size() - 1);
+            collection->pop_back();
+            return;
+        }
+    }
+}
+
+std::vector<Piece *> *Board::get_collection(Color color, uint8_t type) {
+    return pieces_collections[5 * (color == BLACK) + type];
+}
+
+Board::Progression Board::determine_game_stage() {
+    // TODO: Implement
+}
+
 Pawn *Board::find_parent_pawn(Piece *promoted) {
     std::vector<Piece *> pieces;
     if (promoted->color == WHITE) {
@@ -346,24 +396,24 @@ void Board::print_board() {
         std::cout << "White to move!" << std::endl;
     }
 
-    for (char rank = 8; rank >= 1; --rank) {
+    for (uint8_t rank = 8; rank >= 1; --rank) {
         print_rank(rank);
     }
 
-    for (char i = 0; i < 7; ++i) {
+    for (uint8_t i = 0; i < 7; ++i) {
         std::cout << "------";
     }
     std::cout << "\n";
 }
 
-void Board::print_rank(char rank) {
-    for (char i = 0; i < 7; ++i) {
+void Board::print_rank(uint8_t rank) {
+    for (uint8_t i = 0; i < 7; ++i) {
         std::cout << ("------");
     }
 
     std::cout << ("\n||");
 
-    for (char file = 0; file < 8; ++file) {
+    for (uint8_t file = 0; file < 8; ++file) {
         if ((rank + file) % 2 == 0) {
             /* White square */
             std::cout << ("   ");
@@ -374,14 +424,14 @@ void Board::print_rank(char rank) {
         std::cout << ("||");
     }
     std::cout << ("\n||");
-    for (char file = 0; file < 8; ++file) {
+    for (uint8_t file = 0; file < 8; ++file) {
 
         Piece *p = squares[offset(file, rank)];
         if ((rank + file) % 2 == 0) {
             /* White square */
             std::cout << (" ");
             if (p) {
-                std::cout << p->get_piece_char();
+                std::cout << p->get_piece_uint8_t();
             } else {
                 std::cout << ' ';
             }
@@ -390,7 +440,7 @@ void Board::print_rank(char rank) {
             /* Black square */
             std::cout << ("*");
             if (p) {
-                std::cout << p->get_piece_char();
+                std::cout << p->get_piece_uint8_t();
             } else {
                 std::cout << '*';
             }
@@ -399,7 +449,7 @@ void Board::print_rank(char rank) {
         std::cout << ("||");
     }
     std::cout << ("\n||");
-    for (char file = 0; file < 8; ++file) {
+    for (uint8_t file = 0; file < 8; ++file) {
         if ((rank + file) % 2 == 0) {
             /* White square */
             std::cout << ("   ");
@@ -413,7 +463,7 @@ void Board::print_rank(char rank) {
 }
 
 void Board::print_move(uint32_t move) {
-    char piece_moved = GET_PIECE_MOVED(move);
+    uint8_t piece_moved = GET_PIECE_MOVED(move);
     switch (piece_moved) {
         case QUEEN:
             std::cout << "Q";
@@ -444,11 +494,11 @@ void Board::print_move(uint32_t move) {
 
     if (GET_IS_CAPTURE(move) || GET_IS_ENPASSANT(move)) {
         if (piece_moved == PAWN) {
-            std::cout << (char) (GET_FROM_FILE(move) + 'a');
+            std::cout << (uint8_t) (GET_FROM_FILE(move) + 'a');
         }
         std::cout << "x";
     }
-    std::cout << (char) (GET_TO_FILE(move) + 'a') << GET_TO_RANK(move);
+    std::cout << (uint8_t) (GET_TO_FILE(move) + 'a') << GET_TO_RANK(move);
 
     if (GET_IS_PROMOTION(move)) {
         std::cout << "=";
@@ -474,8 +524,8 @@ void Board::make_move(uint32_t move) {
         prev_jmp_pawn->moved_two = false;
     }
 
-    char ff = GET_FROM_FILE(move), fr = GET_FROM_RANK(move);
-    char tf = GET_TO_FILE(move), tr = GET_TO_RANK(move);
+    uint8_t ff = GET_FROM_FILE(move), fr = GET_FROM_RANK(move);
+    uint8_t tf = GET_TO_FILE(move), tr = GET_TO_RANK(move);
 
     Piece *mp = squares[offset(ff, fr)];
     squares[offset(ff, fr)] = nullptr;
@@ -514,18 +564,24 @@ void Board::make_move(uint32_t move) {
             switch (GET_PROMOTION_PIECE(move)) {
                 case QUEEN:
                     pawn->promoted_piece = new Queen(pawn->color, tf, tr, this);
+                    pieces_collections[5 * (pawn->color == BLACK) + QUEEN]->push_back(pawn->promoted_piece);
                 break;
                 case ROOK:
                     pawn->promoted_piece = new Rook(pawn->color, tf, tr, this);
+                    pieces_collections[5 * (pawn->color == BLACK) + ROOK]->push_back(pawn->promoted_piece);
                 break;
                 case BISHOP:
                     pawn->promoted_piece = new Bishop(pawn->color, tf, tr, this);
+                    pieces_collections[5 * (pawn->color == BLACK) + BISHOP]->push_back(pawn->promoted_piece);
                 break;
                 case KNIGHT:
                     pawn->promoted_piece = new Knight(pawn->color, tf, tr, this);
+                    pieces_collections[5 * (pawn->color == BLACK) + KNIGHT]->push_back(pawn->promoted_piece);
                 break;
             }
             mp = pawn->promoted_piece;
+            std::vector<Piece *> *pawn_collection = pieces_collections[5 * (pawn->color == BLACK) + PAWN];
+            remove_from_collection(pawn_collection, pawn);
         } else if (abs(tr - fr) == 2) {
             pawn->moved_two = true;
             prev_jmp_pawn = pawn;
@@ -559,8 +615,8 @@ uint32_t Board::revert_move() {
     const uint32_t prev_move = move_stack.top();
     move_stack.pop();
 
-    char ff = GET_FROM_FILE(prev_move), fr = GET_FROM_RANK(prev_move);
-    char tf = GET_TO_FILE(prev_move), tr = GET_TO_RANK(prev_move);
+    uint8_t ff = GET_FROM_FILE(prev_move), fr = GET_FROM_RANK(prev_move);
+    uint8_t tf = GET_TO_FILE(prev_move), tr = GET_TO_RANK(prev_move);
 
     Piece *mp = squares[offset(tf, tr)];
     squares[offset(tf, tr)] = nullptr;
@@ -597,6 +653,9 @@ uint32_t Board::revert_move() {
     if (GET_PIECE_MOVED(prev_move) == PAWN) {
         if (GET_IS_PROMOTION(prev_move)) {
             Pawn *parent_pawn = find_parent_pawn(mp);
+            pieces_collections[5 * (parent_pawn->color == BLACK) + PAWN]->push_back(parent_pawn);
+            std::vector<Piece *> *collection = pieces_collections[5 * (parent_pawn->color == BLACK) + parent_pawn->get_type()];
+            remove_from_collection(collection, parent_pawn->promoted_piece);
             delete parent_pawn->promoted_piece;
             parent_pawn->promoted_piece = nullptr;
             mp = parent_pawn;
@@ -614,7 +673,7 @@ uint32_t Board::revert_move() {
 
     if (!move_stack.empty()) {
         const uint32_t pprev_move = move_stack.top();
-        if (GET_PIECE_MOVED(pprev_move) == PAWN && abs((char) (GET_FROM_RANK(pprev_move) - GET_TO_RANK(pprev_move))) == 2) {
+        if (GET_PIECE_MOVED(pprev_move) == PAWN && abs((uint8_t) (GET_FROM_RANK(pprev_move) - GET_TO_RANK(pprev_move))) == 2) {
             Pawn *pawn = dynamic_cast<Pawn *>(squares[offset(GET_TO_FILE(pprev_move), GET_TO_RANK(pprev_move))]);
             pawn->moved_two = true;
             prev_jmp_pawn = pawn;
