@@ -1,12 +1,13 @@
 #include "King.h"
 
- char King::masks[8][2]= {{-1, -1}, {-1, 0}, {-1, 1}, {0, 1}, {1, 1}, {1, 0}, {1, -1}, {0, -1}};
+ uint8_t King::masks[8][2]= {{-1, -1}, {-1, 0}, {-1, 1}, {0, 1}, {1, 1}, {1, 0}, {1, -1}, {0, -1}};
 
-King::King(Board::Color c, char file, char rank, Board *parent) : Piece(c, file, rank, parent) {}
+King::King(Board::Color c, uint8_t file, uint8_t rank, Board *parent) : Piece(c, file, rank, parent) {}
 
 void King::add_moves(std::vector<uint32_t> *move_list) {
-    for (char *offset : masks) { 
-        char f = file + offset[0], r = rank + offset[1];
+    squares_hit = (uint64_t) 0;
+    for (uint8_t *offset : masks) { 
+        uint8_t f = file + offset[0], r = rank + offset[1];
         if (f < A_FILE || f > H_FILE) {
             continue;
         }
@@ -15,7 +16,7 @@ void King::add_moves(std::vector<uint32_t> *move_list) {
         }
           
         uint32_t move = create_move(f, r, KING);
-        *squares_hit = *squares_hit | (parent->offset(f, r));
+        squares_hit |= (1ULL << (parent->offset(f, r)));
         if (move == BREAK) {
             continue;
         }
@@ -59,7 +60,7 @@ bool King::can_castle_short() {
         return false;
     }
 
-    for (char i = 0; i < opposite_color_pieces->size(); ++i) {
+    for (uint8_t i = 0; i < opposite_color_pieces->size(); ++i) {
         Piece *piece = opposite_color_pieces->at(i);
         if (piece->can_attack(file + 1, rank) || piece->can_attack(file + 2, rank)) {
             return false;
@@ -80,7 +81,7 @@ bool King::can_castle_long() {
         return false;
     }
 
-    for (char i = 0; i < opposite_color_pieces->size(); ++i) {
+    for (uint8_t i = 0; i < opposite_color_pieces->size(); ++i) {
          Piece *piece = opposite_color_pieces->at(i);
         if (piece->can_attack(file - 1, rank) || piece->can_attack(file - 2, rank)) {
             return false;
@@ -89,17 +90,13 @@ bool King::can_castle_long() {
     return true;
 }
 
-bool King::can_attack(char file, char rank) {
+bool King::can_attack(uint8_t file, uint8_t rank) {
     return abs(file - this->file) <= 1 && abs(rank - this->rank) <= 1;
 }
 
-char King::get_piece_char() {
+uint8_t King::get_piece_uint8_t() {
     if (color == Board::BLACK) {
         return 'k';
     }
     return 'K';
-}
-
-short King::calculate_placement_value() {
-    return 0;
 }

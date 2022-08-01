@@ -4,15 +4,16 @@ short Bishop::middle_game_incentives[64] = {
     
 };
 
-Bishop::Bishop(Board::Color c, char file, char rank, Board *p) : Piece(c, file, rank, p) {}
+Bishop::Bishop(Board::Color c, uint8_t file, uint8_t rank, Board *p) : Piece(c, file, rank, p) {}
 
 void Bishop::add_moves(std::vector<uint32_t> *move_list) {
-    char f = file, r = rank;
+    squares_hit = (uint64_t) 0;
+    uint8_t f = file, r = rank;
     while (f > A_FILE && r > 1) {
         --f;
         --r;
         uint32_t move = create_move(f, r, BISHOP);
-        *squares_hit = *squares_hit | (1 << parent->offset(f, r));
+        squares_hit |= (1ULL << parent->offset(f, r));
         if (move == BREAK) {
             break;
         }
@@ -26,7 +27,7 @@ void Bishop::add_moves(std::vector<uint32_t> *move_list) {
         --f;
         ++r;
         uint32_t move = create_move(f, r, BISHOP);
-        *squares_hit = *squares_hit | (1 << parent->offset(f, r));
+        squares_hit |= (1ULL << parent->offset(f, r));
         if (move == BREAK) {
             break;
         }
@@ -40,7 +41,7 @@ void Bishop::add_moves(std::vector<uint32_t> *move_list) {
         ++f;
         ++r;
         uint32_t move = create_move(f, r, BISHOP);
-        *squares_hit = *squares_hit | (1 << parent->offset(f, r));
+        squares_hit |= (1ULL << parent->offset(f, r));
         if (move == BREAK) {
             break;
         }
@@ -54,7 +55,7 @@ void Bishop::add_moves(std::vector<uint32_t> *move_list) {
         ++f;
         --r;
         uint32_t move = create_move(f, r, BISHOP);
-        *squares_hit = *squares_hit | (1 << parent->offset(f, r));
+        squares_hit |= (1ULL << parent->offset(f, r));
         if (move == BREAK) {
             break;
         }
@@ -65,13 +66,13 @@ void Bishop::add_moves(std::vector<uint32_t> *move_list) {
     }
 }
 
-bool Bishop::can_attack(char from_file, char from_rank, char to_file, char to_rank, Board *parent) {
+bool Bishop::can_attack(uint8_t from_file, uint8_t from_rank, uint8_t to_file, uint8_t to_rank, Board *parent) {
     if (abs(from_file - to_file) != abs(from_rank - to_rank)) {
         /* The two points here are not on the same diagonal*/
         return false;
     }
-    char dx = 1 - (2 * (from_file > to_file));
-    char dy = 1 - (2 * (from_rank > to_rank));
+    uint8_t dx = 1 - (2 * (from_file > to_file));
+    uint8_t dy = 1 - (2 * (from_rank > to_rank));
 
     to_file -= dx;
     to_rank -= dy;
@@ -87,21 +88,17 @@ bool Bishop::can_attack(char from_file, char from_rank, char to_file, char to_ra
     return true;
 }
 
-bool Bishop::can_attack(char to_file, char to_rank) {
+bool Bishop::can_attack(uint8_t to_file, uint8_t to_rank) {
     return Bishop::can_attack(this->file, this->rank, file, rank, parent);
 }
 
-char Bishop::get_type() {
+uint8_t Bishop::get_type() {
     return BISHOP;
 }
 
-char Bishop::get_piece_char() {
+uint8_t Bishop::get_piece_uint8_t() {
     if (color == Board::BLACK) {
         return 'b';
     }
     return 'B';
-}
-
-short Bishop::calculate_placement_value() {
-    return 0;
 }

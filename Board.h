@@ -16,6 +16,18 @@
 
 #define START_POSITION "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq --"
 
+#define WHITE_KNIGHT 0
+#define WHITE_BISHOP 1
+#define WHITE_ROOK 2
+#define WHITE_QUEEN 3
+#define WHITE_PAWN 4
+
+#define BLACK_KNIGHT 5
+#define BLACK_BISHOP 6
+#define BLACK_ROOK 7
+#define BLACK_QUEEN 8
+#define BLACK_PAWN 9
+
 class King;
 class Pawn;
 class Piece;
@@ -27,47 +39,95 @@ public:
 
     enum Progression { OPENING, MIDDLEGAME, ENDGAME};
 
+    /* Stores the color of the pieces turn to move. */
+
     Color move;
+
+    /**
+     * @brief Indicates whether the state of the board is in the opening, middle-game, or endgame.
+     */
 
     Progression stage;
 
+    /**
+     * @brief Construct a new Board object with a given FEN string. Does not count 50 move rule.
+     */
+
     Board(const char *fen);
+
+    /**
+     * @brief Generates a list of legal moves for the color it is to move. See Piece.h to see how moves are encoded in a 32 bit integer.
+     */
 
     std::vector<uint32_t> *generate_moves();
 
-    Piece *inspect(char file, char rank);
+    /**
+     * @brief Returns a pointer to the piece stored at the specified file and rank. If no piece is present, returns nullptr.
+     */
 
-    char offset(char file, char rank);
+    Piece *inspect(uint8_t file, uint8_t rank);
 
-    char offset_invert_rank(char file, char rank);
+    /**
+     * @brief Returns an offset to the array index of specified file and rank.
+     */
+
+    uint8_t offset(uint8_t file, uint8_t rank);
+
+    /**
+     * @brief Returns an offset to the array index of specified file and rank, except
+     * the rank is inverted. Effectively rotates the board, and returns the array index of rotated board.
+     */
+
+    uint8_t offset_invert_rank(uint8_t file, uint8_t rank);
+
+    /**
+     * @brief Get the pieces of the opposite color specified.
+     * 
+     * @param color 
+     * @return std::vector<Piece *>* list of pieces opposite to the color specified.
+     */
 
     std::vector<Piece *> *get_opposite_pieces(Color color);
 
     /**
      * @brief Get the pieces of the color it is to move.
-     * 
-     * @param color 
-     * @return std::vector<Piece *>* 
      */
 
     std::vector<Piece *> *get_pieces_of_color(Color color);
 
     /**
-     * @brief Gets the white pieces of the board.
+     * @brief Gets the white pieces on the board.
      */
 
     std::vector<Piece *> *get_white_pieces();
 
+    /**
+     * @brief Get the black pieces on the board.
+     */
+
     std::vector<Piece *> *get_black_pieces();
+
+    /**
+     * @brief Returns the collection of the given pieces.
+     */
+
+    std::vector<Piece *> *get_collection(Color color, uint8_t type);
 
     King *get_my_king(Color color);
 
+    /* Prints the board using ASCII uint8_tacters to stdout */
+
     void print_board();
+
+    /* Prints a given move */
 
     void print_move(uint32_t move);
 
+    /* Modifies the state of the board according to the move specified, and stores the move onto a stack. */
+
     void make_move(uint32_t move);
 
+    /* Reverts the state of the board to prior the last move on the move stack was made. Pops a move off of the stack. */
     uint32_t revert_move();
 
 private:
@@ -77,11 +137,13 @@ private:
     std::vector<Piece *> black_pieces;
     std::vector<Piece *> white_pieces;
 
+    /* Stores all of the pieces of the same type into one vector. i.e. all black pawns are grouped together, all white knights are grouped together etc. */
+
+    std::vector<Piece *> *pieces_collections[10];
+
     King *white_king, *black_king;
 
     Piece *squares[64];
-
-    uint64_t *squares_hit_by_pieces;
 
     Pawn *prev_jmp_pawn;
 
@@ -90,6 +152,12 @@ private:
      */
 
     void remove_illegal_moves(std::vector<uint32_t> *move_list);
+
+    /**
+     * @brief Removes a given piece from the specified collection. If piece is not found in collection, collection is left unchanged. 
+     */
+
+    void remove_from_collection(std::vector<Piece *> *collection, Piece *p);
 
     /**
      * @brief Given the amount of material on the board, determines whether the game is in the opening, middlegame, or endgame.
@@ -109,5 +177,9 @@ private:
 
     Pawn *find_parent_pawn(Piece *promoted);
 
-    void print_rank(char rank);
+    /**
+     * @brief Prints out a single row of the board. 
+     */
+
+    void print_rank(uint8_t rank);
 };

@@ -9,6 +9,4 @@
 #define KNIGHT_MATERIAL 300
 #define PAWN_MATERIAL 100
 
-void initialize_evaluators();
-
 int evaluate(Board *board);

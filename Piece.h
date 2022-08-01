@@ -26,8 +26,8 @@
 #define BISHOP 1
 #define ROOK 2
 #define QUEEN 3
-#define KING 4
-#define PAWN 5
+#define PAWN 4
+#define KING 5
 
 #define PROMOTION_PIECE(piece) (piece << 15)
 #define GET_PROMOTION_PIECE(move) ((move & (3 << 15)) >> 15)
@@ -62,27 +62,25 @@ class Piece {
 protected:
     Board *parent;
 
-    uint32_t create_move(char to_file, char to_rank, char piece_moved);
+    uint32_t create_move(uint8_t to_file, uint8_t to_rank, uint8_t piece_moved);
 
 public:
 
-    uint64_t *squares_hit;
+    uint64_t squares_hit;
 
-    char file, rank;
+    uint8_t file, rank;
 
     bool is_taken;
 
     Board::Color color;
 
-    Piece(Board::Color color, char file, char rank, Board *parent);
+    Piece(Board::Color color, uint8_t file, uint8_t rank, Board *parent);
 
     virtual void add_moves(std::vector<uint32_t> *move_list) {};
 
-    virtual bool can_attack(char file, char rank)  { return false; };
+    virtual bool can_attack(uint8_t file, uint8_t rank)  { return false; };
 
-    virtual char get_piece_char() { return ' ';};
+    virtual uint8_t get_piece_uint8_t() { return ' ';};
 
-    virtual char get_type() {return KING;};
-
-    virtual short calculate_placement_value() { return 0;}
+    virtual uint8_t get_type() {return KING;};
 };
