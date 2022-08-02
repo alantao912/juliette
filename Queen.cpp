@@ -1,10 +1,10 @@
 #include "Queen.h"
 
-Queen::Queen(Board::Color c, uint8_t file, uint8_t rank, Board *parent) : Piece(c, file, rank, parent) {}
+Queen::Queen(Board::Color c, int8_t file, int8_t rank, Board *parent) : Piece(c, file, rank, parent) {}
 
 void Queen::add_moves(std::vector<uint32_t> *move_list) {
     squares_hit = (uint64_t) 0;
-    uint8_t i = file;
+    int8_t i = file;
 
     while (i > A_FILE) {
         --i;
@@ -59,7 +59,7 @@ void Queen::add_moves(std::vector<uint32_t> *move_list) {
     }
 
     i = file;
-    uint8_t r = rank;
+    int8_t r = rank;
     while (i > A_FILE && r > 1) {
         --i;
         --r;
@@ -117,11 +117,11 @@ void Queen::add_moves(std::vector<uint32_t> *move_list) {
     }
 }
 
-bool Queen::can_attack(uint8_t file, uint8_t rank) {
+bool Queen::can_attack(int8_t file, int8_t rank) {
     return Rook::can_attack(this->file, this->rank, file, rank, parent) || Bishop::can_attack(this->file, this->rank, file, rank, parent);
 }
 
-uint8_t Queen::get_piece_uint8_t() {
+char Queen::get_piece_char() {
     if (color == Board::BLACK) {
         return 'q';
     }

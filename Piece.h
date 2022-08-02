@@ -62,25 +62,25 @@ class Piece {
 protected:
     Board *parent;
 
-    uint32_t create_move(uint8_t to_file, uint8_t to_rank, uint8_t piece_moved);
+    uint32_t create_move(int8_t to_file, int8_t to_rank, uint8_t piece_moved);
 
 public:
 
     uint64_t squares_hit;
 
-    uint8_t file, rank;
+    int8_t file, rank;
 
     bool is_taken;
 
     Board::Color color;
 
-    Piece(Board::Color color, uint8_t file, uint8_t rank, Board *parent);
+    Piece(Board::Color color, int8_t file, int8_t rank, Board *parent);
 
     virtual void add_moves(std::vector<uint32_t> *move_list) {};
 
-    virtual bool can_attack(uint8_t file, uint8_t rank)  { return false; };
+    virtual bool can_attack(int8_t file, int8_t rank)  { return false; };
 
-    virtual uint8_t get_piece_uint8_t() { return ' ';};
+    virtual char get_piece_char() { return ' ';};
 
     virtual uint8_t get_type() {return KING;};
 };

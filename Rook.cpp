@@ -1,9 +1,9 @@
 #include "Rook.h"
 
-Rook::Rook(Board::Color c, uint8_t file, uint8_t rank, Board *parent) : Piece(c, file, rank, parent) {}
+Rook::Rook(Board::Color c, int8_t file, int8_t rank, Board *parent) : Piece(c, file, rank, parent) {}
 
 void Rook::add_moves(std::vector<uint32_t> *move_list) {
-    uint8_t i = file;
+    int8_t i = file;
 
     uint32_t move, mask = 0;
     King *my_king = parent->get_my_king(this->color);
@@ -65,9 +65,9 @@ void Rook::add_moves(std::vector<uint32_t> *move_list) {
     }
 }
 
-bool Rook::can_attack(uint8_t from_file, uint8_t from_rank, uint8_t to_file, uint8_t to_rank, Board *parent) {
-    uint8_t dx = (to_file > from_file) - (to_file < from_file);
-    uint8_t dy = (to_rank > from_rank) - (to_rank < from_rank);
+bool Rook::can_attack(int8_t from_file, int8_t from_rank, int8_t to_file, int8_t to_rank, Board *parent) {
+    int8_t dx = (to_file > from_file) - (to_file < from_file);
+    int8_t dy = (to_rank > from_rank) - (to_rank < from_rank);
 
     if (dx != 0 && dy != 0) {
         return false;
@@ -86,11 +86,11 @@ bool Rook::can_attack(uint8_t from_file, uint8_t from_rank, uint8_t to_file, uin
     return true;
 }
 
-bool Rook::can_attack(uint8_t dest_file, uint8_t dest_rank) {
+bool Rook::can_attack(int8_t dest_file, int8_t dest_rank) {
     return Rook::can_attack(this->file, this->rank, dest_file, dest_rank, parent);
 }
 
-uint8_t Rook::get_piece_uint8_t() {
+char Rook::get_piece_char() {
     if (color == Board::BLACK) {
         return 'r';
     }

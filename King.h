@@ -7,7 +7,7 @@
 
 class King : public Piece {
 private:
-    static uint8_t masks[8][2];
+    static const int8_t masks[8][2];
 
     bool can_castle_long();
 
@@ -17,11 +17,11 @@ bool can_castle_short();
 
     bool long_castle_rights, short_castle_rights;
 
-    King(Board::Color c, uint8_t file, uint8_t rank, Board *parent);
+    King(Board::Color c, int8_t file, int8_t rank, Board *parent);
 
     void add_moves(std::vector<uint32_t> *move_list);
 
-    bool can_attack(uint8_t file, uint8_t rank);
+    bool can_attack(int8_t file, int8_t rank);
 
-    uint8_t get_piece_uint8_t();
+    char get_piece_char();
 };

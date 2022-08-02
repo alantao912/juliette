@@ -30,7 +30,7 @@ void play_game() {
     }
 }
 
-int main(int argc, uint8_t *argv[]) {
+int main(int argc, char *argv[]) {
     play_game();
 
     
@@ -38,7 +38,7 @@ int main(int argc, uint8_t *argv[]) {
     delete pos->generate_moves();
     
     for (Piece *p : *(pos->get_white_pieces())) {
-        std::cout << p->get_piece_uint8_t() << std::endl;
+        std::cout << p->get_piece_char() << std::endl;
         
         uint64_t hit = p->squares_hit;
         uint64_t f = 0; 

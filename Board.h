@@ -65,20 +65,20 @@ public:
      * @brief Returns a pointer to the piece stored at the specified file and rank. If no piece is present, returns nullptr.
      */
 
-    Piece *inspect(uint8_t file, uint8_t rank);
+    Piece *inspect(int8_t file, int8_t rank);
 
     /**
      * @brief Returns an offset to the array index of specified file and rank.
      */
 
-    uint8_t offset(uint8_t file, uint8_t rank);
+    int8_t offset(int8_t file, int8_t rank);
 
     /**
      * @brief Returns an offset to the array index of specified file and rank, except
      * the rank is inverted. Effectively rotates the board, and returns the array index of rotated board.
      */
 
-    uint8_t offset_invert_rank(uint8_t file, uint8_t rank);
+    int8_t offset_invert_rank(int8_t file, int8_t rank);
 
     /**
      * @brief Get the pieces of the opposite color specified.
@@ -115,7 +115,7 @@ public:
 
     King *get_my_king(Color color);
 
-    /* Prints the board using ASCII uint8_tacters to stdout */
+    /* Prints the board using ASCII characters to stdout */
 
     void print_board();
 
@@ -181,5 +181,5 @@ private:
      * @brief Prints out a single row of the board. 
      */
 
-    void print_rank(uint8_t rank);
+    void print_rank(int8_t rank);
 };

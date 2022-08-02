@@ -1,14 +1,14 @@
 #include "Piece.h"
 #include <iostream>
 
-Piece::Piece(Board::Color c, uint8_t file, uint8_t rank, Board *p) : color(c),  parent(p) {
+Piece::Piece(Board::Color c, int8_t file, int8_t rank, Board *p) : color(c),  parent(p) {
     this->file = file;
     this->rank = rank;
     this->is_taken = false;
     squares_hit = (uint64_t) 0;
 }
 
-uint32_t Piece::create_move(uint8_t to_file, uint8_t to_rank, uint8_t piece_moved) {
+uint32_t Piece::create_move(int8_t to_file, int8_t to_rank, uint8_t piece_moved) {
     Piece *p = parent->inspect(to_file, to_rank);
     uint32_t move = 0;
     if (!p) {

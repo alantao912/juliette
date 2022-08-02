@@ -1,6 +1,6 @@
 #include "Pawn.h"
 
-Pawn::Pawn(Board::Color color, uint8_t file, uint8_t rank, Board *parent) : Piece(color, file, rank, parent) {
+Pawn::Pawn(Board::Color color, int8_t file, int8_t rank, Board *parent) : Piece(color, file, rank, parent) {
     if (color == Board::WHITE) {
         direction_offset = 1;
         starting_rank = 2;
@@ -82,14 +82,14 @@ void Pawn::add_moves(std::vector<uint32_t> *move_list) {
     }
 }
 
-bool Pawn::can_attack(uint8_t file, uint8_t rank) {
+bool Pawn::can_attack(int8_t file, int8_t rank) {
     if (promoted_piece) {
         return promoted_piece->can_attack(file, rank);
     }
     return (rank == this->rank + this->direction_offset) && (file == this->file + 1 || file == this->file - 1);
 }
 
-uint8_t Pawn::get_piece_uint8_t() {
+char Pawn::get_piece_char() {
     if (color == Board::BLACK) {
         return 'p';
         
@@ -104,6 +104,6 @@ uint8_t Pawn::get_type() {
     return PAWN;
 }
 
-uint8_t Pawn::get_direction() {
+int8_t Pawn::get_direction() {
     return direction_offset;
 }

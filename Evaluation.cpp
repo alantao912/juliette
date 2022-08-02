@@ -27,7 +27,16 @@ namespace PlacementIncentives {
     };
 };
 
-static short dereference_hitboard(uint64_t hit_board, const short *incentives,  uint8_t (Board::*indexing_function) (uint8_t, uint8_t)) {
+/* Pointer to board object that we are currently evaluating */
+static Board *subject = nullptr;
+
+/* Pieces of the current turn color. */
+std::vector<Piece *> *current_pieces = nullptr;
+
+/* Pieces of the opposite turn color. */
+std::vector<Piece *> *opponent_pieces = nullptr;
+
+static short dereference_hitboard(uint64_t hit_board, const short *incentives,  int8_t (Board::*indexing_function) (int8_t, int8_t)) {
     short e = 0;
     uint8_t i = 0;
     while (hit_board) {
@@ -41,16 +50,7 @@ static short dereference_hitboard(uint64_t hit_board, const short *incentives,  
 
 static int material_score();
 
-static short piece_placement_score(Board::Color color, uint8_t (Board::*indexing_function) (uint8_t, uint8_t));
-
-/* Pointer to board object that we are currently evaluating */
-static Board *subject = nullptr;
-
-/* Pieces of the current turn color. */
-std::vector<Piece *> *current_pieces = nullptr;
-
-/* Pieces of the opposite turn color. */
-std::vector<Piece *> *opponent_pieces = nullptr;
+static short piece_placement_score(Board::Color color, int8_t (Board::*indexing_function) (int8_t, int8_t));
 
 int evaluate(Board *board) {
     subject = board;
@@ -60,8 +60,8 @@ int evaluate(Board *board) {
     int evaluation = 0;
     evaluation += material_score();
 
-    uint8_t (Board::*current_indexing_function) (uint8_t, uint8_t) = Board::offset;
-    uint8_t (Board::*opponent_indexing_function) (uint8_t, uint8_t) = Board::offset_invert_rank;
+    int8_t (Board::*current_indexing_function) (int8_t, int8_t) = Board::offset;
+    int8_t (Board::*opponent_indexing_function) (int8_t, int8_t) = Board::offset_invert_rank;
     if (subject->move == Board::BLACK) {
         current_indexing_function = Board::offset_invert_rank;
         opponent_indexing_function = Board::offset;
@@ -123,7 +123,7 @@ static int material_score() {
     return material_evaluation;
 }
 
-static short piece_placement_score(Board::Color color, uint8_t (Board::*indexing_function) (uint8_t, uint8_t)) {
+static short piece_placement_score(Board::Color color, int8_t (Board::*indexing_function) (int8_t, int8_t)) {
     short placement_evaluation = 0;
     /* Collection of pieces of the same type */
     std::vector<Piece *> *piece_collection = nullptr;

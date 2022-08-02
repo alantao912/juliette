@@ -1,13 +1,13 @@
 #include "Knight.h"
 
-uint8_t Knight::masks[8][2] = {{-2, -1}, {-2, 1}, {-1, -2}, {-1, 2}, {1, 2}, {1, -2}, {2, 1}, {2, -1}};
+const int8_t Knight::masks[8][2] = {{-2, -1}, {-2, 1}, {-1, -2}, {-1, 2}, {1, 2}, {1, -2}, {2, 1}, {2, -1}};
 
-Knight::Knight(Board::Color c, uint8_t file, uint8_t rank, Board *parent) : Piece(c, file, rank, parent) {}
+Knight::Knight(Board::Color c, int8_t file, int8_t rank, Board *parent) : Piece(c, file, rank, parent) {}
 
 void Knight::add_moves(std::vector<uint32_t> *move_list) {
     squares_hit = (uint64_t) 0;
-    for (uint8_t *offset : masks) {
-        uint8_t f = file + offset[0], r = rank + offset[1];
+    for (const int8_t *offset : masks) {
+        int8_t f = file + offset[0], r = rank + offset[1];
         if (f < A_FILE || f > H_FILE) {
             continue;
         }
@@ -23,13 +23,13 @@ void Knight::add_moves(std::vector<uint32_t> *move_list) {
     }
 }
 
-bool Knight::can_attack(uint8_t file, uint8_t rank) {
-    uint8_t dx = abs(file - this->file);
-    uint8_t dy = abs(rank - this->rank);
+bool Knight::can_attack(int8_t file, int8_t rank) {
+    int8_t dx = abs(file - this->file);
+    int8_t dy = abs(rank - this->rank);
     return (dx == 1 && dy == 2) || (dx == 2 && dy == 1);
 }
 
-uint8_t Knight::get_piece_uint8_t() {
+char Knight::get_piece_char() {
     if (color == Board::BLACK) {
         return 'n';
     }

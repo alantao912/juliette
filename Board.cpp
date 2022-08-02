@@ -8,11 +8,7 @@
 #include "Pawn.h"
 
 Board::Board(const char *fen) {
-    uint32_t i = 0;
-    uint8_t rank = 8, file = 0;
-
     uint8_t segment_lengths[4] = {0, 0, 0, 0};
-    uint8_t mode = 0;
     for (unsigned short j = 0, k = strlen(fen), l = 0; j < k; ++j) {
         if (fen[j] == ' ') {
             while (fen[j + 1] == ' ') {
@@ -25,16 +21,16 @@ Board::Board(const char *fen) {
     }
 
     char *fen_segments[4];
-    for (uint8_t i = 0; i < 4; ++i) {
-        fen_segments[i] = (char *) malloc(segment_lengths[i] + 1);
+    for (uint8_t j = 0; j < 4; ++j) {
+        fen_segments[j] = (char *) malloc(segment_lengths[j] + 1);
 
-        if (!fen_segments[i]) {
-            for (uint8_t j = 0; j < i; ++j) {
-                free(fen_segments[j]);
+        if (!fen_segments[j]) {
+            for (uint8_t k = 0; k < j; ++k) {
+                free(fen_segments[k]);
                 return;
             }
         }
-        fen_segments[i][segment_lengths[i]] = '\0';
+        fen_segments[j][segment_lengths[j]] = '\0';
 
     }
 
@@ -58,6 +54,7 @@ Board::Board(const char *fen) {
         pieces_collections[i] = new std::vector<Piece *>();
     }
 
+    int8_t rank = 8, file = 0, i = 0;
     while (fen_segments[0][i]) {
         bool add_piece = true;
         if (fen_segments[0][i] >= '0' && fen_segments[0][i] <= '9') {
@@ -144,7 +141,7 @@ Board::Board(const char *fen) {
                 for (uint8_t j = 0; j < 4; ++j) {
                     free(fen_segments[j]);
                 }
-                std::cout << "Failed to load FEN: Invalid FEN uint8_tacter " << fen_segments[0][i] << std::endl;
+                std::cout << "Failed to load FEN: Invalid FEN character " << fen_segments[0][i] << std::endl;
                 return;
         }
         ++i;
@@ -219,7 +216,7 @@ Board::Board(const char *fen) {
         rank = fen_segments[3][1] - '0';
         rank += 1 + ((move == WHITE) * -2);
         file = fen_segments[3][0] - 'a';
-        uint8_t piece_index = offset(file, rank);
+        int8_t piece_index = offset(file, rank);
         if (piece_index < 0 || piece_index > 63) {
             for (uint8_t j = 0; j < 4; ++j) {
                 free(fen_segments[j]);
@@ -274,15 +271,15 @@ Board::Board(const char *fen) {
     std::cout << "Successfully loaded FEN!" << std::endl;
 }
 
- Piece *Board::inspect(uint8_t file, uint8_t rank)  {
+ Piece *Board::inspect(int8_t file, int8_t rank)  {
     return squares[(rank - 1) * 8 + file];
 }
 
-uint8_t Board::offset(uint8_t file, uint8_t rank) {
+int8_t Board::offset(int8_t file, int8_t rank) {
     return (rank - 1) * 8 + file;
 }
 
-uint8_t Board::offset_invert_rank(uint8_t file, uint8_t rank) {
+int8_t Board::offset_invert_rank(int8_t file, int8_t rank) {
     return offset(file, 9 - rank);
 }
 
@@ -370,6 +367,7 @@ std::vector<Piece *> *Board::get_collection(Color color, uint8_t type) {
 
 Board::Progression Board::determine_game_stage() {
     // TODO: Implement
+    return OPENING;
 }
 
 Pawn *Board::find_parent_pawn(Piece *promoted) {
@@ -396,17 +394,17 @@ void Board::print_board() {
         std::cout << "White to move!" << std::endl;
     }
 
-    for (uint8_t rank = 8; rank >= 1; --rank) {
+    for (int8_t rank = 8; rank >= 1; --rank) {
         print_rank(rank);
     }
 
-    for (uint8_t i = 0; i < 7; ++i) {
+    for (int8_t i = 0; i < 7; ++i) {
         std::cout << "------";
     }
     std::cout << "\n";
 }
 
-void Board::print_rank(uint8_t rank) {
+void Board::print_rank(int8_t rank) {
     for (uint8_t i = 0; i < 7; ++i) {
         std::cout << ("------");
     }
@@ -431,7 +429,7 @@ void Board::print_rank(uint8_t rank) {
             /* White square */
             std::cout << (" ");
             if (p) {
-                std::cout << p->get_piece_uint8_t();
+                std::cout << p->get_piece_char();
             } else {
                 std::cout << ' ';
             }
@@ -440,7 +438,7 @@ void Board::print_rank(uint8_t rank) {
             /* Black square */
             std::cout << ("*");
             if (p) {
-                std::cout << p->get_piece_uint8_t();
+                std::cout << p->get_piece_char();
             } else {
                 std::cout << '*';
             }
@@ -494,11 +492,11 @@ void Board::print_move(uint32_t move) {
 
     if (GET_IS_CAPTURE(move) || GET_IS_ENPASSANT(move)) {
         if (piece_moved == PAWN) {
-            std::cout << (uint8_t) (GET_FROM_FILE(move) + 'a');
+            std::cout << (char) (GET_FROM_FILE(move) + 'a');
         }
         std::cout << "x";
     }
-    std::cout << (uint8_t) (GET_TO_FILE(move) + 'a') << GET_TO_RANK(move);
+    std::cout << (char) (GET_TO_FILE(move) + 'a') << GET_TO_RANK(move);
 
     if (GET_IS_PROMOTION(move)) {
         std::cout << "=";
@@ -524,8 +522,8 @@ void Board::make_move(uint32_t move) {
         prev_jmp_pawn->moved_two = false;
     }
 
-    uint8_t ff = GET_FROM_FILE(move), fr = GET_FROM_RANK(move);
-    uint8_t tf = GET_TO_FILE(move), tr = GET_TO_RANK(move);
+    int8_t ff = GET_FROM_FILE(move), fr = GET_FROM_RANK(move);
+    int8_t tf = GET_TO_FILE(move), tr = GET_TO_RANK(move);
 
     Piece *mp = squares[offset(ff, fr)];
     squares[offset(ff, fr)] = nullptr;
@@ -673,7 +671,7 @@ uint32_t Board::revert_move() {
 
     if (!move_stack.empty()) {
         const uint32_t pprev_move = move_stack.top();
-        if (GET_PIECE_MOVED(pprev_move) == PAWN && abs((uint8_t) (GET_FROM_RANK(pprev_move) - GET_TO_RANK(pprev_move))) == 2) {
+        if (GET_PIECE_MOVED(pprev_move) == PAWN && abs((int8_t) (GET_FROM_RANK(pprev_move) - GET_TO_RANK(pprev_move))) == 2) {
             Pawn *pawn = dynamic_cast<Pawn *>(squares[offset(GET_TO_FILE(pprev_move), GET_TO_RANK(pprev_move))]);
             pawn->moved_two = true;
             prev_jmp_pawn = pawn;

@@ -1,13 +1,12 @@
 #include "King.h"
+const int8_t King::masks[8][2]= {{-1, -1}, {-1, 0}, {-1, 1}, {0, 1}, {1, 1}, {1, 0}, {1, -1}, {0, -1}};
 
- uint8_t King::masks[8][2]= {{-1, -1}, {-1, 0}, {-1, 1}, {0, 1}, {1, 1}, {1, 0}, {1, -1}, {0, -1}};
-
-King::King(Board::Color c, uint8_t file, uint8_t rank, Board *parent) : Piece(c, file, rank, parent) {}
+King::King(Board::Color c, int8_t file, int8_t rank, Board *parent) : Piece(c, file, rank, parent) {}
 
 void King::add_moves(std::vector<uint32_t> *move_list) {
     squares_hit = (uint64_t) 0;
-    for (uint8_t *offset : masks) { 
-        uint8_t f = file + offset[0], r = rank + offset[1];
+    for (const int8_t *offset : masks) { 
+        int8_t f = file + offset[0], r = rank + offset[1];
         if (f < A_FILE || f > H_FILE) {
             continue;
         }
@@ -62,7 +61,7 @@ bool King::can_castle_short() {
 
     for (uint8_t i = 0; i < opposite_color_pieces->size(); ++i) {
         Piece *piece = opposite_color_pieces->at(i);
-        if (piece->can_attack(file + 1, rank) || piece->can_attack(file + 2, rank)) {
+        if (piece->can_attack(F_FILE, rank)) {
             return false;
         }
     }
@@ -83,18 +82,18 @@ bool King::can_castle_long() {
 
     for (uint8_t i = 0; i < opposite_color_pieces->size(); ++i) {
          Piece *piece = opposite_color_pieces->at(i);
-        if (piece->can_attack(file - 1, rank) || piece->can_attack(file - 2, rank)) {
+        if (piece->can_attack(C_FILE, rank)) {
             return false;
         }
     }
     return true;
 }
 
-bool King::can_attack(uint8_t file, uint8_t rank) {
+bool King::can_attack(int8_t file, int8_t rank) {
     return abs(file - this->file) <= 1 && abs(rank - this->rank) <= 1;
 }
 
-uint8_t King::get_piece_uint8_t() {
+char King::get_piece_char() {
     if (color == Board::BLACK) {
         return 'k';
     }
