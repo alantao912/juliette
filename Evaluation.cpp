@@ -31,17 +31,17 @@ namespace PlacementIncentives {
 static Board *subject = nullptr;
 
 /* Pieces of the current turn color. */
-std::vector<Piece *> *current_pieces = nullptr;
+static std::vector<Piece *> *current_pieces = nullptr;
 
 /* Pieces of the opposite turn color. */
-std::vector<Piece *> *opponent_pieces = nullptr;
+static std::vector<Piece *> *opponent_pieces = nullptr;
 
 static short dereference_hitboard(uint64_t hit_board, const short *incentives,  int8_t (Board::*indexing_function) (int8_t, int8_t)) {
     short e = 0;
     uint8_t i = 0;
     while (hit_board) {
-        if (hit_board & 1) {
-            e += incentives[(subject->*indexing_function) (i % 8, i / 8)];
+        if (hit_board & 1ULL) {
+            e += incentives[(subject->*indexing_function) (i % 8, (i / 8) + 1)];
         }
         hit_board >>= 1;
     }
@@ -66,7 +66,6 @@ int evaluate(Board *board) {
         current_indexing_function = Board::offset_invert_rank;
         opponent_indexing_function = Board::offset;
     }
-    
     evaluation += (piece_placement_score(subject->move, current_indexing_function) - piece_placement_score((Board::Color) ((subject->move + 1) % 2), opponent_indexing_function));
     return evaluation;
 }
@@ -124,25 +123,30 @@ static int material_score() {
 }
 
 static short piece_placement_score(Board::Color color, int8_t (Board::*indexing_function) (int8_t, int8_t)) {
-    short placement_evaluation = 0;
+    short e = 0;
     /* Collection of pieces of the same type */
     std::vector<Piece *> *piece_collection = nullptr;
     /* 64-bit bitboard which indicate the squares hit by each of the collective piece types. */
-    uint64_t hitboard = (uint64_t) 0;
+    uint64_t hitboard = 0ULL;
     piece_collection = subject->get_collection(color, KNIGHT);
     /* Computes bitboard for all squares hit by knights */
     for (size_t i = 0; i < piece_collection->size(); ++i) {
         Piece *knight = piece_collection->at(i);
+        if (knight->is_taken) {
+            continue;
+        }
         hitboard |= knight->squares_hit;
     }
-    placement_evaluation += dereference_hitboard(hitboard, PlacementIncentives::knight, indexing_function);
-
-    hitboard = (uint64_t) 0;
+    e += dereference_hitboard(hitboard, PlacementIncentives::knight, indexing_function);
+    hitboard = 0ULL;
     piece_collection = subject->get_collection(color, PAWN);
     for (size_t i = 0; i < piece_collection->size(); ++i) {
         Piece *pawn = piece_collection->at(i);
+        if (pawn->is_taken) {
+            continue;
+        }
         hitboard |= pawn->squares_hit;
     }
-    placement_evaluation += dereference_hitboard(hitboard, PlacementIncentives::pawn, indexing_function);
-    return placement_evaluation;
+    e += dereference_hitboard(hitboard, PlacementIncentives::pawn, indexing_function);
+    return e;
 }

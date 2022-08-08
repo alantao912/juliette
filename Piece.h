@@ -83,4 +83,6 @@ public:
     virtual char get_piece_char() { return ' ';};
 
     virtual uint8_t get_type() {return KING;};
+
+    virtual uint8_t hash_value() { return 0;}
 };

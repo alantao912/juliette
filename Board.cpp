@@ -259,10 +259,12 @@ Board::Board(const char *fen) {
 
     for (Piece *p : white_pieces) {
         squares[offset(p->file, p->rank)] = p;
+        pieces[offset(p->file, p->rank)] = 0 | p->hash_value();
     }
 
     for (Piece *p : black_pieces) {
         squares[offset(p->file, p->rank)] = p;
+        pieces[offset(p->file, p->rank)] = 0 | p->hash_value();
     }
 
     for (uint8_t j = 0; j < 4; ++j) {
@@ -411,7 +413,7 @@ void Board::print_rank(int8_t rank) {
 
     std::cout << ("\n||");
 
-    for (uint8_t file = 0; file < 8; ++file) {
+    for (int8_t file = 0; file < 8; ++file) {
         if ((rank + file) % 2 == 0) {
             /* White square */
             std::cout << ("   ");
@@ -422,7 +424,7 @@ void Board::print_rank(int8_t rank) {
         std::cout << ("||");
     }
     std::cout << ("\n||");
-    for (uint8_t file = 0; file < 8; ++file) {
+    for (int8_t file = 0; file < 8; ++file) {
 
         Piece *p = squares[offset(file, rank)];
         if ((rank + file) % 2 == 0) {
@@ -447,7 +449,7 @@ void Board::print_rank(int8_t rank) {
         std::cout << ("||");
     }
     std::cout << ("\n||");
-    for (uint8_t file = 0; file < 8; ++file) {
+    for (int8_t file = 0; file < 8; ++file) {
         if ((rank + file) % 2 == 0) {
             /* White square */
             std::cout << ("   ");
@@ -525,12 +527,16 @@ void Board::make_move(uint32_t move) {
     int8_t ff = GET_FROM_FILE(move), fr = GET_FROM_RANK(move);
     int8_t tf = GET_TO_FILE(move), tr = GET_TO_RANK(move);
 
-    Piece *mp = squares[offset(ff, fr)];
-    squares[offset(ff, fr)] = nullptr;
+    int8_t f = offset(ff, fr);
+    Piece *mp = squares[f];
+    pieces[f] = (int8_t) 0;
+    squares[f] = nullptr;
 
     if (GET_IS_CAPTURE(move)) {
         Piece *cp = squares[offset(tf, tr)];
-        squares[offset(tf, tr)] = nullptr;
+        int8_t t = offset(tf, tr);
+        squares[t] = nullptr;
+        pieces[t] = 0;
         captured_pieces.push(cp);
         cp->is_taken = true;
     }
@@ -547,13 +553,24 @@ void Board::make_move(uint32_t move) {
     if (GET_SHORT_CASTLING(move)) {
         Rook *rook = dynamic_cast<Rook *>(inspect(H_FILE, fr));
         rook->file = F_FILE;
+        int8_t rf = offset(H_FILE, fr);
         squares[offset(H_FILE, fr)] = nullptr;
+        pieces[rf] = 0;
+
+        int8_t rt = offset(F_FILE, fr);
         squares[offset(F_FILE, fr)] = rook;
+        pieces[rt] = rook->hash_value();
     } else if (GET_LONG_CASTLING(move)) {
         Rook *rook = dynamic_cast<Rook *> (inspect(A_FILE, fr));
         rook->file = D_FILE;
-        squares[offset(A_FILE, fr)] = nullptr;
-        squares[offset(D_FILE, fr)] = rook;
+
+        int8_t rf = offset(A_FILE, fr);
+        squares[rf] = nullptr;
+        pieces[rf] = 0;
+
+        int8_t rt = offset(D_FILE, fr);
+        squares[rt] = rook;
+        pieces[rt] = rook->hash_value();
     }
 
     if (GET_PIECE_MOVED(move) == PAWN) {
@@ -585,13 +602,17 @@ void Board::make_move(uint32_t move) {
             prev_jmp_pawn = pawn;
         } else if (GET_IS_ENPASSANT(move)) {
             Piece *cp = squares[offset(tf, tr - pawn->get_direction())];
-            squares[offset(tf, tr - pawn->get_direction())] = nullptr;
+            int8_t t = offset(tf, tr - pawn->get_direction());
+            squares[t] = nullptr;
+            pieces[t] = 0;
             captured_pieces.push(cp);
             cp->is_taken = true;
         }
     }
 
-    squares[offset(tf, tr)] = mp;
+    int8_t t = offset(tf, tr);
+    squares[t] = mp;
+    pieces[t] = mp->hash_value();
     mp->file = tf;
     mp->rank = tr;
 
@@ -613,17 +634,21 @@ uint32_t Board::revert_move() {
     const uint32_t prev_move = move_stack.top();
     move_stack.pop();
 
-    uint8_t ff = GET_FROM_FILE(prev_move), fr = GET_FROM_RANK(prev_move);
-    uint8_t tf = GET_TO_FILE(prev_move), tr = GET_TO_RANK(prev_move);
+    int8_t ff = GET_FROM_FILE(prev_move), fr = GET_FROM_RANK(prev_move);
+    int8_t tf = GET_TO_FILE(prev_move), tr = GET_TO_RANK(prev_move);
 
-    Piece *mp = squares[offset(tf, tr)];
-    squares[offset(tf, tr)] = nullptr;
+    int8_t t = offset(tf, tr);
+    Piece *mp = squares[t];
+    squares[t] = nullptr;
+    pieces[t] = 0;
 
     if (GET_IS_CAPTURE(prev_move)) {
         Piece *cp = captured_pieces.top();
         captured_pieces.pop();
         cp->is_taken = false;
-        squares[offset(tf, tr)] = cp;
+        int8_t t = offset(tf, tr);
+        squares[t] = cp;
+        pieces[t] = cp->hash_value();
     }
 
     if (GET_REM_LCASTLE(prev_move)) {
@@ -638,14 +663,24 @@ uint32_t Board::revert_move() {
 
     if (GET_SHORT_CASTLING(prev_move)) {
         Rook *rook = dynamic_cast<Rook *> (inspect(F_FILE, tr));
-        squares[offset(F_FILE, tr)] = nullptr;
+        int8_t rt = offset(F_FILE, tr);
+        squares[rt] = nullptr;
+        pieces[rt] = 0;
+
         rook->file = H_FILE;
-        squares[offset(H_FILE, tr)] = rook;
+        int8_t rf = offset(H_FILE, tr);
+        squares[rf] = rook;
+        pieces[rf] = rook->hash_value();
     } else if (GET_LONG_CASTLING(prev_move)) {
         Rook *rook = dynamic_cast<Rook *> (inspect(D_FILE, tr));
-        squares[offset(D_FILE, tr)] = nullptr;
+        int8_t rt = offset(D_FILE, tr);
+        squares[rt] = nullptr;
+        pieces[rt] = 0;
+
         rook->file = A_FILE;
-        squares[offset(A_FILE, tr)] = rook;
+        int8_t rf = offset(A_FILE, tr);
+        squares[rf] = rook;
+        pieces[rf] = rook->hash_value();
     }
 
     if (GET_PIECE_MOVED(prev_move) == PAWN) {
@@ -665,7 +700,9 @@ uint32_t Board::revert_move() {
             Piece *cp = captured_pieces.top();
             captured_pieces.pop();
             cp->is_taken = false;
-            squares[offset(tf, tr - pawn->get_direction())] = cp;
+            int8_t t = offset(tf, tr - pawn->get_direction());
+            squares[t] = cp;
+            pieces[t] = cp->hash_value();
         }
     }
 
@@ -678,7 +715,9 @@ uint32_t Board::revert_move() {
         }
     }
 
-    squares[offset(ff, fr)] = mp;
+    int8_t f = offset(ff, fr);
+    squares[f] = mp;
+    pieces[f] = mp->hash_value();
     mp->file = ff;
     mp->rank = fr;
 

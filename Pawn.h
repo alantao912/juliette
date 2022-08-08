@@ -27,4 +27,6 @@ public:
     int8_t get_direction();
 
     uint8_t get_type();
+
+    uint8_t hash_value();
 };

@@ -19,4 +19,6 @@ public:
     char get_piece_char();
 
     uint8_t get_type();
+
+    uint8_t hash_value();
 };

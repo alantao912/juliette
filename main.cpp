@@ -4,7 +4,7 @@
 #include "King.h"
 
 void play_game() {
-    Board *board = new Board("8/6k1/8/8/3P4/5K2/8/8 w -- --");
+    Board *board = new Board(START_POSITION);
     while (true) {
         board->print_board();
         std::vector<uint32_t> *move_list = board->generate_moves();

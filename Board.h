@@ -43,6 +43,8 @@ public:
 
     Color move;
 
+    char pieces[64];
+
     /**
      * @brief Indicates whether the state of the board is in the opening, middle-game, or endgame.
      */

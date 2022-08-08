@@ -24,4 +24,6 @@ bool can_castle_short();
     bool can_attack(int8_t file, int8_t rank);
 
     char get_piece_char();
+
+    uint8_t hash_value();
 };

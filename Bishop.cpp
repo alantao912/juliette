@@ -98,3 +98,7 @@ char Bishop::get_piece_char() {
     }
     return 'B';
 }
+
+uint8_t Bishop::hash_value() {
+    return BISHOP | (color * (1 << 3)) | (parent->move * (1 << 4));
+}
