@@ -99,3 +99,7 @@ char King::get_piece_char() {
     }
     return 'K';
 }
+
+uint8_t King::hash_value() {
+    return KING | (color * (1 << 3)) | (parent->move * (1 << 4)) | (long_castle_rights * (1 << 5)) | (short_castle_rights * (1 << 6));
+}

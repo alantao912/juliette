@@ -259,12 +259,12 @@ Board::Board(const char *fen) {
 
     for (Piece *p : white_pieces) {
         squares[offset(p->file, p->rank)] = p;
-        pieces[offset(p->file, p->rank)] = 0 | p->hash_value();
+        position_hash[offset(p->file, p->rank)] = 0 | p->hash_value();
     }
 
     for (Piece *p : black_pieces) {
         squares[offset(p->file, p->rank)] = p;
-        pieces[offset(p->file, p->rank)] = 0 | p->hash_value();
+        position_hash[offset(p->file, p->rank)] = 0 | p->hash_value();
     }
 
     for (uint8_t j = 0; j < 4; ++j) {
@@ -314,6 +314,13 @@ King *Board::get_my_king(Color color) {
     return black_king;
 }
 
+King *Board::get_opponent_king(Color color) {
+    if (color == WHITE) {
+        return black_king;
+    }
+    return white_king;
+}
+
 std::vector<uint32_t> *Board::generate_moves() {
     std::vector<uint32_t> *move_list = new std::vector<uint32_t>();
     if (move == WHITE) {
@@ -331,25 +338,58 @@ std::vector<uint32_t> *Board::generate_moves() {
             p->add_moves(move_list);
         }
     }
-    remove_illegal_moves(move_list);
+    filter_moves(move_list);
     return move_list;
 }
 
-void Board::remove_illegal_moves(std::vector<uint32_t> *move_list) {
-    King *king = get_my_king(this->move);
+void Board::filter_moves(std::vector<uint32_t> *move_list) {
+    King *my_king = get_my_king(this->move), *opponent_king = get_opponent_king(this->move);
+    std::vector<Piece *> *my_pieces = get_pieces_of_color(this->move), *opponent_pieces = get_opposite_pieces(this->move);
+    /* Store the number of checks*/
+    uint8_t checks_or_captures = 0;
     for (size_t i = 0; i < move_list->size(); ++i) {
         uint32_t candidate_move = move_list->at(i);
         make_move(candidate_move);
-        std::vector<Piece *> *opposite_pieces = get_pieces_of_color(this->move);
-        for (Piece *opponent_piece : *opposite_pieces) {
-            if (opponent_piece->can_attack(king->file, king->rank)) {
+        bool found_illegal = false;
+        for (Piece *opponent_piece : *opponent_pieces) {
+            if (!opponent_piece->is_taken && opponent_piece->can_attack(my_king->file, my_king->rank)) {
                 /* King is in check as a result of the candidate move. Thus candidate move is illegal. */
                 move_list->at(i) = move_list->back();
                 move_list->pop_back();
                 --i;
+                found_illegal = true;
+                break;
+            }
+        }
+        
+        if (found_illegal) {
+            revert_move();
+            continue;
+        }
+
+        found_illegal = false;
+        for (Piece *my_piece : *my_pieces) {
+            if (!my_piece->is_taken && my_piece->can_attack(opponent_king->file, opponent_king->rank)) {
+                /* Opponent's king is in check as a result of the candidate move. Move to front. */
+                uint32_t move = move_list->at(checks_or_captures);
+                move_list->at(checks_or_captures) = move_list->at(i);
+                move_list->at(i) = move;
+                ++checks_or_captures;
+                found_illegal = true;
+                break;
             }
         }
         revert_move();
+        if (found_illegal) {
+            continue;
+        }
+
+        if (GET_IS_CAPTURE(candidate_move)) {
+            /* Move was a capture, move to front. */
+            move_list->at(i) = move_list->at(checks_or_captures);
+            move_list->at(checks_or_captures) = candidate_move;
+            ++checks_or_captures;
+        }
     }
 }
 
@@ -529,14 +569,14 @@ void Board::make_move(uint32_t move) {
 
     int8_t f = offset(ff, fr);
     Piece *mp = squares[f];
-    pieces[f] = (int8_t) 0;
+    position_hash[f] = (int8_t) 0;
     squares[f] = nullptr;
 
     if (GET_IS_CAPTURE(move)) {
         Piece *cp = squares[offset(tf, tr)];
         int8_t t = offset(tf, tr);
         squares[t] = nullptr;
-        pieces[t] = 0;
+        position_hash[t] = 0;
         captured_pieces.push(cp);
         cp->is_taken = true;
     }
@@ -555,22 +595,22 @@ void Board::make_move(uint32_t move) {
         rook->file = F_FILE;
         int8_t rf = offset(H_FILE, fr);
         squares[offset(H_FILE, fr)] = nullptr;
-        pieces[rf] = 0;
+        position_hash[rf] = 0;
 
         int8_t rt = offset(F_FILE, fr);
         squares[offset(F_FILE, fr)] = rook;
-        pieces[rt] = rook->hash_value();
+        position_hash[rt] = rook->hash_value();
     } else if (GET_LONG_CASTLING(move)) {
         Rook *rook = dynamic_cast<Rook *> (inspect(A_FILE, fr));
         rook->file = D_FILE;
 
         int8_t rf = offset(A_FILE, fr);
         squares[rf] = nullptr;
-        pieces[rf] = 0;
+        position_hash[rf] = 0;
 
         int8_t rt = offset(D_FILE, fr);
         squares[rt] = rook;
-        pieces[rt] = rook->hash_value();
+        position_hash[rt] = rook->hash_value();
     }
 
     if (GET_PIECE_MOVED(move) == PAWN) {
@@ -604,7 +644,7 @@ void Board::make_move(uint32_t move) {
             Piece *cp = squares[offset(tf, tr - pawn->get_direction())];
             int8_t t = offset(tf, tr - pawn->get_direction());
             squares[t] = nullptr;
-            pieces[t] = 0;
+            position_hash[t] = 0;
             captured_pieces.push(cp);
             cp->is_taken = true;
         }
@@ -612,7 +652,7 @@ void Board::make_move(uint32_t move) {
 
     int8_t t = offset(tf, tr);
     squares[t] = mp;
-    pieces[t] = mp->hash_value();
+    position_hash[t] = mp->hash_value();
     mp->file = tf;
     mp->rank = tr;
 
@@ -640,7 +680,7 @@ uint32_t Board::revert_move() {
     int8_t t = offset(tf, tr);
     Piece *mp = squares[t];
     squares[t] = nullptr;
-    pieces[t] = 0;
+    position_hash[t] = 0;
 
     if (GET_IS_CAPTURE(prev_move)) {
         Piece *cp = captured_pieces.top();
@@ -648,7 +688,7 @@ uint32_t Board::revert_move() {
         cp->is_taken = false;
         int8_t t = offset(tf, tr);
         squares[t] = cp;
-        pieces[t] = cp->hash_value();
+        position_hash[t] = cp->hash_value();
     }
 
     if (GET_REM_LCASTLE(prev_move)) {
@@ -665,22 +705,22 @@ uint32_t Board::revert_move() {
         Rook *rook = dynamic_cast<Rook *> (inspect(F_FILE, tr));
         int8_t rt = offset(F_FILE, tr);
         squares[rt] = nullptr;
-        pieces[rt] = 0;
+        position_hash[rt] = 0;
 
         rook->file = H_FILE;
         int8_t rf = offset(H_FILE, tr);
         squares[rf] = rook;
-        pieces[rf] = rook->hash_value();
+        position_hash[rf] = rook->hash_value();
     } else if (GET_LONG_CASTLING(prev_move)) {
         Rook *rook = dynamic_cast<Rook *> (inspect(D_FILE, tr));
         int8_t rt = offset(D_FILE, tr);
         squares[rt] = nullptr;
-        pieces[rt] = 0;
+        position_hash[rt] = 0;
 
         rook->file = A_FILE;
         int8_t rf = offset(A_FILE, tr);
         squares[rf] = rook;
-        pieces[rf] = rook->hash_value();
+        position_hash[rf] = rook->hash_value();
     }
 
     if (GET_PIECE_MOVED(prev_move) == PAWN) {
@@ -702,7 +742,7 @@ uint32_t Board::revert_move() {
             cp->is_taken = false;
             int8_t t = offset(tf, tr - pawn->get_direction());
             squares[t] = cp;
-            pieces[t] = cp->hash_value();
+            position_hash[t] = cp->hash_value();
         }
     }
 
@@ -717,7 +757,7 @@ uint32_t Board::revert_move() {
 
     int8_t f = offset(ff, fr);
     squares[f] = mp;
-    pieces[f] = mp->hash_value();
+    position_hash[f] = mp->hash_value();
     mp->file = ff;
     mp->rank = fr;
 

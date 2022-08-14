@@ -6,8 +6,8 @@
 #include "Board.h"
 
 class BoardHasher {
-
-    size_t operator() (const uint8_t *&board) const {
+public:
+    size_t operator() (const uint8_t *board) const {
         size_t hash = 0;
         for (uint8_t i = 0; i < 64; ++i) {
             hash += board[i];
@@ -18,7 +18,8 @@ class BoardHasher {
 };
 
 class BoardComparator {
-    bool operator() (const uint8_t *&board1, const uint8_t *&board2) const {
+public:
+    bool operator() (const uint8_t *board1, const uint8_t *board2) const {
         for (uint8_t i = 0; i < 64; ++i) {
             if (board1[i] != board2[i]) {
                 return false;

@@ -11,9 +11,9 @@ private:
 
     bool can_castle_long();
 
-public:
+    bool can_castle_short();
 
-bool can_castle_short();
+public:
 
     bool long_castle_rights, short_castle_rights;
 

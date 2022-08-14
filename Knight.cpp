@@ -39,3 +39,7 @@ char Knight::get_piece_char() {
 uint8_t Knight::get_type() {
     return KNIGHT;
 }
+
+uint8_t Knight::hash_value() {
+    return KNIGHT | (color * (1 << 3)) | (parent->move * (1 << 4));
+}

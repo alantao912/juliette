@@ -43,7 +43,9 @@ public:
 
     Color move;
 
-    char pieces[64];
+    /* 64 byte hash for the board's state */
+
+    char position_hash[64];
 
     /**
      * @brief Indicates whether the state of the board is in the opening, middle-game, or endgame.
@@ -117,6 +119,8 @@ public:
 
     King *get_my_king(Color color);
 
+    King *get_opponent_king(Color color);
+
     /* Prints the board using ASCII characters to stdout */
 
     void print_board();
@@ -151,9 +155,10 @@ private:
 
     /**
      * @brief Takes a vector of moves and takes out the moves that results in the king being in check.
+     * Orders the moves putting checks first, captures second, then quiet moves.
      */
 
-    void remove_illegal_moves(std::vector<uint32_t> *move_list);
+    void filter_moves(std::vector<uint32_t> *move_list);
 
     /**
      * @brief Removes a given piece from the specified collection. If piece is not found in collection, collection is left unchanged. 
