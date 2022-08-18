@@ -345,7 +345,7 @@ std::vector<uint32_t> *Board::generate_moves() {
 void Board::filter_moves(std::vector<uint32_t> *move_list) {
     King *my_king = get_my_king(this->move), *opponent_king = get_opponent_king(this->move);
     std::vector<Piece *> *my_pieces = get_pieces_of_color(this->move), *opponent_pieces = get_opposite_pieces(this->move);
-    /* Store the number of checks*/
+    /* Store the number of checks or captures */
     uint8_t checks = 0;
     for (size_t i = 0; i < move_list->size(); ++i) {
         uint32_t candidate_move = move_list->at(i);
@@ -430,18 +430,25 @@ void Board::print_board() {
         print_rank(rank);
     }
 
+    std::cout << "  ";
     for (int8_t i = 0; i < 7; ++i) {
         std::cout << "------";
     }
     std::cout << "\n";
+    std::cout << "     ";
+    for (char c = 'a'; c <= 'h'; ++c) {
+        std::cout << c << "    ";
+    }
+    std::cout << '\n' << std::endl;
 }
 
 void Board::print_rank(int8_t rank) {
+    std::cout << "  ";
     for (uint8_t i = 0; i < 7; ++i) {
         std::cout << ("------");
     }
 
-    std::cout << ("\n||");
+    std::cout << "\n  ||";
 
     for (int8_t file = 0; file < 8; ++file) {
         if ((rank + file) % 2 == 0) {
@@ -453,7 +460,7 @@ void Board::print_rank(int8_t rank) {
         }
         std::cout << ("||");
     }
-    std::cout << ("\n||");
+    std::cout << '\n' << (int) rank << " ||";
     for (int8_t file = 0; file < 8; ++file) {
 
         Piece *p = squares[offset(file, rank)];
@@ -478,7 +485,7 @@ void Board::print_rank(int8_t rank) {
         }
         std::cout << ("||");
     }
-    std::cout << ("\n||");
+    std::cout << ("\n  ||");
     for (int8_t file = 0; file < 8; ++file) {
         if ((rank + file) % 2 == 0) {
             /* White square */
