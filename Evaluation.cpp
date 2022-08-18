@@ -66,7 +66,7 @@ int evaluate(Board *board) {
         current_indexing_function = Board::offset_invert_rank;
         opponent_indexing_function = Board::offset;
     }
-    evaluation += (piece_placement_score(subject->move, current_indexing_function) - piece_placement_score((Board::Color) ((subject->move + 1) % 2), opponent_indexing_function));
+    // evaluation += (piece_placement_score(subject->move, current_indexing_function) - piece_placement_score((Board::Color) ((subject->move + 1) % 2), opponent_indexing_function));
     return evaluation;
 }
 

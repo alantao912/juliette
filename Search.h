@@ -31,6 +31,8 @@ public:
 
 std::unordered_set<uint8_t *, BoardHasher, BoardComparator> positions_seen;
 
+std::stack<uint32_t> top_line;
+
 Board *subject;
 
 uint32_t search(Board *board, uint16_t depth);

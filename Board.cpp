@@ -346,49 +346,39 @@ void Board::filter_moves(std::vector<uint32_t> *move_list) {
     King *my_king = get_my_king(this->move), *opponent_king = get_opponent_king(this->move);
     std::vector<Piece *> *my_pieces = get_pieces_of_color(this->move), *opponent_pieces = get_opposite_pieces(this->move);
     /* Store the number of checks*/
-    uint8_t checks_or_captures = 0;
+    uint8_t checks = 0;
     for (size_t i = 0; i < move_list->size(); ++i) {
         uint32_t candidate_move = move_list->at(i);
         make_move(candidate_move);
-        bool found_illegal = false;
         for (Piece *opponent_piece : *opponent_pieces) {
             if (!opponent_piece->is_taken && opponent_piece->can_attack(my_king->file, my_king->rank)) {
                 /* King is in check as a result of the candidate move. Thus candidate move is illegal. */
                 move_list->at(i) = move_list->back();
                 move_list->pop_back();
                 --i;
-                found_illegal = true;
-                break;
+                goto END;
             }
         }
         
-        if (found_illegal) {
-            revert_move();
-            continue;
-        }
-
-        found_illegal = false;
         for (Piece *my_piece : *my_pieces) {
             if (!my_piece->is_taken && my_piece->can_attack(opponent_king->file, opponent_king->rank)) {
-                /* Opponent's king is in check as a result of the candidate move. Move to front. */
-                uint32_t move = move_list->at(checks_or_captures);
-                move_list->at(checks_or_captures) = move_list->at(i);
-                move_list->at(i) = move;
-                ++checks_or_captures;
-                found_illegal = true;
-                break;
+                // Opponent's king is in check as a result of the candidate move. Move to front.
+                move_list->at(i) = move_list->at(checks);
+                move_list->at(checks) = candidate_move | IS_CHECK;
+                ++checks;
+                goto END;
             }
         }
+        END:
         revert_move();
-        if (found_illegal) {
-            continue;
-        }
+    }
 
+    for (size_t i = checks; i < move_list->size(); ++i) {
+        uint32_t candidate_move = move_list->at(i);
         if (GET_IS_CAPTURE(candidate_move)) {
-            /* Move was a capture, move to front. */
-            move_list->at(i) = move_list->at(checks_or_captures);
-            move_list->at(checks_or_captures) = candidate_move;
-            ++checks_or_captures;
+            move_list->at(i) = move_list->at(checks);
+            move_list->at(checks) = candidate_move;
+            ++checks;
         }
     }
 }
@@ -557,6 +547,10 @@ void Board::print_move(uint32_t move) {
             break;
         }
     }
+
+    if (GET_IS_CHECK(move)) {
+        std::cout << "+";
+    }
 }
 
 void Board::make_move(uint32_t move) {
@@ -676,7 +670,6 @@ uint32_t Board::revert_move() {
 
     int8_t ff = GET_FROM_FILE(prev_move), fr = GET_FROM_RANK(prev_move);
     int8_t tf = GET_TO_FILE(prev_move), tr = GET_TO_RANK(prev_move);
-
     int8_t t = offset(tf, tr);
     Piece *mp = squares[t];
     squares[t] = nullptr;
@@ -706,7 +699,6 @@ uint32_t Board::revert_move() {
         int8_t rt = offset(F_FILE, tr);
         squares[rt] = nullptr;
         position_hash[rt] = 0;
-
         rook->file = H_FILE;
         int8_t rf = offset(H_FILE, tr);
         squares[rf] = rook;
@@ -716,7 +708,6 @@ uint32_t Board::revert_move() {
         int8_t rt = offset(D_FILE, tr);
         squares[rt] = nullptr;
         position_hash[rt] = 0;
-
         rook->file = A_FILE;
         int8_t rf = offset(A_FILE, tr);
         squares[rf] = rook;
@@ -760,6 +751,5 @@ uint32_t Board::revert_move() {
     position_hash[f] = mp->hash_value();
     mp->file = ff;
     mp->rank = fr;
-
     return prev_move;
 }

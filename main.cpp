@@ -1,10 +1,11 @@
 #include <iostream>
 #include "Evaluation.h"
 #include "Board.h"
+#include "Bishop.h"
 #include "King.h"
 
 void play_game() {
-    Board *board = new Board(START_POSITION);
+    Board *board = new Board("rnbq1bnr/ppppk1pp/8/7Q/3pP3/8/PPP2PPP/RNB1KB1R w KQ --");
     while (true) {
         board->print_board();
         std::vector<uint32_t> *move_list = board->generate_moves();
@@ -20,50 +21,19 @@ void play_game() {
         scanf("%d", &move_num);
         if (move_num == 0) {
             board->revert_move();
+            
         } else if (move_num > move_list->size()) {
             std::cout << "Please enter a number < " << move_list->size() + 1 << std::endl;
         } else {
             board->make_move(move_list->at(move_num - 1));
         }
-        system("cls");
+        // system("cls");
         delete move_list;
     }
+    delete board;
 }
 
 int main(int argc, char *argv[]) {
     play_game();
-
-    
-    Board *pos = new Board("8/6k1/8/8/3P4/5K2/8/8 w -- --");
-    delete pos->generate_moves();
-    
-    for (Piece *p : *(pos->get_white_pieces())) {
-        std::cout << p->get_piece_char() << std::endl;
-        
-        uint64_t hit = p->squares_hit;
-        uint64_t f = 0; 
-        int r = 7, i = 0;
-        while (i < 64) {
-            int j = r * 8 + f;
-            uint64_t mask = 1ULL << (j);
-            
-            if (mask & hit) {
-                std::cout << "& ";
-            } else {
-                std::cout << "- ";
-            }
-            
-            ++f;
-            if (f == 8) {
-                std::cout << '\n';
-                --r;
-                f = 0;
-            }
-            ++i;
-        }
-        
-        std::cout << "\n\n";
-    }
-    
     return 0;
 }

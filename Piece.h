@@ -44,6 +44,9 @@
 #define SHORT_CASTLING 1 << 20
 #define GET_SHORT_CASTLING(move) ((move & (1 << 20)) != 0)
 
+#define IS_CHECK 1 << 21
+#define GET_IS_CHECK(move) ((move & (1 << 21)) != 0)
+
 #define SET_PIECE_MOVED(piece) (piece << 29)
 #define REM_PIECE_MOVED(move) (move = (move & ~(7 << 29)))
 #define GET_PIECE_MOVED(move) ((move & (7 << 29)) >> 29)

@@ -85,7 +85,7 @@ bool Bishop::can_attack(int8_t from_file, int8_t from_rank, int8_t to_file, int8
 }
 
 bool Bishop::can_attack(int8_t to_file, int8_t to_rank) {
-    return Bishop::can_attack(this->file, this->rank, file, rank, parent);
+    return Bishop::can_attack(this->file, this->rank, to_file, to_rank, parent);
 }
 
 uint8_t Bishop::get_type() {
