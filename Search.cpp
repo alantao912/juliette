@@ -1,5 +1,11 @@
 #include "Search.h"
+#include "Piece.h"
 #include "Evaluation.h"
+
+inline bool no_captures_or_checks_remaining(std::vector<uint32_t> *move_list) {
+    uint32_t move = move_list->at(0);
+    return !(GET_IS_CAPTURE(move) || GET_IS_CHECK(move));
+}
 
 /**
  * @brief Returns an integer value, representing the evaluation of the specified move.
@@ -9,15 +15,16 @@ int32_t evaluate_position_max(uint16_t depth, int32_t alpha, int32_t beta);
 
 int32_t evaluate_position_min(uint16_t depth, int32_t alpha, int32_t beta) {
     positions_seen.insert((uint8_t *) subject->position_hash);
-    if (depth == 0) {
-        return evaluate(subject);
-    }
     std::vector<uint32_t> *move_list = subject->generate_moves();
     if (move_list->size() == 0) {
         if (subject->is_king_in_check()) {
             return INT32_MAX;
         }
         return (int32_t) 0;
+    }
+    
+    if (depth == 0 && no_captures_or_checks_remaining(move_list)) {
+        return evaluate(subject);
     }
     int32_t value = INT32_MAX;
     uint32_t best_move = 0;
@@ -45,10 +52,6 @@ int32_t evaluate_position_min(uint16_t depth, int32_t alpha, int32_t beta) {
 
 int32_t evaluate_position_max(uint16_t depth, int32_t alpha, int32_t beta) {
     positions_seen.insert((uint8_t *) subject->position_hash);
-    if (depth == 0) {
-        return evaluate(subject);
-    }
-    
     std::vector<uint32_t> *move_list = subject->generate_moves();
     if (move_list->size() == 0) {
         if (subject->is_king_in_check()) {
@@ -56,6 +59,11 @@ int32_t evaluate_position_max(uint16_t depth, int32_t alpha, int32_t beta) {
         }
         return (int32_t) 0;
     }
+
+    if (depth == 0 && no_captures_or_checks_remaining(move_list)) {
+        return evaluate(subject);
+    }
+    
     int32_t value = INT32_MIN;
     uint32_t best_move = 0;
     for (size_t i = 0; i < move_list->size(); ++i) {
