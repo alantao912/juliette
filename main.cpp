@@ -1,14 +1,21 @@
 #include <iostream>
-#include "Evaluation.h"
 #include "Board.h"
-#include "Bishop.h"
-#include "King.h"
+#include "Evaluation.h"
+#include "Search.h"
 
 void play_game() {
-    Board *board = new Board("rnbq1bnr/ppppk1pp/8/7Q/3pP3/8/PPP2PPP/RNB1KB1R w KQ --");
+    Board *board = new Board(START_POSITION);
     while (true) {
         board->print_board();
         std::vector<uint32_t> *move_list = board->generate_moves();
+        if (move_list->size() == 0) {
+            if (board->is_king_in_check()) {
+                std::cout << "Checkmate!" << std::endl;
+                break;
+            }
+            std::cout << "Stalemate!" << std::endl;
+            break;
+        } 
         std::cout << "Evaluation: " << evaluate(board) << std::endl;
 
         for (int i = 0; i < move_list->size(); ++i) {
@@ -27,13 +34,18 @@ void play_game() {
         } else {
             board->make_move(move_list->at(move_num - 1));
         }
-        // system("cls");
+        system("cls");
         delete move_list;
     }
     delete board;
 }
 
 int main(int argc, char *argv[]) {
-    play_game();
+    // play_game();
+    Board *board = new Board("8/3r4/6k1/8/8/3R1K2/8/8 w -- --");
+    board->print_board();
+    uint32_t move = search(board, 2);
+    std::cout << "Best move: ";
+    board->print_move(move);
     return 0;
 }

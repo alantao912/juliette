@@ -117,9 +117,19 @@ public:
 
     std::vector<Piece *> *get_collection(Color color, uint8_t type);
 
+    /**
+     * @brief Get the king of the specified color
+     */
+
     King *get_my_king(Color color);
 
+    /**
+     * @brief Gets the king of the opposite color specified.
+     */
+
     King *get_opponent_king(Color color);
+
+    size_t game_depth();
 
     /* Prints the board using ASCII characters to stdout */
 
@@ -136,6 +146,8 @@ public:
     /* Reverts the state of the board to prior the last move on the move stack was made. Pops a move off of the stack. */
     uint32_t revert_move();
 
+    bool is_king_in_check();
+
 private:
     std::stack<uint32_t> move_stack;
     std::stack<Piece *> captured_pieces;
@@ -150,6 +162,8 @@ private:
     King *white_king, *black_king;
 
     Piece *squares[64];
+
+    /* Pointer to pawn that last jumped two squares. */
 
     Pawn *prev_jmp_pawn;
 

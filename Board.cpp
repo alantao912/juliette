@@ -321,6 +321,10 @@ King *Board::get_opponent_king(Color color) {
     return white_king;
 }
 
+size_t Board::game_depth() {
+    return move_stack.size();
+}
+
 std::vector<uint32_t> *Board::generate_moves() {
     std::vector<uint32_t> *move_list = new std::vector<uint32_t>();
     if (move == WHITE) {
@@ -759,4 +763,15 @@ uint32_t Board::revert_move() {
     mp->file = ff;
     mp->rank = fr;
     return prev_move;
+}
+
+bool Board::is_king_in_check() {
+    King *my_king = nullptr;
+    std::vector<Piece *> *opponent_pieces = nullptr;
+    for (Piece *p : *opponent_pieces) {
+        if (p->can_attack(my_king->file, my_king->rank)) {
+            return true;
+        }
+    }
+    return false;
 }
