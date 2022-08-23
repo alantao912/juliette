@@ -2,6 +2,11 @@
 #include "Piece.h"
 #include "Evaluation.h"
 
+inline bool contains_checks_or_captures(std::vector<uint32_t> *move_list) {
+    uint32_t move = move_list->at(0);
+    return !(GET_IS_CAPTURE(move) || !GET_IS_CHECK(move));
+}
+
 /**
  * @brief Returns an integer value, representing the evaluation of the specified move.
  */
@@ -19,7 +24,11 @@ int32_t evaluate_position_min(uint16_t depth, int32_t alpha, int32_t beta) {
     }
     
     if (depth == 0) {
-        return evaluate(subject);
+        if (contains_checks_or_captures(move_list)) {
+            ++depth;
+        } else {
+            return evaluate(subject);
+        }
     }
     int32_t value = INT32_MAX - 1;
     uint32_t best_move = 0;
@@ -56,7 +65,11 @@ int32_t evaluate_position_max(uint16_t depth, int32_t alpha, int32_t beta) {
     }
 
     if (depth == 0) {
-        return evaluate(subject);
+        if (contains_checks_or_captures(move_list)) {
+            ++depth;
+        } else {
+            return evaluate(subject);
+        }
     }
     int32_t value = INT32_MIN + 1;
     uint32_t best_move = 0;
