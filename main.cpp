@@ -42,7 +42,7 @@ void play_game() {
 
 int main(int argc, char *argv[]) {
     // play_game();
-    Board *board = new Board("8/3r4/6k1/8/8/3R1K2/8/8 w -- --");
+    Board *board = new Board("6k1/5ppp/8/8/8/8/1R4K1/8 w -- --");
     board->print_board();
     uint32_t move = search(board, 2);
     std::cout << "Best move: ";

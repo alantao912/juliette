@@ -2,11 +2,6 @@
 #include "Piece.h"
 #include "Evaluation.h"
 
-inline bool no_captures_or_checks_remaining(std::vector<uint32_t> *move_list) {
-    uint32_t move = move_list->at(0);
-    return !(GET_IS_CAPTURE(move) || GET_IS_CHECK(move));
-}
-
 /**
  * @brief Returns an integer value, representing the evaluation of the specified move.
  */
@@ -23,10 +18,10 @@ int32_t evaluate_position_min(uint16_t depth, int32_t alpha, int32_t beta) {
         return (int32_t) 0;
     }
     
-    if (depth == 0 && no_captures_or_checks_remaining(move_list)) {
+    if (depth == 0) {
         return evaluate(subject);
     }
-    int32_t value = INT32_MAX;
+    int32_t value = INT32_MAX - 1;
     uint32_t best_move = 0;
     for (size_t i = 0; i < move_list->size(); ++i) {
         uint32_t candidate_move = move_list->at(i);
@@ -36,7 +31,7 @@ int32_t evaluate_position_min(uint16_t depth, int32_t alpha, int32_t beta) {
             value = next_value;
         }
         subject->revert_move();
-        if (value <= alpha) {
+        if (value <= alpha && value != INT32_MIN) {
             delete move_list;
             return value;
         }
@@ -60,11 +55,10 @@ int32_t evaluate_position_max(uint16_t depth, int32_t alpha, int32_t beta) {
         return (int32_t) 0;
     }
 
-    if (depth == 0 && no_captures_or_checks_remaining(move_list)) {
+    if (depth == 0) {
         return evaluate(subject);
     }
-    
-    int32_t value = INT32_MIN;
+    int32_t value = INT32_MIN + 1;
     uint32_t best_move = 0;
     for (size_t i = 0; i < move_list->size(); ++i) {
         uint32_t candidate_move = move_list->at(i);
@@ -74,7 +68,7 @@ int32_t evaluate_position_max(uint16_t depth, int32_t alpha, int32_t beta) {
             value = next_value;
         }
         subject->revert_move();
-        if (value >= beta) {
+        if (value >= beta && value != INT32_MAX) {
             delete move_list;
             return value;
         }
@@ -85,16 +79,16 @@ int32_t evaluate_position_max(uint16_t depth, int32_t alpha, int32_t beta) {
     }
     delete move_list;
     top_line.push(best_move);
-    return alpha;
+    return value;
 }
 
 
 uint32_t search(Board *board, uint16_t depth) {
     subject = board;
     if  (board->move == Board::WHITE) {
-        evaluate_position_max(depth, INT32_MIN, INT32_MAX);
+        evaluate_position_max(depth, INT32_MIN + 1, INT32_MAX - 1);
     } else {
-        evaluate_position_min(depth, INT32_MIN, INT32_MAX);
+        evaluate_position_min(depth, INT32_MIN + 1, INT32_MAX - 1);
     }
     return top_line.top();
 }

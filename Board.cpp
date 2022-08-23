@@ -766,8 +766,8 @@ uint32_t Board::revert_move() {
 }
 
 bool Board::is_king_in_check() {
-    King *my_king = nullptr;
-    std::vector<Piece *> *opponent_pieces = nullptr;
+    King *my_king = get_my_king(move);
+    std::vector<Piece *> *opponent_pieces = get_opposite_pieces(move);
     for (Piece *p : *opponent_pieces) {
         if (p->can_attack(my_king->file, my_king->rank)) {
             return true;
