@@ -31,8 +31,12 @@ public:
 
 static std::unordered_set<uint8_t *, BoardHasher, BoardComparator> positions_seen;
 
-static std::stack<uint32_t> top_line;
+static std::vector<uint32_t> top_line;
 
 static Board *subject;
 
+static uint16_t starting_depth;
+
 uint32_t search(Board *board, uint16_t depth);
+
+void show_top_line();

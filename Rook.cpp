@@ -70,9 +70,10 @@ bool Rook::can_attack(int8_t from_file, int8_t from_rank, int8_t to_file, int8_t
     int8_t dy = (to_rank > from_rank) - (to_rank < from_rank);
 
     if (dx != 0 && dy != 0) {
+        /* Rook is not on the same file or rank */
         return false;
     }
-
+    /* dx or dy is 0 */
     to_file -= dx;
     to_rank -= dy;
     while (from_file != to_file || from_rank != to_rank) {

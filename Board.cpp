@@ -176,7 +176,10 @@ Board::Board(const char *fen) {
         return;
     }
     i = 0;
-
+    white_king->short_castle_rights = false;
+    white_king->long_castle_rights = false;
+    black_king->short_castle_rights = false;
+    black_king->long_castle_rights = false;
     while (fen_segments[2][i]) {
         switch (fen_segments[2][i]) {
             case 'K':
@@ -255,7 +258,7 @@ Board::Board(const char *fen) {
 
     memset((void *) squares, 0, sizeof(Piece *) * 64);
     prev_jmp_pawn = nullptr;
-    stage = MIDDLEGAME;
+    stage = OPENING;
 
     for (Piece *p : white_pieces) {
         squares[offset(p->file, p->rank)] = p;

@@ -1,10 +1,13 @@
 #include <iostream>
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <windows.h>
 #include "Board.h"
 #include "Evaluation.h"
 #include "Search.h"
 
 void play_game() {
-    Board *board = new Board(START_POSITION);
+    Board *board = new Board("8/4k3/RR4K1/8/8/8/8/8 w -- --");
     while (true) {
         board->print_board();
         std::vector<uint32_t> *move_list = board->generate_moves();
@@ -42,10 +45,40 @@ void play_game() {
 
 int main(int argc, char *argv[]) {
     // play_game();
-    Board *board = new Board("6k1/5ppp/8/8/8/8/1R4K1/8 w -- --");
-    board->print_board();
-    uint32_t move = search(board, 2);
-    std::cout << "Best move: ";
-    board->print_move(move);
+
+    Board *b = new Board("5k2/R7/1R4K1/8/8/8/8/8 w -- --");
+    b->print_board();
+    search(b, 4);
+    show_top_line();
+    /*
+    uint16_t port = 8080;
+    int socket_fd = socket(AF_INET, SOCK_STREAM, 0), option = 1;
+    if (!socket_fd) {
+        std::cout << "Socket creation failed!" << std::endl;
+        return -1;
+    } else {
+        std::cout << "Socket creation succeeded!" << std::endl;
+    }
+
+    if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, (char *) &option, sizeof(option))) {
+        std::cout << "Failed to set socket options" << std::endl;
+        return -1;
+    } else {
+        std::cout << "Successfully set socket options!" << std::endl;
+    }
+
+    struct sockaddr_in address;
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons(port);
+
+    int result = bind(socket_fd, (struct sockaddr *) &address, sizeof(address));
+    if (result < 0) {
+        std::cout << "Socket binding failed!" << std::endl;
+        return -1;
+    } else {
+        std::cout << "Successfully bound socket to port: " << port << '!' << std::endl;
+    }
+    */
     return 0;
 }
