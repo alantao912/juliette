@@ -9,4 +9,14 @@
 #define KNIGHT_MATERIAL 300
 #define PAWN_MATERIAL 100
 
-int evaluate(Board *board);
+/* Pointer to board object that we are currently evaluating */
+static Board *b = nullptr;
+
+static std::vector<Piece *> *white_pieces = nullptr;
+static std::vector<Piece *> *black_pieces = nullptr;
+
+void initialize_evaluation(Board *board);
+
+int32_t evaluate();
+
+int32_t material_score();

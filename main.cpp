@@ -1,9 +1,5 @@
 #include <iostream>
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#include <windows.h>
 #include "Board.h"
-#include "Evaluation.h"
 #include "Search.h"
 
 void play_game() {
@@ -18,8 +14,7 @@ void play_game() {
             }
             std::cout << "Stalemate!" << std::endl;
             break;
-        } 
-        std::cout << "Evaluation: " << evaluate(board) << std::endl;
+        }
 
         for (int i = 0; i < move_list->size(); ++i) {
             std::cout << i + 1 <<  ". ";
@@ -44,11 +39,9 @@ void play_game() {
 }
 
 int main(int argc, char *argv[]) {
-    // play_game();
-
-    Board *b = new Board("5k2/R7/1R4K1/8/8/8/8/8 w -- --");
+    Board *b = new Board("6k1/R7/2Q5/8/8/4K3/8/8 w -- --");
     b->print_board();
-    search(b, 4);
+    search(4);
     show_top_line();
     /*
     uint16_t port = 8080;

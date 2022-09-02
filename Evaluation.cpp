@@ -1,26 +1,18 @@
 #include "Evaluation.h"
 
-/* Pointer to board object that we are currently evaluating */
-static Board *subject = nullptr;
-
-static std::vector<Piece *> *white_pieces = nullptr;
-static std::vector<Piece *> *black_pieces = nullptr;
-
-static int material_score();
-
-int evaluate(Board *board) {
-    subject = board;
+void initialize_evaluation(Board *board) {
+    b = board;
     white_pieces = board->get_white_pieces();
     black_pieces = board->get_black_pieces();
+}
 
+int32_t evaluate() {
     int evaluation = 0;
     evaluation += material_score();
-
-    
     return evaluation;
 }
 
-static int material_score() {
+int32_t material_score() {
     int material_evaluation = 0;
 
     for (Piece *p : *white_pieces) {

@@ -2,6 +2,10 @@
 #include "Piece.h"
 #include "Evaluation.h"
 
+#define BLACK_CHECKMATE(depth) ((INT32_MAX - 1) - (UINT16_MAX - depth))
+#define WHITE_CHECKMATE(depth) ((INT32_MIN + 1) + (UINT16_MAX - depth))
+#define DRAW (uint32_t) 0;
+
 inline bool contains_checks_or_captures(std::vector<uint32_t> *move_list) {
     uint32_t move = move_list->at(0);
     return !(GET_IS_CAPTURE(move) || !GET_IS_CHECK(move));
@@ -21,13 +25,13 @@ int32_t evaluate_position_min(uint16_t depth, int32_t alpha, int32_t beta, std::
     std::vector<uint32_t> *move_list = subject->generate_moves();
     if (move_list->size() == 0) {
         if (subject->is_king_in_check()) {
-            return INT32_MAX - 1 - (starting_depth - depth);
+            return BLACK_CHECKMATE(depth);
         }
-        return (int32_t) 0;
+        return DRAW;
     }
     
     if (depth == 0) {
-        return evaluate(subject);
+        return evaluate();
     }
     int32_t value = INT32_MAX;
     size_t best_move_index = 0;
@@ -44,7 +48,7 @@ int32_t evaluate_position_min(uint16_t depth, int32_t alpha, int32_t beta, std::
             // TODO: Free vector of inferior line.
         }
         subject->revert_move();
-        if (value < alpha && depth != starting_depth) {
+        if (value < alpha) {
             /* alpha cutoff. Previous move has been refuted. No further moves need be considered. */
             delete move_list;
             return value;
@@ -66,13 +70,13 @@ int32_t evaluate_position_max(uint16_t depth, int32_t alpha, int32_t beta, std::
     std::vector<uint32_t> *move_list = subject->generate_moves();
     if (move_list->size() == 0) {
         if (subject->is_king_in_check()) {
-            return INT32_MIN + 1 + (starting_depth - depth);
+            return WHITE_CHECKMATE(depth);
         }
-        return (int32_t) 0;
+        return DRAW;
     }
 
     if (depth == 0) {
-        return evaluate(subject);
+        return evaluate();
     }
     int32_t value = INT32_MIN;
     size_t best_move_index = 0;
@@ -88,7 +92,7 @@ int32_t evaluate_position_max(uint16_t depth, int32_t alpha, int32_t beta, std::
             // Free vector of inferior line.
         }
         subject->revert_move();
-        if (value >= beta && depth != starting_depth) {
+        if (value >= beta) {
             /* Beta cutoff. Previous move is refuted. No further moves need be considered */
             delete move_list;
             return value;
@@ -105,11 +109,13 @@ int32_t evaluate_position_max(uint16_t depth, int32_t alpha, int32_t beta, std::
     return value;
 }
 
-
-uint32_t search(Board *board, uint16_t depth) {
+void initialize_search(Board *board) {
     subject = board;
-    starting_depth = depth;
-    if  (board->move == Board::WHITE) {
+}
+
+
+uint32_t search(uint16_t depth) {
+    if  (subject->move == Board::WHITE) {
         evaluate_position_max(depth, INT32_MIN, INT32_MAX, &top_line);
     } else {
         evaluate_position_min(depth, INT32_MIN, INT32_MAX, &top_line);

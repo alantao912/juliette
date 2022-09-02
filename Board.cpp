@@ -6,6 +6,8 @@
 #include "Rook.h"
 #include "Knight.h"
 #include "Pawn.h"
+#include "Evaluation.h"
+#include "Search.h"
 
 Board::Board(const char *fen) {
     uint8_t segment_lengths[4] = {0, 0, 0, 0};
@@ -274,6 +276,8 @@ Board::Board(const char *fen) {
          free(fen_segments[j]);
     }
     std::cout << "Successfully loaded FEN!" << std::endl;
+    initialize_evaluation(this);
+    initialize_search(this);
 }
 
  Piece *Board::inspect(int8_t file, int8_t rank)  {
