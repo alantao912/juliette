@@ -4,11 +4,17 @@
 
 #define BLACK_CHECKMATE(depth) ((INT32_MAX - 1) - (UINT16_MAX - depth))
 #define WHITE_CHECKMATE(depth) ((INT32_MIN + 1) + (UINT16_MAX - depth))
-#define DRAW (uint32_t) 0;
+#define DRAW (int32_t) 0;
 
-inline bool contains_checks_or_captures(std::vector<uint32_t> *move_list) {
-    uint32_t move = move_list->at(0);
-    return !(GET_IS_CAPTURE(move) || !GET_IS_CHECK(move));
+std::unordered_set<uint8_t *, BoardHasher, BoardComparator> positions_seen;
+
+std::vector<uint32_t> top_line;
+
+extern Board *game;
+
+void initialize_search() {
+    top_line.clear();
+    positions_seen.clear();
 }
 
 /**
@@ -21,10 +27,10 @@ inline bool contains_checks_or_captures(std::vector<uint32_t> *move_list) {
 int32_t evaluate_position_max(uint16_t depth, int32_t alpha, int32_t beta, std::vector<uint32_t> *considered_line);
 
 int32_t evaluate_position_min(uint16_t depth, int32_t alpha, int32_t beta, std::vector<uint32_t> *considered_line) {
-    positions_seen.insert((uint8_t *) subject->position_hash);
-    std::vector<uint32_t> *move_list = subject->generate_moves();
-    if (move_list->size() == 0) {
-        if (subject->is_king_in_check()) {
+    positions_seen.insert((uint8_t *) game->position_hash);
+    std::vector<uint32_t> *move_list = game->generate_moves();
+    if (move_list->empty()) {
+        if (game->is_king_in_check()) {
             return BLACK_CHECKMATE(depth);
         }
         return DRAW;
@@ -38,7 +44,7 @@ int32_t evaluate_position_min(uint16_t depth, int32_t alpha, int32_t beta, std::
     std::vector<uint32_t> subsequent_lines[move_list->size()];
     for (size_t i = 0; i < move_list->size(); ++i) {
         uint32_t candidate_move = move_list->at(i);
-        subject->make_move(candidate_move);
+        game->make_move(candidate_move);
         subsequent_lines[i].push_back(candidate_move);
         int32_t next_value = evaluate_position_max(depth - 1, alpha, beta, &(subsequent_lines[i]));
         if (next_value < value) {
@@ -47,7 +53,7 @@ int32_t evaluate_position_min(uint16_t depth, int32_t alpha, int32_t beta, std::
         } else {
             // TODO: Free vector of inferior line.
         }
-        subject->revert_move();
+        game->revert_move();
         if (value < alpha) {
             /* alpha cutoff. Previous move has been refuted. No further moves need be considered. */
             delete move_list;
@@ -66,10 +72,10 @@ int32_t evaluate_position_min(uint16_t depth, int32_t alpha, int32_t beta, std::
 }
 
 int32_t evaluate_position_max(uint16_t depth, int32_t alpha, int32_t beta, std::vector<uint32_t> *considered_line) {
-    positions_seen.insert((uint8_t *) subject->position_hash);
-    std::vector<uint32_t> *move_list = subject->generate_moves();
-    if (move_list->size() == 0) {
-        if (subject->is_king_in_check()) {
+    positions_seen.insert((uint8_t *) game->position_hash);
+    std::vector<uint32_t> *move_list = game->generate_moves();
+    if (move_list->empty()) {
+        if (game->is_king_in_check()) {
             return WHITE_CHECKMATE(depth);
         }
         return DRAW;
@@ -83,15 +89,15 @@ int32_t evaluate_position_max(uint16_t depth, int32_t alpha, int32_t beta, std::
     std::vector<uint32_t> subsequent_lines[move_list->size()];
     for (size_t i = 0; i < move_list->size(); ++i) {
         uint32_t candidate_move = move_list->at(i);
-        subject->make_move(candidate_move);
+        game->make_move(candidate_move);
         subsequent_lines[i].push_back(candidate_move);
         int32_t next_value = evaluate_position_min(depth - 1, alpha, beta, &(subsequent_lines[i]));
         if (next_value > value) {
             value = next_value;
         } else {
-            // Free vector of inferior line.
+            // TODO Free vector of inferior line
         }
-        subject->revert_move();
+        game->revert_move();
         if (value >= beta) {
             /* Beta cutoff. Previous move is refuted. No further moves need be considered */
             delete move_list;
@@ -109,13 +115,8 @@ int32_t evaluate_position_max(uint16_t depth, int32_t alpha, int32_t beta, std::
     return value;
 }
 
-void initialize_search(Board *board) {
-    subject = board;
-}
-
-
 uint32_t search(uint16_t depth) {
-    if  (subject->move == Board::WHITE) {
+    if  (game->move == Board::WHITE) {
         evaluate_position_max(depth, INT32_MIN, INT32_MAX, &top_line);
     } else {
         evaluate_position_min(depth, INT32_MIN, INT32_MAX, &top_line);
@@ -127,14 +128,14 @@ void show_top_line() {
     std::cout << "Top line: ";
     for (size_t i = 0; i < top_line.size() - 1; ++i) {
         uint32_t move = top_line.at(i);
-        subject->print_move(move);
+        game->print_move(move);
         std::cout << ", ";
-        subject->make_move(move);
+        game->make_move(move);
     }
-    subject->print_move(top_line.back());
-    subject->make_move(top_line.back());
+    game->print_move(top_line.back());
+    game->make_move(top_line.back());
 
     for (size_t i = 0; i < top_line.size(); ++i) {
-        subject->revert_move();
+        game->revert_move();
     }
 }

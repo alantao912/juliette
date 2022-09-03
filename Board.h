@@ -4,7 +4,6 @@
 #define B_FILE 1
 #define C_FILE 2
 #define D_FILE 3
-#define E_FILE 4
 #define F_FILE 5
 #define G_FILE 6
 #define H_FILE 7

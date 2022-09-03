@@ -1,13 +1,27 @@
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <wspiapi.h>
+#include <windows.h>
 #include <iostream>
+#include <cstdlib>
+#include <cstdio>
+#include<vector>
+
 #include "Board.h"
-#include "Search.h"
+#include "UCI.h"
+
+#pragma comment(lib, "Ws2_32.lib")
+#undef UNICODE
+#define DEFAULT_BUFLEN 512
+#define DEFAULT_PORT "10531"
+#define CONNECTION_FAILED 1
 
 void play_game() {
-    Board *board = new Board("8/4k3/RR4K1/8/8/8/8/8 w -- --");
+    auto *board = new Board("8/4k3/RR4K1/8/8/8/8/8 w -- --");
     while (true) {
         board->print_board();
         std::vector<uint32_t> *move_list = board->generate_moves();
-        if (move_list->size() == 0) {
+        if (move_list->empty()) {
             if (board->is_king_in_check()) {
                 std::cout << "Checkmate!" << std::endl;
                 break;
@@ -38,40 +52,127 @@ void play_game() {
     delete board;
 }
 
+SOCKET listen() {
+    WSADATA wsaData;
+    int iResult;
+
+    auto listenSocket = INVALID_SOCKET;
+    auto clientSocket = INVALID_SOCKET;
+
+    struct addrinfo *result = nullptr;
+    struct addrinfo hints{};
+    iResult = WSAStartup(MAKEWORD(2,2), &wsaData);
+    if (iResult != 0) {
+        std::cout << "juliette:: WSAStartup() failed with error: " << iResult << std::endl;
+        return CONNECTION_FAILED;
+    }
+    ZeroMemory(&hints, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
+    hints.ai_flags = AI_PASSIVE;
+
+    /* Resolve the server address and port */
+    iResult = getaddrinfo(nullptr, DEFAULT_PORT, &hints, &result);
+    if ( iResult != 0 ) {
+        std::cout << "juliette:: getaddrinfo() failed with error: " << iResult << std::endl;
+        WSACleanup();
+        return CONNECTION_FAILED;
+    }
+
+    /* Create a SOCKET for the server to listen for client connections. */
+    listenSocket = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
+    if (listenSocket == INVALID_SOCKET) {
+        std::cout << "juliette:: socket() failed with error: " << WSAGetLastError() << std::endl;
+        freeaddrinfo(result);
+        WSACleanup();
+        return CONNECTION_FAILED;
+    }
+
+    /* Setup the TCP listening socket */
+    iResult = bind(listenSocket, result->ai_addr, (int) result->ai_addrlen);
+    if (iResult == SOCKET_ERROR) {
+        std::cout << "juliette:: bind() failed with error: " << WSAGetLastError() << std::endl;
+        freeaddrinfo(result);
+        closesocket(listenSocket);
+        WSACleanup();
+        return CONNECTION_FAILED;
+    }
+    freeaddrinfo(result);
+
+    iResult = listen(listenSocket, SOMAXCONN);
+    if (iResult == SOCKET_ERROR) {
+        std::cout << "juliette:: listen() failed with error: " << WSAGetLastError() << std::endl;
+        closesocket(listenSocket);
+        WSACleanup();
+        return CONNECTION_FAILED;
+    } else {
+        std::cout << "juliette:: listening for connections..." << std::endl;
+    }
+
+    /* Accept a client socket */
+    clientSocket = accept(listenSocket, nullptr, nullptr);
+    if (clientSocket == INVALID_SOCKET) {
+        std::cout << "juliette:: accept() failed with error: " << WSAGetLastError() << std::endl;
+        closesocket(listenSocket);
+        WSACleanup();
+        return CONNECTION_FAILED;
+    } else {
+        std::cout << "juliette:: established connection!" << std::endl;
+    }
+    closesocket(listenSocket);
+    return clientSocket;
+}
+
 int main(int argc, char *argv[]) {
-    Board *b = new Board("6k1/R7/2Q5/8/8/4K3/8/8 w -- --");
-    b->print_board();
-    search(4);
-    show_top_line();
-    /*
-    uint16_t port = 8080;
-    int socket_fd = socket(AF_INET, SOCK_STREAM, 0), option = 1;
-    if (!socket_fd) {
-        std::cout << "Socket creation failed!" << std::endl;
-        return -1;
-    } else {
-        std::cout << "Socket creation succeeded!" << std::endl;
+    std::cout << "juliette:: \"hi, let's play chess!\"" << std::endl;
+    if (argc == 1) {
+        /* If no options are provided */
+        play_game();
+        return 0;
     }
 
-    if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, (char *) &option, sizeof(option))) {
-        std::cout << "Failed to set socket options" << std::endl;
+    enum comm_mode { UNDEFINED, UCI};
+    comm_mode communication_mode = UNDEFINED;
+    const char *id = "id name juliette author Alan Tao";
+
+    SOCKET clientSocket = listen();
+    if (clientSocket == CONNECTION_FAILED) {
+        std::cout << "juliette:: Internal server error. Exiting ..." << std::endl;
         return -1;
-    } else {
-        std::cout << "Successfully set socket options!" << std::endl;
     }
 
-    struct sockaddr_in address;
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(port);
+    int iResult;
+    char recvbuf[DEFAULT_BUFLEN];
+    int recvbuflen = DEFAULT_BUFLEN;
 
-    int result = bind(socket_fd, (struct sockaddr *) &address, sizeof(address));
-    if (result < 0) {
-        std::cout << "Socket binding failed!" << std::endl;
+    do {
+        iResult = recv(clientSocket, recvbuf, recvbuflen, 0);
+        recvbuf[iResult] = '\0';
+        if (communication_mode == UCI) {
+            parse_UCI_string(recvbuf);
+        } else if (strcmp(recvbuf, "uci") == 0) {
+            communication_mode = UCI;
+            int sendResult = send(clientSocket, id, strlen(id), 0);
+        }
+        if (iResult == 0) {
+            std::cout << "juliette:: closing connection ..." << std::endl;
+        } else if (iResult < 0) {
+            std::cout << "juliette:: recv failed with error: " << WSAGetLastError() << std::endl;
+            closesocket(clientSocket);
+            WSACleanup();
+            return -1;
+        }
+    } while (iResult > 0);
+
+    iResult = shutdown(clientSocket, SD_SEND);
+    if (iResult == SOCKET_ERROR) {
+        std::cout << "juliette:: shutdown failed with error: " << WSAGetLastError() << std::endl;
+        closesocket(clientSocket);
+        WSACleanup();
         return -1;
-    } else {
-        std::cout << "Successfully bound socket to port: " << port << '!' << std::endl;
     }
-    */
+    closesocket(clientSocket);
+    WSACleanup();
     return 0;
 }

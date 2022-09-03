@@ -2,8 +2,6 @@
 #include "Board.h"
 #include "King.h"
 #include "Queen.h"
-#include "Bishop.h"
-#include "Rook.h"
 #include "Knight.h"
 #include "Pawn.h"
 #include "Evaluation.h"
@@ -82,19 +80,19 @@ Board::Board(const char *fen) {
                 break;
             }
             case 'n': {
-                Knight *n = new Knight(BLACK, file, rank, this);
+                auto *n = new Knight(BLACK, file, rank, this);
                 black_pieces.push_back(n);
                 pieces_collections[BLACK_KNIGHT]->push_back(n);
                 break;
             }
             case 'b': {
-                Bishop *b = new Bishop(BLACK, file, rank, this);
-                black_pieces.push_back(b);
-                pieces_collections[BLACK_BISHOP]->push_back(b);
+                auto *bishop = new Bishop(BLACK, file, rank, this);
+                black_pieces.push_back(bishop);
+                pieces_collections[BLACK_BISHOP]->push_back(bishop);
                 break;
             }
             case 'q': {
-                Queen *q = new Queen(BLACK, file, rank, this);
+                auto *q = new Queen(BLACK, file, rank, this);
                 black_pieces.push_back(q);
                 pieces_collections[BLACK_QUEEN]->push_back(q);
                 break;
@@ -105,19 +103,19 @@ Board::Board(const char *fen) {
                 break;
             }
             case 'P': {
-                Pawn *p = new Pawn(WHITE, file, rank, this);
+                auto *p = new Pawn(WHITE, file, rank, this);
                 white_pieces.push_back(p);
                 pieces_collections[WHITE_PAWN]->push_back(p);
                 break;
             }
             case 'R': {
-                Rook *r = new Rook(WHITE, file, rank, this);
+                auto *r = new Rook(WHITE, file, rank, this);
                 white_pieces.push_back(r);
                 pieces_collections[WHITE_ROOK]->push_back(r);
                 break;
             }
             case 'N': {
-                Knight *n = new Knight(WHITE, file, rank, this);
+                auto *n = new Knight(WHITE, file, rank, this);
                 white_pieces.push_back(n);
                 pieces_collections[WHITE_KNIGHT]->push_back(n);
                 break;
@@ -276,8 +274,6 @@ Board::Board(const char *fen) {
          free(fen_segments[j]);
     }
     std::cout << "Successfully loaded FEN!" << std::endl;
-    initialize_evaluation(this);
-    initialize_search(this);
 }
 
  Piece *Board::inspect(int8_t file, int8_t rank)  {

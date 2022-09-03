@@ -1,9 +1,14 @@
 #include "Evaluation.h"
 
-void initialize_evaluation(Board *board) {
-    b = board;
-    white_pieces = board->get_white_pieces();
-    black_pieces = board->get_black_pieces();
+/* Pointer to board object that we are currently evaluating */
+extern Board *game;
+
+std::vector<Piece *> *white_pieces = nullptr;
+std::vector<Piece *> *black_pieces = nullptr;
+
+void initialize_evaluation() {
+    white_pieces = game->get_white_pieces();
+    black_pieces = game->get_black_pieces();
 }
 
 int32_t evaluate() {
