@@ -18,15 +18,13 @@ public:
 
     Pawn(Board::Color color, int8_t file, int8_t rank, Board *parent);
 
-    void add_moves(std::vector<uint32_t> *move_list);
+    void add_moves(std::vector<uint32_t> *move_list) override;
 
-    bool can_attack(int8_t file, int8_t rank);
+    bool can_attack(int8_t file, int8_t rank) override;
 
-    char get_piece_char();
+    char get_piece_char() override;
 
     int8_t get_direction();
 
-    uint8_t get_type();
-
-    uint8_t hash_value();
+    uint8_t get_type() const override;
 };

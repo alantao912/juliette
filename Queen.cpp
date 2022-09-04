@@ -128,10 +128,6 @@ char Queen::get_piece_char() {
     return 'Q';
 }
 
-uint8_t Queen::get_type() {
+uint8_t Queen::get_type() const {
     return QUEEN;
-}
-
-uint8_t Queen::hash_value() {
-    return QUEEN | (color * (1 << 3)) | (parent->move * (1 << 4));
 }

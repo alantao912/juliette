@@ -97,7 +97,7 @@ char Pawn::get_piece_char() {
     return 'P';
 }
 
-uint8_t Pawn::get_type() {
+uint8_t Pawn::get_type() const {
     if (promoted_piece) {
         return promoted_piece->get_type();
     }
@@ -106,8 +106,4 @@ uint8_t Pawn::get_type() {
 
 int8_t Pawn::get_direction() {
     return direction_offset;
-}
-
-uint8_t Pawn::hash_value() {
-    return PAWN | (color * (1 << 3)) | (parent->move * (1 << 4)) | (moved_two * (1 << 5));
 }

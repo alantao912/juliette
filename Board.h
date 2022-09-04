@@ -34,17 +34,15 @@ class Piece;
 class Board {
 public:
 
-    enum Color { WHITE, BLACK, EMPTY};
+    enum Color { WHITE, BLACK};
 
     enum Progression { OPENING, MIDDLEGAME, ENDGAME};
 
-    /* Stores the color of the pieces turn to move. */
+    /* Stores the color of the pieces turn to turn. */
 
-    Color move;
+    Color turn;
 
-    /* 64 byte hash for the board's state */
-
-    char position_hash[64];
+    King *white_king, *black_king;
 
     /**
      * @brief Indicates whether the state of the board is in the opening, middle-game, or endgame.
@@ -53,13 +51,13 @@ public:
     Progression stage;
 
     /**
-     * @brief Construct a new Board object with a given FEN string. Does not count 50 move rule.
+     * @brief Construct a new Board object with a given FEN string. Does not count 50 turn rule.
      */
 
-    Board(const char *fen);
+    explicit Board(const char *fen);
 
     /**
-     * @brief Generates a list of legal moves for the color it is to move. See Piece.h to see how moves are encoded in a 32 bit integer.
+     * @brief Generates a list of legal moves for the color it is to turn. See Piece.h to see how moves are encoded in a 32 bit integer.
      */
 
     std::vector<uint32_t> *generate_moves();
@@ -74,14 +72,14 @@ public:
      * @brief Returns an offset to the array index of specified file and rank.
      */
 
-    int8_t offset(int8_t file, int8_t rank);
+    int8_t offset(int8_t file, int8_t rank) const;
 
     /**
      * @brief Returns an offset to the array index of specified file and rank, except
      * the rank is inverted. Effectively rotates the board, and returns the array index of rotated board.
      */
 
-    int8_t offset_invert_rank(int8_t file, int8_t rank);
+    int8_t offset_invert_rank(int8_t file, int8_t rank) const;
 
     /**
      * @brief Get the pieces of the opposite color specified.
@@ -93,7 +91,7 @@ public:
     std::vector<Piece *> *get_opposite_pieces(Color color);
 
     /**
-     * @brief Get the pieces of the color it is to move.
+     * @brief Get the pieces of the color it is to turn.
      */
 
     std::vector<Piece *> *get_pieces_of_color(Color color);
@@ -102,13 +100,13 @@ public:
      * @brief Gets the white pieces on the board.
      */
 
-    std::vector<Piece *> *get_white_pieces();
+    const std::vector<Piece *> *get_white_pieces() const;
 
     /**
      * @brief Get the black pieces on the board.
      */
 
-    std::vector<Piece *> *get_black_pieces();
+    const std::vector<Piece *> *get_black_pieces() const;
 
     /**
      * @brief Returns the collection of the given pieces.
@@ -128,21 +126,19 @@ public:
 
     King *get_opponent_king(Color color);
 
-    size_t game_depth();
-
     /* Prints the board using ASCII characters to stdout */
 
     void print_board();
 
-    /* Prints a given move */
+    /* Prints a given turn */
 
     void print_move(uint32_t move);
 
-    /* Modifies the state of the board according to the move specified, and stores the move onto a stack. */
+    /* Modifies the state of the board according to the turn specified, and stores the turn onto a stack. */
 
     void make_move(uint32_t move);
 
-    /* Reverts the state of the board to prior the last move on the move stack was made. Pops a move off of the stack. */
+    /* Reverts the state of the board to prior the last turn on the turn stack was made. Pops a turn off of the stack. */
     uint32_t revert_move();
 
     bool is_king_in_check();
@@ -157,8 +153,6 @@ private:
     /* Stores all of the pieces of the same type into one vector. i.e. all black pawns are grouped together, all white knights are grouped together etc. */
 
     std::vector<Piece *> *pieces_collections[10];
-
-    King *white_king, *black_king;
 
     Piece *squares[64];
 

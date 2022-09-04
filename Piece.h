@@ -80,11 +80,9 @@ public:
 
     virtual void add_moves(std::vector<uint32_t> *move_list) {};
 
-    virtual bool can_attack(int8_t file, int8_t rank)  { return false; };
+    virtual bool can_attack(int8_t target_file, int8_t target_rank)  { return false; };
 
     virtual char get_piece_char() { return ' ';};
 
-    virtual uint8_t get_type() {return KING;};
-
-    virtual uint8_t hash_value() { return 0;}
+    virtual uint8_t get_type() const {return KING;};
 };

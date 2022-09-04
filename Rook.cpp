@@ -98,10 +98,6 @@ char Rook::get_piece_char() {
     return 'R';
 }
 
-uint8_t Rook::get_type() {
+uint8_t Rook::get_type() const {
     return ROOK;
-}
-
-uint8_t Rook::hash_value() {
-    return ROOK | (color * (1 << 3)) | (parent->move * (1 << 4));
 }

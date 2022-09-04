@@ -88,7 +88,7 @@ bool Bishop::can_attack(int8_t to_file, int8_t to_rank) {
     return Bishop::can_attack(this->file, this->rank, to_file, to_rank, parent);
 }
 
-uint8_t Bishop::get_type() {
+uint8_t Bishop::get_type() const {
     return BISHOP;
 }
 
@@ -97,8 +97,4 @@ char Bishop::get_piece_char() {
         return 'b';
     }
     return 'B';
-}
-
-uint8_t Bishop::hash_value() {
-    return BISHOP | (color * (1 << 3)) | (parent->move * (1 << 4));
 }
