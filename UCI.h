@@ -15,7 +15,7 @@
 #include "Search.h"
 #include "Evaluation.h"
 
-void initialize_options(SOCKET clientSocket);
+void initialize_UCI(SOCKET clientSocket);
 
 void parse_UCI_string(char *uci);
 

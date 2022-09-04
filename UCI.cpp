@@ -7,7 +7,9 @@
 #define BUFLEN 512
 
 std::map<std::string, std::string> options;
-char *replies[] = {"id", "uciok", "readyok", "bestmove", "copyprotection", "registration", "info", "option"};
+
+const char *id_str = "id name juliette author Alan Tao";
+std::string replies[] = {"id", "uciok", "readyok", "bestmove", "copyprotection", "registration", "info", "option"};
 
 #define id 0
 #define uciok 1
@@ -26,8 +28,8 @@ char sendbuf[BUFLEN];
 
 extern int source;
 
-void initialize_options(SOCKET cs) {
-    clientSocket = cs;
+void initialize_UCI(SOCKET clientSocket) {
+    clientSocket = clientSocket;
     options.insert(std::pair<std::string, std::string>("OwnBook", "off"));
     options.insert(std::pair<std::string, std::string>("debug", "off"));
 }
@@ -48,8 +50,13 @@ void parse_UCI_string(char *uci) {
     while (i < uci_string.length()) {
         args.push_back(uci_string.at(i++));
     }
-
-    if (buff == "ucinewgame") {
+    if (buff == "uci") {
+        size_t len = strlen(id_str);
+        memcpy(sendbuf, id_str, len); // NOLINT(bugprone-not-null-terminated-result)
+        sendbuf[len] = '\n';
+        strcpy(&sendbuf[len + 1], replies[uciok].c_str());
+        reply();
+    } else if (buff == "ucinewgame") {
         delete game;
         game = nullptr;
     } else if (buff == "position") {
@@ -79,13 +86,7 @@ void position(std::string &arg) {
     if (arg == "startpos") {
         game = new Board(START_POSITION);
     } else {
-        char *s = new char[arg.length() + 1];
-        s[arg.length()] = 0;
-        for (size_t i = 0; i < arg.length(); ++i) {
-            s[i] = arg.at(i);
-        }
-        game = new Board(s);
-        delete[] s;
+        game = new Board(arg.c_str());
     }
     initialize_evaluation();
     initialize_search();
@@ -99,7 +100,7 @@ void go(std::string &args) {
         return;
     }
     uint32_t best_move = search(4);
-    sprintf(sendbuf, "%s %c%d%c%d", replies[bestmove],
+    sprintf(sendbuf, "%s %c%d%c%d", replies[bestmove].c_str(),
             GET_FROM_FILE(best_move) + 'a', GET_FROM_RANK(best_move), GET_TO_FILE(best_move) + 'a', GET_TO_RANK(best_move));
     reply();
 }

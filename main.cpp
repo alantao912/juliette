@@ -137,10 +137,8 @@ int main(int argc, char *argv[]) {
     }
 
     char recvbuf[BUFLEN];
-
     enum comm_mode { UNDEFINED, UCI};
     comm_mode communication_mode = UNDEFINED;
-    const char *id = "id name juliette author Alan Tao";
 
     if (strcmp(argv[1], "remote") == 0) {
         source = REMOTE;
@@ -153,7 +151,6 @@ int main(int argc, char *argv[]) {
             }
 
             int iResult;
-
             do {
                 iResult = recv(clientSocket, recvbuf, BUFLEN, 0);
                 recvbuf[iResult] = '\0';
@@ -161,8 +158,8 @@ int main(int argc, char *argv[]) {
                     parse_UCI_string(recvbuf);
                 } else if (strcmp(recvbuf, "uci") == 0) {
                     communication_mode = UCI;
-                    initialize_options(clientSocket);
-                    send(clientSocket, id, strlen(id), 0);
+                    initialize_UCI(clientSocket);
+                    parse_UCI_string(recvbuf);
                 }
                 if (iResult == 0) {
                     std::cout << "juliette:: closing connection ..." << std::endl;
@@ -196,9 +193,13 @@ int main(int argc, char *argv[]) {
                 parse_UCI_string(recvbuf);
             } else if (strcmp(recvbuf, "uci") == 0) {
                 communication_mode = UCI;
-                std::cout << id << std::endl;
+                initialize_UCI(0);
+                parse_UCI_string(recvbuf);
+            } else if (strcmp(recvbuf, "comm") == 0) {
+                std::cout << "juliette:: to select a communication protocol, enter it's name:" << std::endl;
+                std::cout << "uci" << std::endl;
             } else {
-                std::cout << "juliette:: communication format not set, type \"uci\" to specify UCI communication protocol." << std::endl;
+                std::cout << R"(juliette:: communication format not set, type "uci" to specify UCI communication protocol or type "comm" to see a list of communication protocol.)" << std::endl;
             }
 
         } while (strlen(recvbuf));
