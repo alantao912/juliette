@@ -99,10 +99,11 @@ void go(std::string &args) {
 
         return;
     }
-    uint32_t best_move = search(4);
+    uint32_t best_move = search(10);
     sprintf(sendbuf, "%s %c%d%c%d", replies[bestmove].c_str(),
             GET_FROM_FILE(best_move) + 'a', GET_FROM_RANK(best_move), GET_TO_FILE(best_move) + 'a', GET_TO_RANK(best_move));
     reply();
+    showTopLine();
 }
 
 void reply() {

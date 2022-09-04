@@ -14,7 +14,7 @@ void initialize_evaluation() {
 int32_t evaluate() {
     int evaluation = 0;
     evaluation += material_score();
-    return evaluation;
+    return (1 - 2 * (game->move == Board::BLACK)) * evaluation;
 }
 
 int32_t material_score() {
