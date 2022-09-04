@@ -33,4 +33,4 @@ void initialize_search();
 
 uint32_t search(uint16_t depth);
 
-void show_top_line();
+void showTopLine();
