@@ -4,6 +4,7 @@
 #include <windows.h>
 #include <iostream>
 #include <cstdlib>
+#include <cstring>
 #include <cstdio>
 #include<vector>
 
@@ -12,8 +13,8 @@
 
 #pragma comment(lib, "Ws2_32.lib")
 #undef UNICODE
-#define DEFAULT_BUFLEN 512
-#define DEFAULT_PORT "10531"
+#define BUFLEN 512
+#define PORT "10531"
 #define CONNECTION_FAILED 1
 
 void play_game() {
@@ -73,7 +74,7 @@ SOCKET listen() {
     hints.ai_flags = AI_PASSIVE;
 
     /* Resolve the server address and port */
-    iResult = getaddrinfo(nullptr, DEFAULT_PORT, &hints, &result);
+    iResult = getaddrinfo(nullptr, PORT, &hints, &result);
     if ( iResult != 0 ) {
         std::cout << "juliette:: getaddrinfo() failed with error: " << iResult << std::endl;
         WSACleanup();
@@ -124,6 +125,9 @@ SOCKET listen() {
     return clientSocket;
 }
 
+enum input_source { REMOTE, STDIN};
+input_source source;
+
 int main(int argc, char *argv[]) {
     std::cout << "juliette:: \"hi, let's play chess!\"" << std::endl;
     if (argc == 1) {
@@ -132,47 +136,72 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
+    char recvbuf[BUFLEN];
+
     enum comm_mode { UNDEFINED, UCI};
     comm_mode communication_mode = UNDEFINED;
     const char *id = "id name juliette author Alan Tao";
 
-    SOCKET clientSocket = listen();
-    if (clientSocket == CONNECTION_FAILED) {
-        std::cout << "juliette:: Internal server error. Exiting ..." << std::endl;
-        return -1;
-    }
+    if (strcmp(argv[1], "remote") == 0) {
+        source = REMOTE;
+        /* Engine is set to remote mode. Sending and receiving commands using sockets */
+        while (true) {
+            SOCKET clientSocket = listen();
+            if (clientSocket == CONNECTION_FAILED) {
+                std::cout << "juliette:: Internal server error. Exiting ..." << std::endl;
+                return -1;
+            }
 
-    int iResult;
-    char recvbuf[DEFAULT_BUFLEN];
-    int recvbuflen = DEFAULT_BUFLEN;
+            int iResult;
 
-    do {
-        iResult = recv(clientSocket, recvbuf, recvbuflen, 0);
-        recvbuf[iResult] = '\0';
-        if (communication_mode == UCI) {
-            parse_UCI_string(recvbuf);
-        } else if (strcmp(recvbuf, "uci") == 0) {
-            communication_mode = UCI;
-            int sendResult = send(clientSocket, id, strlen(id), 0);
-        }
-        if (iResult == 0) {
-            std::cout << "juliette:: closing connection ..." << std::endl;
-        } else if (iResult < 0) {
-            std::cout << "juliette:: recv failed with error: " << WSAGetLastError() << std::endl;
+            do {
+                iResult = recv(clientSocket, recvbuf, BUFLEN, 0);
+                recvbuf[iResult] = '\0';
+                if (communication_mode == UCI) {
+                    parse_UCI_string(recvbuf);
+                } else if (strcmp(recvbuf, "uci") == 0) {
+                    communication_mode = UCI;
+                    initialize_options(clientSocket);
+                    send(clientSocket, id, strlen(id), 0);
+                }
+                if (iResult == 0) {
+                    std::cout << "juliette:: closing connection ..." << std::endl;
+                } else if (iResult < 0) {
+                    std::cout << "juliette:: recv failed with error: " << WSAGetLastError() << std::endl;
+                    closesocket(clientSocket);
+                    WSACleanup();
+                    return -1;
+                }
+            } while (iResult > 0);
+
+            iResult = shutdown(clientSocket, SD_SEND);
+            if (iResult == SOCKET_ERROR) {
+                std::cout << "juliette:: shutdown failed with error: " << WSAGetLastError() << std::endl;
+                closesocket(clientSocket);
+                WSACleanup();
+                return -1;
+            }
             closesocket(clientSocket);
             WSACleanup();
-            return -1;
         }
-    } while (iResult > 0);
+    } else if (strcmp(argv[1], "cli") == 0) {
+        /* Engine is set to CLI mode. Sending and receiving commands through stdout and stdin respectively. */
+        source = STDIN;
+        do {
+            fgets(recvbuf, BUFLEN, stdin);
+            if ((strlen(recvbuf) > 0) && (recvbuf[strlen (recvbuf) - 1] == '\n')) {
+                recvbuf[strlen(recvbuf) - 1] = '\0';
+            }
+            if (communication_mode == UCI) {
+                parse_UCI_string(recvbuf);
+            } else if (strcmp(recvbuf, "uci") == 0) {
+                communication_mode = UCI;
+                std::cout << id << std::endl;
+            } else {
+                std::cout << "juliette:: communication format not set, type \"uci\" to specify UCI communication protocol." << std::endl;
+            }
 
-    iResult = shutdown(clientSocket, SD_SEND);
-    if (iResult == SOCKET_ERROR) {
-        std::cout << "juliette:: shutdown failed with error: " << WSAGetLastError() << std::endl;
-        closesocket(clientSocket);
-        WSACleanup();
-        return -1;
+        } while (strlen(recvbuf));
     }
-    closesocket(clientSocket);
-    WSACleanup();
     return 0;
 }
