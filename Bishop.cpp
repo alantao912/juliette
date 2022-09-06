@@ -9,7 +9,7 @@ void Bishop::add_moves(std::vector<uint32_t> *move_list) {
         --f;
         --r;
         uint32_t move = create_move(f, r, BISHOP);
-        squares_hit |= (1ULL << parent->offset(f, r));
+        squares_hit |= (1ULL << Board::offset(f, r));
         if (move == BREAK) {
             break;
         }
@@ -23,7 +23,7 @@ void Bishop::add_moves(std::vector<uint32_t> *move_list) {
         --f;
         ++r;
         uint32_t move = create_move(f, r, BISHOP);
-        squares_hit |= (1ULL << parent->offset(f, r));
+        squares_hit |= (1ULL << Board::offset(f, r));
         if (move == BREAK) {
             break;
         }
@@ -37,7 +37,7 @@ void Bishop::add_moves(std::vector<uint32_t> *move_list) {
         ++f;
         ++r;
         uint32_t move = create_move(f, r, BISHOP);
-        squares_hit |= (1ULL << parent->offset(f, r));
+        squares_hit |= (1ULL << Board::offset(f, r));
         if (move == BREAK) {
             break;
         }
@@ -51,7 +51,7 @@ void Bishop::add_moves(std::vector<uint32_t> *move_list) {
         ++f;
         --r;
         uint32_t move = create_move(f, r, BISHOP);
-        squares_hit |= (1ULL << parent->offset(f, r));
+        squares_hit |= (1ULL << Board::offset(f, r));
         if (move == BREAK) {
             break;
         }

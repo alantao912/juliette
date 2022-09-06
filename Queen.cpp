@@ -9,7 +9,7 @@ void Queen::add_moves(std::vector<uint32_t> *move_list) {
     while (i > A_FILE) {
         --i;
         uint32_t move = create_move(i, rank, QUEEN);
-        squares_hit |= (1ULL << parent->offset(i, rank));
+        squares_hit |= (1ULL << Board::offset(i, rank));
         if (move == BREAK) {
             break;
         }
@@ -22,7 +22,7 @@ void Queen::add_moves(std::vector<uint32_t> *move_list) {
     while (i < H_FILE) {
         ++i;
         uint32_t move = create_move(i, rank, QUEEN);
-        squares_hit |= (1ULL << parent->offset(i, rank));
+        squares_hit |= (1ULL << Board::offset(i, rank));
         if (move == BREAK) {
             break;
         }
@@ -35,7 +35,7 @@ void Queen::add_moves(std::vector<uint32_t> *move_list) {
     while (i > 1) {
         --i;
         uint32_t move = create_move(file, i, QUEEN);
-        squares_hit |= (1ULL << parent->offset(file, i));
+        squares_hit |= (1ULL << Board::offset(file, i));
         if (move == BREAK) {
             break;
         }
@@ -48,7 +48,7 @@ void Queen::add_moves(std::vector<uint32_t> *move_list) {
     while (i < 8) {
         ++i;
         uint32_t move = create_move(file, i, QUEEN);
-        squares_hit |= (1ULL << parent->offset(file, i));
+        squares_hit |= (1ULL << Board::offset(file, i));
         if (move == BREAK) {
             break;
         }
@@ -64,7 +64,7 @@ void Queen::add_moves(std::vector<uint32_t> *move_list) {
         --i;
         --r;
         uint32_t move = create_move(i, r, QUEEN);
-        squares_hit |= (1ULL << parent->offset(i, r));
+        squares_hit |= (1ULL << Board::offset(i, r));
         if (move == BREAK) {
             break;
         }
@@ -78,7 +78,7 @@ void Queen::add_moves(std::vector<uint32_t> *move_list) {
         --i;
         ++r;
         uint32_t move = create_move(i, r, QUEEN);
-        squares_hit |= (1ULL << parent->offset(i, r));
+        squares_hit |= (1ULL << Board::offset(i, r));
         if (move == BREAK) {
             break;
         }
@@ -92,7 +92,7 @@ void Queen::add_moves(std::vector<uint32_t> *move_list) {
         ++i;
         ++r;
         uint32_t move = create_move(i, r, QUEEN);
-        squares_hit |= (1ULL << parent->offset(i, r));
+        squares_hit |= (1ULL << Board::offset(i, r));
         if (move == BREAK) {
             break;
         }
@@ -106,7 +106,7 @@ void Queen::add_moves(std::vector<uint32_t> *move_list) {
         ++i;
         --r;
         uint32_t move = create_move(i, r, QUEEN);
-        squares_hit |= (1ULL << parent->offset(i, r));
+        squares_hit |= (1ULL << Board::offset(i, r));
         if (move == BREAK) {
             break;
         }

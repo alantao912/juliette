@@ -5,26 +5,17 @@
 
 #include <cstddef>
 
-#include "King.h"
-#include "Pawn.h"
 #include "Board.h"
-#include "Piece.h"
 
-struct ZobristHashFunction {
-private:
-    static uint64_t rand_bitstring();
+class Board;
 
-public:
+void initialize_zobrist();
 
-    static void initialize();
+uint64_t rand_bitstring();
 
-    size_t operator()(const Board *game);
-};
+uint64_t fetch_bitstring(const Piece *p, const King *king);
 
-struct ZobristHashComparator {
-
-    bool operator==(const size_t i);
-};
+uint64_t hash(const Board *game);
 
 struct TTEntry {
     int32_t evaluation;

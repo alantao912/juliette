@@ -6,8 +6,7 @@
 #define CHECKMATE(depth) ((INT32_MIN + 1) + (UINT16_MAX - depth))
 #define DRAW (int32_t) 0;
 
-std::unordered_map<size_t, TTEntry, ZobristHashFunction> transposition_table;
-ZobristHashFunction zobristHashFunction;
+std::unordered_map<uint64_t, TTEntry> transposition_table;
 
 extern Board *game;
 std::vector<uint32_t> top_line;
@@ -15,7 +14,7 @@ std::vector<uint32_t> top_line;
 void initialize_search() {
     top_line.clear();
     transposition_table.clear();
-    ZobristHashFunction::initialize();
+    initialize_zobrist();
 }
 
 /**
@@ -26,8 +25,8 @@ void initialize_search() {
  */
 
 int32_t negamax(uint16_t depth, int32_t alpha, int32_t beta, std::vector<uint32_t> *considered_line) {
-    size_t hash_code = zobristHashFunction(game);
-    std::unordered_map<size_t, TTEntry, ZobristHashFunction>::iterator t;
+    uint64_t hash_code = hash(game);
+    std::unordered_map<uint64_t, TTEntry>::const_iterator t;
     if ((t = transposition_table.find(hash_code)) != transposition_table.end()) {
         TTEntry entry = t->second;
     }
@@ -74,7 +73,7 @@ int32_t negamax(uint16_t depth, int32_t alpha, int32_t beta, std::vector<uint32_
     PRUNE:
     delete move_list;
     /* Current node has been searched */
-    transposition_table.insert(std::pair<size_t, TTEntry>(hash_code, TTEntry(value, depth, 0)));
+    transposition_table.insert(std::pair<uint64_t, TTEntry>(hash_code, TTEntry(value, depth, 0)));
     return value;
 }
 
@@ -86,8 +85,8 @@ uint32_t search(uint16_t depth) {
 void showTopLine() {
     for (size_t i = 0; i < top_line.size() - 1; ++i) {
         uint32_t move = top_line.at(i);
-        game->print_move(move);
+        Board::print_move(move);
         std::cout << ", ";
     }
-    game->print_move(top_line.back());
+    Board::print_move(top_line.back());
 }

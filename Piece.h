@@ -66,13 +66,13 @@ protected:
 
     uint32_t create_move(int8_t to_file, int8_t to_rank, uint8_t piece_moved);
 
+    bool is_taken;
+
 public:
 
     uint64_t squares_hit;
 
     int8_t file, rank;
-
-    bool is_taken;
 
     Board::Color color;
 
@@ -85,4 +85,8 @@ public:
     virtual char get_piece_char() { return ' ';};
 
     virtual uint8_t get_type() const {return KING;};
+
+    virtual bool get_is_taken() const {return is_taken;};
+
+    virtual void set_is_taken(bool b) {is_taken = b;};
 };

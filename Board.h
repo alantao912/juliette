@@ -8,10 +8,9 @@
 #define G_FILE 6
 #define H_FILE 7
 
-#include <map>
-#include <stack>
-#include <vector>
 #include <iostream>
+#include <vector>
+#include <stack>
 
 #define START_POSITION "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq --"
 
@@ -44,6 +43,8 @@ public:
 
     King *white_king, *black_king;
 
+    uint64_t hash_code;
+
     /**
      * @brief Indicates whether the state of the board is in the opening, middle-game, or endgame.
      */
@@ -72,14 +73,14 @@ public:
      * @brief Returns an offset to the array index of specified file and rank.
      */
 
-    int8_t offset(int8_t file, int8_t rank) const;
+    static int8_t offset(int8_t file, int8_t rank) ;
 
     /**
      * @brief Returns an offset to the array index of specified file and rank, except
      * the rank is inverted. Effectively rotates the board, and returns the array index of rotated board.
      */
 
-    int8_t offset_invert_rank(int8_t file, int8_t rank) const;
+    static int8_t offset_invert_rank(int8_t file, int8_t rank) ;
 
     /**
      * @brief Get the pieces of the opposite color specified.
@@ -118,13 +119,13 @@ public:
      * @brief Get the king of the specified color
      */
 
-    King *get_my_king(Color color);
+    King *get_my_king(Color color) const;
 
     /**
      * @brief Gets the king of the opposite color specified.
      */
 
-    King *get_opponent_king(Color color);
+    King *get_opponent_king(Color color) const;
 
     /* Prints the board using ASCII characters to stdout */
 
@@ -132,7 +133,7 @@ public:
 
     /* Prints a given turn */
 
-    void print_move(uint32_t move);
+    static void print_move(uint32_t move);
 
     /* Modifies the state of the board according to the turn specified, and stores the turn onto a stack. */
 
@@ -141,6 +142,7 @@ public:
     /* Reverts the state of the board to prior the last turn on the turn stack was made. Pops a turn off of the stack. */
     uint32_t revert_move();
 
+    /* Returns whether or not the king of the color to move is in check */
     bool is_king_in_check();
 
 private:
@@ -171,7 +173,7 @@ private:
      * @brief Removes a given piece from the specified collection. If piece is not found in collection, collection is left unchanged. 
      */
 
-    void remove_from_collection(std::vector<Piece *> *collection, Piece *p);
+    static void remove_from_collection(std::vector<Piece *> *collection, Piece *p);
 
     /**
      * @brief Given the amount of material on the board, determines whether the game is in the opening, middlegame, or endgame.

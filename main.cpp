@@ -7,9 +7,12 @@
 #include <cstring>
 #include <cstdio>
 #include<vector>
+#include <unordered_map>
+#include <ctime>
 
 #include "Board.h"
 #include "UCI.h"
+#include "Zobrist.h"
 
 #pragma comment(lib, "Ws2_32.lib")
 #undef UNICODE
@@ -33,7 +36,7 @@ void play_game() {
 
         for (int i = 0; i < move_list->size(); ++i) {
             std::cout << i + 1 <<  ". ";
-            board->print_move(move_list->at(i));
+            Board::print_move(move_list->at(i));
             std::cout << std::endl;
         }
 
@@ -198,6 +201,28 @@ int main(int argc, char *argv[]) {
             } else if (strcmp(recvbuf, "comm") == 0) {
                 std::cout << "juliette:: to select a communication protocol, enter it's name:" << std::endl;
                 std::cout << "uci" << std::endl;
+                std::cout << "exp (developer use)" << std::endl;
+            } else if (strcmp(recvbuf, "exp") == 0) {
+                std::cout << "juliette:: switched to experimental mode." << std::endl;
+                initialize_zobrist();
+                auto *b = new Board("rnbqkbnr/8/8/8/8/8/8/RNBQKBNR w -- --");
+                int i = 0;
+                srand(time(NULL));
+                while (true) {
+                    auto *move_list = b->generate_moves();
+                    uint32_t move = move_list->at(rand() % move_list->size());
+                    uint64_t batch_hash_code = hash(b);
+                    uint64_t incremental_hash_code = b->hash_code;
+                    if (batch_hash_code != incremental_hash_code) {
+                        std::cout << batch_hash_code << ", " << incremental_hash_code << " " << i << std::endl;
+                        break;
+                    }
+                    Board::print_move(move);
+                    std::cout << '\n';
+                    b->make_move(move);
+                    delete move_list;
+                    ++i;
+                }
             } else {
                 std::cout << R"(juliette:: communication format not set, type "uci" to specify UCI communication protocol or type "comm" to see a list of communication protocol.)" << std::endl;
             }

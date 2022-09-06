@@ -15,7 +15,7 @@ void Rook::add_moves(std::vector<uint32_t> *move_list) {
     while (i > A_FILE) {
         --i;
         move = mask | create_move(i, rank, ROOK);
-        squares_hit |= (1ULL << parent->offset(i, rank));
+        squares_hit |= (1ULL << Board::offset(i, rank));
         if (move == BREAK) {
             break;
         }
@@ -28,7 +28,7 @@ void Rook::add_moves(std::vector<uint32_t> *move_list) {
     while (i < H_FILE) {
         ++i;
         move = mask | create_move(i, rank, ROOK);
-        squares_hit |= (1ULL << parent->offset(i, rank));
+        squares_hit |= (1ULL << Board::offset(i, rank));
         if (move == BREAK) {
             break;
         }
@@ -41,7 +41,7 @@ void Rook::add_moves(std::vector<uint32_t> *move_list) {
     while (i > 1) {
         --i;
         move = mask | create_move(file, i, ROOK);
-        squares_hit |= (1ULL << parent->offset(file, i));
+        squares_hit |= (1ULL << Board::offset(file, i));
         if (move == BREAK) {
             break;
         }
@@ -54,7 +54,7 @@ void Rook::add_moves(std::vector<uint32_t> *move_list) {
     while (i < 8) {
         ++i;
         move = mask | create_move(file, i, ROOK);
-        squares_hit |= (1ULL << parent->offset(file, i));
+        squares_hit |= (1ULL << Board::offset(file, i));
         if (move == BREAK) {
             break;
         }

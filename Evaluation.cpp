@@ -21,7 +21,7 @@ int32_t material_score() {
     int material_evaluation = 0;
 
     for (Piece *p : *white_pieces) {
-        if (p->is_taken) {
+        if (p->get_is_taken()) {
             continue;
         }
         switch (p->get_type()) {
@@ -44,7 +44,7 @@ int32_t material_score() {
     }
 
     for (Piece *p : *black_pieces) {
-        if (p->is_taken) {
+        if (p->get_is_taken()) {
                 continue;
         }
         switch (p->get_type()) {
