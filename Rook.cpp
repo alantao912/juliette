@@ -7,9 +7,9 @@ void Rook::add_moves(std::vector<uint32_t> *move_list) {
 
     uint32_t move, mask = 0;
     King *my_king = parent->get_my_king(this->color);
-    if (rank == 1 && file == A_FILE && my_king->long_castle_rights) {
+    if (rank == 1 + this->color * 7 && file == A_FILE && my_king->long_castle_rights) {
         mask = REM_LONG_CASTLE;
-    } else if (rank == 1 && file == H_FILE && my_king->short_castle_rights) {
+    } else if (rank == 1 + this->color * 7 && file == H_FILE && my_king->short_castle_rights) {
         mask = REM_SHORT_CASTLE;
     }
     while (i > A_FILE) {

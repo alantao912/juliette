@@ -35,7 +35,7 @@ uint64_t rand_bitstring() {
 }
 
 uint64_t fetch_bitstring(const Piece *p, const King *king) {
-    size_t i = 18 * Board::offset(p->file, p->rank);
+    size_t i = 18 * Board::offset(p->file, p->rank) + 9 * p->color;
     uint8_t type = p->get_type();
     if (type == PAWN) {
         const Pawn *pawn = dynamic_cast<const Pawn *>(p);
@@ -49,16 +49,28 @@ uint64_t fetch_bitstring(const Piece *p, const King *king) {
 
 uint64_t hash(const Board *game) {
     uint64_t hash = 0;
-    if (game->turn == Board::BLACK) {
-        hash ^= black_to_move;
-    }
+    hash ^= game->turn * black_to_move;
     const King *king = game->white_king;
     for (const Piece *p : *(game->get_white_pieces())) {
+        if (p->get_is_taken()) {
+            continue;
+        }
+        const Pawn *pawn;
+        if ((pawn = dynamic_cast<const Pawn *>(p)) && pawn->promoted_piece) {
+            p = pawn->promoted_piece;
+        }
         hash ^= fetch_bitstring(p, king);
     }
 
     king = game->black_king;
     for (const Piece *p : *(game->get_black_pieces())) {
+        if (p->get_is_taken()) {
+            continue;
+        }
+        const Pawn *pawn;
+        if ((pawn = dynamic_cast<const Pawn *>(p)) && pawn->promoted_piece) {
+            p = pawn->promoted_piece;
+        }
         hash ^= fetch_bitstring(p, king);
     }
     return hash;

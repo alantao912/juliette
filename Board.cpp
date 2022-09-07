@@ -332,7 +332,7 @@ std::vector<uint32_t> *Board::generate_moves() {
             p->add_moves(move_list);
         }
     }
-    filter_moves(move_list);
+    // filter_moves(move_list);
     return move_list;
 }
 
@@ -539,7 +539,7 @@ void Board::print_move(uint32_t move) {
                 std::cout << "Q";
             break;
             case ROOK:
-                std::cout << "K";
+                std::cout << "R";
             break;
             case KNIGHT:
                 std::cout << "N";
@@ -547,6 +547,8 @@ void Board::print_move(uint32_t move) {
             case BISHOP:
                 std::cout << "B";
             break;
+            default:
+                std::cout << "something broke" << std::endl;
         }
     }
 
@@ -556,41 +558,13 @@ void Board::print_move(uint32_t move) {
 }
 
 void Board::make_move(uint32_t move) {
+    hash_stack.push(hash_code);
     int8_t ff = GET_FROM_FILE(move), fr = GET_FROM_RANK(move);
     int8_t tf = GET_TO_FILE(move), tr = GET_TO_RANK(move);
 
     const King *king = get_my_king(turn);
     int8_t f = offset(ff, fr);
     Piece *mp = squares[f];
-    if (!mp) {
-        print_board();
-        print_move(move);
-        std::cout << '\n' << (char)(ff + 'a') << (int) fr << std::endl;
-        std::vector<Piece *> *pieces = get_pieces_of_color(turn);
-        for (Piece *p : *pieces) {
-            if (p->get_is_taken()) {
-                continue;
-            }
-            std::cout << p->get_piece_char() << ' ' << (char) (p->file + 'a') << (int) p->rank << std::endl;
-        }
-        pieces = get_pieces_of_color((Board::Color)((turn + 1) % 2));
-        for (Piece *p : *pieces) {
-            if (p->get_is_taken()) {
-                continue;
-            }
-            std::cout << p->get_piece_char() << ' ' << (char) (p->file + 'a') << (int) p->rank << std::endl;
-        }
-        uint32_t i = ((uint32_t) 1) << 31;
-        for (int j = 0; j < 33; ++j) {
-            if ((i & move) != 0) {
-                std::cout << 1;
-            } else {
-                std::cout << 0;
-            }
-            i >>= 1;
-        }
-        std::cout << '\n';
-    }
     squares[f] = nullptr;
     hash_code ^= fetch_bitstring(mp, king);
 
@@ -604,31 +578,42 @@ void Board::make_move(uint32_t move) {
     }
 
     if (GET_REM_LCASTLE(move)) {
+
+        std::cout << "Removing long castle rights" << std::endl;
         King *my_king = get_my_king(turn);
         my_king->long_castle_rights = false;
+        if (GET_PIECE_MOVED(move) == KING) {
+            size_t i = 18 * offset(A_FILE, fr) + 9 * turn;
+            hash_code ^= zobrist_hashes[i + 6];
+            hash_code ^= zobrist_hashes[i + 2];
+        }
     }
     if (GET_REM_SCASTLE(move)) {
+        std::cout << "Removing short castle rights" << std::endl;
         King *my_king = get_my_king(turn);
         my_king->short_castle_rights = false;
+        if (GET_PIECE_MOVED(move) == KING) {
+            size_t i = 18 * offset(H_FILE, fr) + 9 * turn;
+            hash_code ^= zobrist_hashes[i + 7];
+            hash_code ^= zobrist_hashes[i + 2];
+        }
     }
 
     if (GET_SHORT_CASTLING(move)) {
-        Rook *rook = dynamic_cast<Rook *>(inspect(H_FILE, fr));
+        Piece *rook = inspect(H_FILE, fr);
         rook->file = F_FILE;
         int8_t i = offset(H_FILE, fr);
         squares[i] = nullptr;
-        /* squares[i] used to contain a rook that could castle short. Hence, the + 7*/
-        hash_code ^= zobrist_hashes[18 * i + 9 * turn + 7];
+        hash_code ^= zobrist_hashes[18 * i + 9 * turn + 2];
         i = offset(F_FILE, fr);
         squares[i] = rook;
-        /* squares[i] now contains an ordinary rook. One that cannot castle. Hence, the + 2*/
         hash_code ^= zobrist_hashes[18 * i + 9 * turn + 2];
     } else if (GET_LONG_CASTLING(move)) {
-        Rook *rook = dynamic_cast<Rook *> (inspect(A_FILE, fr));
+        Piece *rook = inspect(A_FILE, fr);
         rook->file = D_FILE;
         int8_t i = offset(A_FILE, fr);
         squares[i] = nullptr;
-        hash_code ^= zobrist_hashes[18 * i + 9 * turn + 6];
+        hash_code ^= zobrist_hashes[18 * i + 9 * turn + 2];
         i = offset(D_FILE, fr);
         squares[i] = rook;
         hash_code ^= zobrist_hashes[18 * i + 9 * turn + 2];
@@ -636,6 +621,12 @@ void Board::make_move(uint32_t move) {
 
     if (prev_jmp_pawn) {
         prev_jmp_pawn->moved_two = false;
+        if (tf != prev_jmp_pawn->file || tr != prev_jmp_pawn->rank) {
+            uint64_t i = 18 * Board::offset(prev_jmp_pawn->file, prev_jmp_pawn->rank) + 9 * prev_jmp_pawn->color;
+            hash_code ^= zobrist_hashes[i + 8];
+            hash_code ^= zobrist_hashes[i + 4];
+        }
+        prev_jmp_pawn = nullptr;
     }
     if (GET_PIECE_MOVED(move) == PAWN) {
         Pawn *pawn = dynamic_cast<Pawn *>(mp);
@@ -658,6 +649,10 @@ void Board::make_move(uint32_t move) {
                     pieces_collections[5 * (pawn->color == BLACK) + KNIGHT]->push_back(pawn->promoted_piece);
                     break;
             }
+            /*
+            pawn->file = tf;
+            pawn->rank = tr;
+            */
             mp = pawn->promoted_piece;
             std::vector<Piece *> *pawn_collection = pieces_collections[5 * (pawn->color == BLACK) + PAWN];
             remove_from_collection(pawn_collection, pawn);
@@ -665,10 +660,10 @@ void Board::make_move(uint32_t move) {
             pawn->moved_two = true;
             prev_jmp_pawn = pawn;
         } else if (GET_IS_ENPASSANT(move)) {
-            int8_t t = offset(tf, tr - pawn->get_direction());
+            int8_t t = offset(tf, fr);
             Piece *cp = squares[t];
             squares[t] = nullptr;
-            hash_code ^= zobrist_hashes[18 * t + 9 * turn + 8];
+            hash_code ^= zobrist_hashes[18 * t + 9 * ((turn + 1) % 2) + 4];
             captured_pieces.push(cp);
             cp->set_is_taken(true);
         }
@@ -694,7 +689,6 @@ uint32_t Board::revert_move() {
     } else {
         this->turn = WHITE;
     }
-    hash_code ^= black_to_move;
 
     const uint32_t prev_move = move_stack.top();
     move_stack.pop();
@@ -704,14 +698,12 @@ uint32_t Board::revert_move() {
     int8_t t = offset(tf, tr);
     Piece *mp = squares[t];
     squares[t] = nullptr;
-    hash_code ^= fetch_bitstring(mp, get_my_king(turn));
 
     if (GET_IS_CAPTURE(prev_move)) {
         Piece *cp = captured_pieces.top();
         captured_pieces.pop();
         cp->set_is_taken(false);
         squares[offset(tf, tr)] = cp;
-        hash_code ^= fetch_bitstring(cp, get_opponent_king(turn));
     }
 
     if (GET_REM_LCASTLE(prev_move)) {
@@ -728,20 +720,16 @@ uint32_t Board::revert_move() {
         Rook *rook = dynamic_cast<Rook *> (inspect(F_FILE, tr));
         int8_t i = offset(F_FILE, tr);
         squares[i] = nullptr;
-        hash_code ^= zobrist_hashes[18 * i + 9 * turn + 2];
         rook->file = H_FILE;
         i = offset(H_FILE, tr);
         squares[i] = rook;
-        hash_code ^= zobrist_hashes[18 * i + 9 * turn + 7];
     } else if (GET_LONG_CASTLING(prev_move)) {
         Rook *rook = dynamic_cast<Rook *> (inspect(D_FILE, tr));
         int8_t i = offset(D_FILE, tr);
         squares[i] = nullptr;
-        hash_code ^= zobrist_hashes[18 * i + 9 * turn + 2];
         rook->file = A_FILE;
         i = offset(A_FILE, tr);
         squares[i] = rook;
-        hash_code ^= zobrist_hashes[18 * i + 9 * turn + 6];
     }
 
     if (GET_PIECE_MOVED(prev_move) == PAWN) {
@@ -761,9 +749,7 @@ uint32_t Board::revert_move() {
             Piece *cp = captured_pieces.top();
             captured_pieces.pop();
             cp->set_is_taken(false);
-            int8_t i = offset(tf, tr - pawn->get_direction());
-            squares[i] = cp;
-            hash_code ^= zobrist_hashes[18 * i + 9 * turn + 8];
+            squares[offset(tf, tr - pawn->get_direction())] = cp;
         }
     }
 
@@ -779,7 +765,8 @@ uint32_t Board::revert_move() {
     mp->file = ff;
     mp->rank = fr;
     squares[offset(ff, fr)] = mp;
-    hash_code ^= fetch_bitstring(mp, get_my_king(turn));
+    hash_code = hash_stack.top();
+    hash_stack.pop();
     return prev_move;
 }
 

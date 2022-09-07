@@ -110,8 +110,6 @@ int8_t Pawn::get_direction() const {
     return direction_offset;
 }
 
-
-
 bool Pawn::get_is_taken() const {
     if (promoted_piece) {
         return promoted_piece->get_is_taken();

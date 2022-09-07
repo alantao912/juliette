@@ -147,6 +147,7 @@ public:
 
 private:
     std::stack<uint32_t> move_stack;
+    std::stack<uint64_t> hash_stack;
     std::stack<Piece *> captured_pieces;
 
     std::vector<Piece *> black_pieces;
