@@ -16,7 +16,7 @@ Pawn::Pawn(Board::Color color, int8_t file, int8_t rank, Board *parent) : Piece(
     promoted_piece = nullptr;
 }
 
-void Pawn::check_promotion(std::vector<uint32_t> *move_list, uint32_t move) {
+void Pawn::check_promotion(std::vector<uint32_t> *move_list, uint32_t move) const {
     if (GET_TO_RANK(move) == promotion_rank) {
         move_list->push_back(move | IS_PROMOTION | PROMOTION_PIECE(KNIGHT));
         move_list->push_back(move | IS_PROMOTION | PROMOTION_PIECE(BISHOP));
@@ -44,11 +44,11 @@ void Pawn::add_moves(std::vector<uint32_t> *move_list) {
         }
     }
 
-    Piece *attack_square = nullptr;
+    Piece *attack_square;
     if (file != A_FILE) {
         /* Pawn is not on the A file, check if it can capture toward file - 1 */
         attack_square = parent->inspect(file - 1, rank + direction_offset);
-        squares_hit = squares_hit | (1ULL << (parent->offset(file - 1, rank + direction_offset)));
+        squares_hit = squares_hit | (1ULL << (Board::offset(file - 1, rank + direction_offset)));
         if (attack_square && attack_square->color != this->color) {
             /* If there is a piece on the attack square, and the piece's color is opposite to it's own */
             move = 0 | FROM_FILE(file) | FROM_RANK(rank) | TO_FILE((file - 1)) | TO_RANK((rank + direction_offset)) | IS_CAPTURE | SET_PIECE_MOVED(PAWN);
@@ -66,7 +66,7 @@ void Pawn::add_moves(std::vector<uint32_t> *move_list) {
     if (file != H_FILE) {
         /* Pawn is not on the H file, check if it can capture towards file + 1 */
         attack_square = parent->inspect(file + 1, rank + direction_offset);
-        squares_hit = squares_hit | (uint64_t) (1ULL << (parent->offset(file + 1, rank + direction_offset)));
+        squares_hit = squares_hit | (uint64_t) (1ULL << (Board::offset(file + 1, rank + direction_offset)));
         if (attack_square && attack_square->color != this->color) {
             /* If there is a piece on the attack square, and the piece's color is opposite to it's own */
             move = 0 | FROM_FILE(file) | FROM_RANK(rank) | TO_FILE((file + 1)) | TO_RANK((rank + direction_offset)) | IS_CAPTURE | SET_PIECE_MOVED(PAWN);
@@ -90,24 +90,36 @@ bool Pawn::can_attack(int8_t file, int8_t rank) {
 }
 
 char Pawn::get_piece_char() {
+    if (promoted_piece) {
+        return promoted_piece->get_piece_char();
+    }
     if (color == Board::BLACK) {
         return 'p';
-        
     }
     return 'P';
 }
 
-uint8_t Pawn::get_type() {
+uint8_t Pawn::get_type() const {
     if (promoted_piece) {
         return promoted_piece->get_type();
     }
     return PAWN;
 }
 
-int8_t Pawn::get_direction() {
+int8_t Pawn::get_direction() const {
     return direction_offset;
 }
 
-uint8_t Pawn::hash_value() {
-    return PAWN | (color * (1 << 3)) | (parent->move * (1 << 4)) | (moved_two * (1 << 5));
+bool Pawn::get_is_taken() const {
+    if (promoted_piece) {
+        return promoted_piece->get_is_taken();
+    }
+    return is_taken;
+}
+
+void Pawn::set_is_taken(bool b) {
+    if (promoted_piece) {
+        promoted_piece->set_is_taken(b);
+    }
+    is_taken = b;
 }

@@ -13,6 +13,7 @@
 
 #include "Board.h"
 #include "Search.h"
+#include "Zobrist.h"
 #include "Evaluation.h"
 
 void initialize_UCI(SOCKET clientSocket);

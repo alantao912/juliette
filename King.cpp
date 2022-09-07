@@ -1,7 +1,10 @@
 #include "King.h"
 const int8_t King::masks[8][2]= {{-1, -1}, {-1, 0}, {-1, 1}, {0, 1}, {1, 1}, {1, 0}, {1, -1}, {0, -1}};
 
-King::King(Board::Color c, int8_t file, int8_t rank, Board *parent) : Piece(c, file, rank, parent) {}
+King::King(Board::Color c, int8_t file, int8_t rank, Board *parent) : Piece(c, file, rank, parent) {
+    short_castle_rights = false;
+    long_castle_rights = false;
+}
 
 void King::add_moves(std::vector<uint32_t> *move_list) {
     squares_hit = (uint64_t) 0;
@@ -15,7 +18,7 @@ void King::add_moves(std::vector<uint32_t> *move_list) {
         }
           
         uint32_t move = create_move(f, r, KING);
-        squares_hit |= (1ULL << (parent->offset(f, r)));
+        squares_hit |= (1ULL << (Board::offset(f, r)));
         if (move == BREAK) {
             continue;
         }
@@ -55,12 +58,11 @@ bool King::can_castle_short() {
         return false;
     }
 
-    if ((p = parent->inspect(F_FILE, rank)) || (p = parent->inspect(G_FILE, rank))) {
+    if (parent->inspect(F_FILE, rank) || parent->inspect(G_FILE, rank)) {
         return false;
     }
 
-    for (uint8_t i = 0; i < opposite_color_pieces->size(); ++i) {
-        Piece *piece = opposite_color_pieces->at(i);
+    for (auto piece : *opposite_color_pieces) {
         if (piece->can_attack(F_FILE, rank)) {
             return false;
         }
@@ -76,13 +78,12 @@ bool King::can_castle_long() {
         return false;
     }
 
-    if ((p = parent->inspect(B_FILE, rank)) || (p = parent->inspect(C_FILE, rank)) || (p = parent->inspect(D_FILE, rank))) {
+    if (parent->inspect(B_FILE, rank) || parent->inspect(C_FILE, rank) || parent->inspect(D_FILE, rank)) {
         return false;
     }
 
-    for (uint8_t i = 0; i < opposite_color_pieces->size(); ++i) {
-         Piece *piece = opposite_color_pieces->at(i);
-        if (piece->can_attack(C_FILE, rank)) {
+    for (auto piece : *opposite_color_pieces) {
+         if (piece->can_attack(C_FILE, rank)) {
             return false;
         }
     }
@@ -98,8 +99,4 @@ char King::get_piece_char() {
         return 'k';
     }
     return 'K';
-}
-
-uint8_t King::hash_value() {
-    return KING | (color * (1 << 3)) | (parent->move * (1 << 4)) | (long_castle_rights * (1 << 5)) | (short_castle_rights * (1 << 6));
 }

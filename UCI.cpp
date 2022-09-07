@@ -83,11 +83,14 @@ std::vector<std::string> split(std::string &input) {
 }
 
 void position(std::string &arg) {
+    /* initialize_zobrist() must occur before board instantiation as board instantiation depends on the hash codes initialized */
+    initialize_zobrist();
     if (arg == "startpos") {
         game = new Board(START_POSITION);
     } else {
         game = new Board(arg.c_str());
     }
+    /* Initialization of evaluation and search must occur after board instantiation as these initializations depend on game being non-null */
     initialize_evaluation();
     initialize_search();
 }

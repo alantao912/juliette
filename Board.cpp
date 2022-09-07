@@ -1,11 +1,11 @@
 #include <cstring>
-#include "Board.h"
-#include "King.h"
-#include "Queen.h"
 #include "Knight.h"
+#include "Queen.h"
 #include "Pawn.h"
-#include "Evaluation.h"
-#include "Search.h"
+#include "Zobrist.h"
+
+extern uint64_t black_to_move;
+extern uint64_t zobrist_hashes[];
 
 Board::Board(const char *fen) {
     uint8_t segment_lengths[4] = {0, 0, 0, 0};
@@ -27,8 +27,8 @@ Board::Board(const char *fen) {
         if (!fen_segments[j]) {
             for (uint8_t k = 0; k < j; ++k) {
                 free(fen_segments[k]);
-                return;
             }
+            return;
         }
         fen_segments[j][segment_lengths[j]] = '\0';
 
@@ -50,13 +50,12 @@ Board::Board(const char *fen) {
     white_king = nullptr;
     black_king = nullptr;
 
-    for (uint8_t i = 0; i < 10; ++i) {
-        pieces_collections[i] = new std::vector<Piece *>();
+    for (auto & pieces_collection : pieces_collections) {
+        pieces_collection = new std::vector<Piece *>();
     }
 
     int8_t rank = 8, file = 0, i = 0;
     while (fen_segments[0][i]) {
-        bool add_piece = true;
         if (fen_segments[0][i] >= '0' && fen_segments[0][i] <= '9') {
             file += fen_segments[0][i] - '0';
             ++i;
@@ -65,8 +64,7 @@ Board::Board(const char *fen) {
             case '/':
                 --rank;
                 file = -1;
-                add_piece = false;
-            break;
+                    break;
             case 'p': {
                 Pawn *p = new Pawn(BLACK, file, rank, this);
                 black_pieces.push_back(new Pawn(BLACK, file, rank, this));
@@ -121,13 +119,13 @@ Board::Board(const char *fen) {
                 break;
             }
             case 'B': {
-                Bishop *b = new Bishop(WHITE, file, rank, this);
+                auto *b = new Bishop(WHITE, file, rank, this);
                 white_pieces.push_back(b);
                 pieces_collections[WHITE_BISHOP]->push_back(b);
                 break;
             }
             case 'Q': {
-                Queen *q = new Queen(WHITE, file, rank, this);
+                auto *q = new Queen(WHITE, file, rank, this);
                 white_pieces.push_back(q);
                 pieces_collections[WHITE_QUEEN]->push_back(q);
                 break;
@@ -138,8 +136,8 @@ Board::Board(const char *fen) {
                 break;
             }
             default:
-                for (uint8_t j = 0; j < 4; ++j) {
-                    free(fen_segments[j]);
+                for (auto & fen_segment : fen_segments) {
+                    free(fen_segment);
                 }
                 std::cout << "Failed to load FEN: Invalid FEN character " << fen_segments[0][i] << std::endl;
                 return;
@@ -148,38 +146,32 @@ Board::Board(const char *fen) {
         ++file;
     }
 
-    i = 0;
-
     if (!white_king || !black_king) {
-        for (uint8_t j = 0; j < 4; ++j) {
-            free(fen_segments[j]);
+        for (auto & fen_segment : fen_segments) {
+            free(fen_segment);
         }
         std::cout << "Failed to load FEN: Invalid board position. White king or black king missing!" << std::endl;
         return;
     }
 
     if (strlen(fen_segments[1]) != 1) {
-        for (uint8_t j = 0; j < 4; ++j) {
-            free(fen_segments[j]);
+        for (auto & fen_segment : fen_segments) {
+            free(fen_segment);
         }
         std::cout << "Failed to load FEN: Move specifier should be 'w' for white or 'b' for black!" << std::endl;
         return;
     } else if (fen_segments[1][0] == 'w') {
-        move = WHITE;
+        turn = WHITE;
     } else if (fen_segments[1][0] == 'b') {
-        move = BLACK;
+        turn = BLACK;
     } else {
-        for (uint8_t j = 0; j < 4; ++j) {
-            free(fen_segments[j]);
+        for (auto & fen_segment : fen_segments) {
+            free(fen_segment);
         }
         std::cout << "Failed to load FEN: Move specifier should be 'w' for white or 'b' for black!" << std::endl;
         return;
     }
     i = 0;
-    white_king->short_castle_rights = false;
-    white_king->long_castle_rights = false;
-    black_king->short_castle_rights = false;
-    black_king->long_castle_rights = false;
     while (fen_segments[2][i]) {
         switch (fen_segments[2][i]) {
             case 'K':
@@ -198,8 +190,8 @@ Board::Board(const char *fen) {
             case '-':
             break;
             default:
-                for (uint8_t j = 0; j < 4; ++j) {
-                    free(fen_segments[j]);
+                for (auto & fen_segment : fen_segments) {
+                    free(fen_segment);
                 }
                 std::cout << "Failed to load FEN: Failed to load castling rights!" << std::endl;
                 return;
@@ -208,8 +200,8 @@ Board::Board(const char *fen) {
     }
 
     if (strlen(fen_segments[3]) != 2) {
-        for (uint8_t j = 0; j < 4; ++j) {
-            free(fen_segments[j]);
+        for (auto & fen_segment : fen_segments) {
+            free(fen_segment);
         }
         std::cout << "Failed to load FEN: Must specify en-passant opportunities. \"--\" for none." << std::endl;
         return;
@@ -217,36 +209,36 @@ Board::Board(const char *fen) {
 
     if (strcmp(fen_segments[3], "--") != 0) {
         rank = fen_segments[3][1] - '0';
-        rank += 1 + ((move == WHITE) * -2);
+        rank += 1 + ((turn == WHITE) * -2);
         file = fen_segments[3][0] - 'a';
         int8_t piece_index = offset(file, rank);
         if (piece_index < 0 || piece_index > 63) {
-            for (uint8_t j = 0; j < 4; ++j) {
-                free(fen_segments[j]);
+            for (auto & fen_segment : fen_segments) {
+                free(fen_segment);
             }
             std::cout << "Failed to load FEN: Invalid coordinate for en-passant specifier." << std::endl;
             return;
         }
 
         if (!dynamic_cast<Pawn *>(squares[piece_index])) {
-            for (uint8_t j = 0; j < 4; ++j) {
-                free(fen_segments[j]);
+            for (auto & fen_segment : fen_segments) {
+                free(fen_segment);
             }
             std::cout << "Failed to load FEN: Invalid coordinate for en-passant specifier." << std::endl;
             return;
         }
 
-        if ((squares[piece_index]->color == BLACK) == (move == BLACK)) {
-            for (uint8_t j = 0; j < 4; ++j) {
-                free(fen_segments[j]);
+        if ((squares[piece_index]->color == BLACK) == (turn == BLACK)) {
+            for (auto & fen_segment : fen_segments) {
+                free(fen_segment);
             }
             std::cout << "Failed to load FEN: Invalid coordinate for en-passant specifier." << std::endl;
             return;
         }
 
         if (!((squares[piece_index]->color == BLACK && rank == 5) || (squares[piece_index]->color == WHITE && rank == 4))) {
-            for (uint8_t j = 0; j < 4; ++j) {
-                free(fen_segments[j]);
+            for (auto & fen_segment : fen_segments) {
+                free(fen_segment);
             }
             std::cout << "Failed to load FEN: Invalid coordinate for en-passant specifier.\n" << std::endl;
             return;
@@ -256,23 +248,22 @@ Board::Board(const char *fen) {
         pawn->moved_two = true;
     }
 
-    memset((void *) squares, 0, sizeof(Piece *) * 64);
+    memset((void *) squares, 0, sizeof(void *) * 64);
     prev_jmp_pawn = nullptr;
     stage = OPENING;
 
     for (Piece *p : white_pieces) {
         squares[offset(p->file, p->rank)] = p;
-        position_hash[offset(p->file, p->rank)] = 0 | p->hash_value();
     }
 
     for (Piece *p : black_pieces) {
         squares[offset(p->file, p->rank)] = p;
-        position_hash[offset(p->file, p->rank)] = 0 | p->hash_value();
     }
 
-    for (uint8_t j = 0; j < 4; ++j) {
-         free(fen_segments[j]);
+    for (auto & fen_segment : fen_segments) {
+         free(fen_segment);
     }
+    hash_code = hash(this);
     std::cout << "Successfully loaded FEN!" << std::endl;
 }
 
@@ -302,64 +293,60 @@ std::vector<Piece *> *Board::get_pieces_of_color(Color color) {
     return &black_pieces;
 }
 
-std::vector<Piece *> *Board::get_white_pieces() {
+const std::vector<Piece *> *Board::get_white_pieces() const {
     return &white_pieces;
 }
 
-std::vector<Piece *> *Board::get_black_pieces() {
+const std::vector<Piece *> *Board::get_black_pieces() const {
     return &black_pieces;
 }
 
-King *Board::get_my_king(Color color) {
+King *Board::get_my_king(Color color) const {
     if (color == WHITE) {
         return white_king;
     }
     return black_king;
 }
 
-King *Board::get_opponent_king(Color color) {
+King *Board::get_opponent_king(Color color) const {
     if (color == WHITE) {
         return black_king;
     }
     return white_king;
 }
 
-size_t Board::game_depth() {
-    return move_stack.size();
-}
-
 std::vector<uint32_t> *Board::generate_moves() {
-    std::vector<uint32_t> *move_list = new std::vector<uint32_t>();
-    if (move == WHITE) {
+    auto *move_list = new std::vector<uint32_t>();
+    if (turn == WHITE) {
         for (Piece *p : white_pieces) {
-            if (p->is_taken) {
+            if (p->get_is_taken()) {
                 continue;
             }
             p->add_moves(move_list);
         }
     } else {
         for (Piece *p : black_pieces) {
-            if (p->is_taken) {
+            if (p->get_is_taken()) {
                 continue;
             }
             p->add_moves(move_list);
         }
     }
-    filter_moves(move_list);
+    // filter_moves(move_list);
     return move_list;
 }
 
 void Board::filter_moves(std::vector<uint32_t> *move_list) {
-    King *my_king = get_my_king(this->move), *opponent_king = get_opponent_king(this->move);
-    std::vector<Piece *> *my_pieces = get_pieces_of_color(this->move), *opponent_pieces = get_opposite_pieces(this->move);
+    King *my_king = get_my_king(this->turn), *opponent_king = get_opponent_king(this->turn);
+    std::vector<Piece *> *my_pieces = get_pieces_of_color(this->turn), *opponent_pieces = get_opposite_pieces(this->turn);
     /* Store the number of checks or captures */
     uint8_t checks = 0;
     for (size_t i = 0; i < move_list->size(); ++i) {
         uint32_t candidate_move = move_list->at(i);
         make_move(candidate_move);
         for (Piece *opponent_piece : *opponent_pieces) {
-            if (!opponent_piece->is_taken && opponent_piece->can_attack(my_king->file, my_king->rank)) {
-                /* King is in check as a result of the candidate move. Thus candidate move is illegal. */
+            if (!opponent_piece->get_is_taken() && opponent_piece->can_attack(my_king->file, my_king->rank)) {
+                /* King is in check as a result of the candidate turn. Thus candidate turn is illegal. */
                 move_list->at(i) = move_list->back();
                 move_list->pop_back();
                 --i;
@@ -368,8 +355,8 @@ void Board::filter_moves(std::vector<uint32_t> *move_list) {
         }
         
         for (Piece *my_piece : *my_pieces) {
-            if (!my_piece->is_taken && my_piece->can_attack(opponent_king->file, opponent_king->rank)) {
-                // Opponent's king is in check as a result of the candidate move. Move to front.
+            if (!my_piece->get_is_taken() && my_piece->can_attack(opponent_king->file, opponent_king->rank)) {
+                // Opponent's king is in check as a result of the candidate turn. Move to front.
                 move_list->at(i) = move_list->at(checks);
                 move_list->at(checks) = candidate_move | IS_CHECK;
                 ++checks;
@@ -379,7 +366,6 @@ void Board::filter_moves(std::vector<uint32_t> *move_list) {
         END:
         revert_move();
     }
-
     for (size_t i = checks; i < move_list->size(); ++i) {
         uint32_t candidate_move = move_list->at(i);
         if (GET_IS_CAPTURE(candidate_move)) {
@@ -427,10 +413,10 @@ Pawn *Board::find_parent_pawn(Piece *promoted) {
 }
 
 void Board::print_board() {
-    if (move == BLACK) {
-        std::cout << "Black to move!" << std::endl;
+    if (turn == BLACK) {
+        std::cout << "Black to turn!" << std::endl;
     } else {
-        std::cout << "White to move!" << std::endl;
+        std::cout << "White to turn!" << std::endl;
     }
 
     for (int8_t rank = 8; rank >= 1; --rank) {
@@ -534,6 +520,8 @@ void Board::print_move(uint32_t move) {
                 std::cout << "K";
             }
         break;
+        default:
+            std::cout << "??? something broke" << std::endl;
     }
 
     if (GET_IS_CAPTURE(move) || GET_IS_ENPASSANT(move)) {
@@ -551,7 +539,7 @@ void Board::print_move(uint32_t move) {
                 std::cout << "Q";
             break;
             case ROOK:
-                std::cout << "K";
+                std::cout << "R";
             break;
             case KNIGHT:
                 std::cout << "N";
@@ -559,6 +547,8 @@ void Board::print_move(uint32_t move) {
             case BISHOP:
                 std::cout << "B";
             break;
+            default:
+                std::cout << "something broke" << std::endl;
         }
     }
 
@@ -568,59 +558,76 @@ void Board::print_move(uint32_t move) {
 }
 
 void Board::make_move(uint32_t move) {
-    if (prev_jmp_pawn) {
-        prev_jmp_pawn->moved_two = false;
-    }
-
+    hash_stack.push(hash_code);
     int8_t ff = GET_FROM_FILE(move), fr = GET_FROM_RANK(move);
     int8_t tf = GET_TO_FILE(move), tr = GET_TO_RANK(move);
 
+    const King *king = get_my_king(turn);
     int8_t f = offset(ff, fr);
     Piece *mp = squares[f];
-    position_hash[f] = (int8_t) 0;
     squares[f] = nullptr;
+    hash_code ^= fetch_bitstring(mp, king);
 
     if (GET_IS_CAPTURE(move)) {
-        Piece *cp = squares[offset(tf, tr)];
-        int8_t t = offset(tf, tr);
-        squares[t] = nullptr;
-        position_hash[t] = 0;
+        int8_t i = offset(tf, tr);
+        Piece *cp = squares[i];
+        squares[i] = nullptr;
+        hash_code ^= fetch_bitstring(cp, get_opponent_king(turn));
         captured_pieces.push(cp);
-        cp->is_taken = true;
+        cp->set_is_taken(true);
     }
 
     if (GET_REM_LCASTLE(move)) {
-        King *my_king = get_my_king(this->move);
+
+        std::cout << "Removing long castle rights" << std::endl;
+        King *my_king = get_my_king(turn);
         my_king->long_castle_rights = false;
+        if (GET_PIECE_MOVED(move) == KING) {
+            size_t i = 18 * offset(A_FILE, fr) + 9 * turn;
+            hash_code ^= zobrist_hashes[i + 6];
+            hash_code ^= zobrist_hashes[i + 2];
+        }
     }
     if (GET_REM_SCASTLE(move)) {
-        King *my_king = get_my_king(this->move);
+        std::cout << "Removing short castle rights" << std::endl;
+        King *my_king = get_my_king(turn);
         my_king->short_castle_rights = false;
+        if (GET_PIECE_MOVED(move) == KING) {
+            size_t i = 18 * offset(H_FILE, fr) + 9 * turn;
+            hash_code ^= zobrist_hashes[i + 7];
+            hash_code ^= zobrist_hashes[i + 2];
+        }
     }
 
     if (GET_SHORT_CASTLING(move)) {
-        Rook *rook = dynamic_cast<Rook *>(inspect(H_FILE, fr));
+        Piece *rook = inspect(H_FILE, fr);
         rook->file = F_FILE;
-        int8_t rf = offset(H_FILE, fr);
-        squares[offset(H_FILE, fr)] = nullptr;
-        position_hash[rf] = 0;
-
-        int8_t rt = offset(F_FILE, fr);
-        squares[offset(F_FILE, fr)] = rook;
-        position_hash[rt] = rook->hash_value();
+        int8_t i = offset(H_FILE, fr);
+        squares[i] = nullptr;
+        hash_code ^= zobrist_hashes[18 * i + 9 * turn + 2];
+        i = offset(F_FILE, fr);
+        squares[i] = rook;
+        hash_code ^= zobrist_hashes[18 * i + 9 * turn + 2];
     } else if (GET_LONG_CASTLING(move)) {
-        Rook *rook = dynamic_cast<Rook *> (inspect(A_FILE, fr));
+        Piece *rook = inspect(A_FILE, fr);
         rook->file = D_FILE;
-
-        int8_t rf = offset(A_FILE, fr);
-        squares[rf] = nullptr;
-        position_hash[rf] = 0;
-
-        int8_t rt = offset(D_FILE, fr);
-        squares[rt] = rook;
-        position_hash[rt] = rook->hash_value();
+        int8_t i = offset(A_FILE, fr);
+        squares[i] = nullptr;
+        hash_code ^= zobrist_hashes[18 * i + 9 * turn + 2];
+        i = offset(D_FILE, fr);
+        squares[i] = rook;
+        hash_code ^= zobrist_hashes[18 * i + 9 * turn + 2];
     }
 
+    if (prev_jmp_pawn) {
+        prev_jmp_pawn->moved_two = false;
+        if (tf != prev_jmp_pawn->file || tr != prev_jmp_pawn->rank) {
+            uint64_t i = 18 * Board::offset(prev_jmp_pawn->file, prev_jmp_pawn->rank) + 9 * prev_jmp_pawn->color;
+            hash_code ^= zobrist_hashes[i + 8];
+            hash_code ^= zobrist_hashes[i + 4];
+        }
+        prev_jmp_pawn = nullptr;
+    }
     if (GET_PIECE_MOVED(move) == PAWN) {
         Pawn *pawn = dynamic_cast<Pawn *>(mp);
         if (GET_IS_PROMOTION(move)) {
@@ -628,20 +635,24 @@ void Board::make_move(uint32_t move) {
                 case QUEEN:
                     pawn->promoted_piece = new Queen(pawn->color, tf, tr, this);
                     pieces_collections[5 * (pawn->color == BLACK) + QUEEN]->push_back(pawn->promoted_piece);
-                break;
+                    break;
                 case ROOK:
                     pawn->promoted_piece = new Rook(pawn->color, tf, tr, this);
                     pieces_collections[5 * (pawn->color == BLACK) + ROOK]->push_back(pawn->promoted_piece);
-                break;
+                    break;
                 case BISHOP:
                     pawn->promoted_piece = new Bishop(pawn->color, tf, tr, this);
                     pieces_collections[5 * (pawn->color == BLACK) + BISHOP]->push_back(pawn->promoted_piece);
-                break;
+                    break;
                 case KNIGHT:
                     pawn->promoted_piece = new Knight(pawn->color, tf, tr, this);
                     pieces_collections[5 * (pawn->color == BLACK) + KNIGHT]->push_back(pawn->promoted_piece);
-                break;
+                    break;
             }
+            /*
+            pawn->file = tf;
+            pawn->rank = tr;
+            */
             mp = pawn->promoted_piece;
             std::vector<Piece *> *pawn_collection = pieces_collections[5 * (pawn->color == BLACK) + PAWN];
             remove_from_collection(pawn_collection, pawn);
@@ -649,34 +660,34 @@ void Board::make_move(uint32_t move) {
             pawn->moved_two = true;
             prev_jmp_pawn = pawn;
         } else if (GET_IS_ENPASSANT(move)) {
-            Piece *cp = squares[offset(tf, tr - pawn->get_direction())];
-            int8_t t = offset(tf, tr - pawn->get_direction());
+            int8_t t = offset(tf, fr);
+            Piece *cp = squares[t];
             squares[t] = nullptr;
-            position_hash[t] = 0;
+            hash_code ^= zobrist_hashes[18 * t + 9 * ((turn + 1) % 2) + 4];
             captured_pieces.push(cp);
-            cp->is_taken = true;
+            cp->set_is_taken(true);
         }
     }
 
-    int8_t t = offset(tf, tr);
-    squares[t] = mp;
-    position_hash[t] = mp->hash_value();
     mp->file = tf;
     mp->rank = tr;
+    squares[offset(tf, tr)] = mp;
+    hash_code ^= fetch_bitstring(mp, get_my_king(turn));
 
     this->move_stack.push(move);
-    if (this->move == WHITE) {
-        this->move = BLACK;
+    if (this->turn == WHITE) {
+        this->turn = BLACK;
     } else {
-        this->move = WHITE;
+        this->turn = WHITE;
     }
+    hash_code ^= black_to_move;
 }
 
 uint32_t Board::revert_move() {
-    if (this->move == WHITE) {
-        this->move = BLACK;
+    if (this->turn == WHITE) {
+        this->turn = BLACK;
     } else {
-        this->move = WHITE;
+        this->turn = WHITE;
     }
 
     const uint32_t prev_move = move_stack.top();
@@ -687,45 +698,38 @@ uint32_t Board::revert_move() {
     int8_t t = offset(tf, tr);
     Piece *mp = squares[t];
     squares[t] = nullptr;
-    position_hash[t] = 0;
 
     if (GET_IS_CAPTURE(prev_move)) {
         Piece *cp = captured_pieces.top();
         captured_pieces.pop();
-        cp->is_taken = false;
-        int8_t t = offset(tf, tr);
-        squares[t] = cp;
-        position_hash[t] = cp->hash_value();
+        cp->set_is_taken(false);
+        squares[offset(tf, tr)] = cp;
     }
 
     if (GET_REM_LCASTLE(prev_move)) {
-        King *my_king = get_my_king(this->move);
+        King *my_king = get_my_king(this->turn);
         my_king->long_castle_rights = true;
     }
 
     if (GET_REM_SCASTLE(prev_move)) {
-        King *my_king = get_my_king(this->move);
+        King *my_king = get_my_king(this->turn);
         my_king->short_castle_rights = true;
     }
 
     if (GET_SHORT_CASTLING(prev_move)) {
         Rook *rook = dynamic_cast<Rook *> (inspect(F_FILE, tr));
-        int8_t rt = offset(F_FILE, tr);
-        squares[rt] = nullptr;
-        position_hash[rt] = 0;
+        int8_t i = offset(F_FILE, tr);
+        squares[i] = nullptr;
         rook->file = H_FILE;
-        int8_t rf = offset(H_FILE, tr);
-        squares[rf] = rook;
-        position_hash[rf] = rook->hash_value();
+        i = offset(H_FILE, tr);
+        squares[i] = rook;
     } else if (GET_LONG_CASTLING(prev_move)) {
         Rook *rook = dynamic_cast<Rook *> (inspect(D_FILE, tr));
-        int8_t rt = offset(D_FILE, tr);
-        squares[rt] = nullptr;
-        position_hash[rt] = 0;
+        int8_t i = offset(D_FILE, tr);
+        squares[i] = nullptr;
         rook->file = A_FILE;
-        int8_t rf = offset(A_FILE, tr);
-        squares[rf] = rook;
-        position_hash[rf] = rook->hash_value();
+        i = offset(A_FILE, tr);
+        squares[i] = rook;
     }
 
     if (GET_PIECE_MOVED(prev_move) == PAWN) {
@@ -744,10 +748,8 @@ uint32_t Board::revert_move() {
             Pawn *pawn = dynamic_cast<Pawn *>(mp);
             Piece *cp = captured_pieces.top();
             captured_pieces.pop();
-            cp->is_taken = false;
-            int8_t t = offset(tf, tr - pawn->get_direction());
-            squares[t] = cp;
-            position_hash[t] = cp->hash_value();
+            cp->set_is_taken(false);
+            squares[offset(tf, tr - pawn->get_direction())] = cp;
         }
     }
 
@@ -760,17 +762,17 @@ uint32_t Board::revert_move() {
         }
     }
 
-    int8_t f = offset(ff, fr);
-    squares[f] = mp;
-    position_hash[f] = mp->hash_value();
     mp->file = ff;
     mp->rank = fr;
+    squares[offset(ff, fr)] = mp;
+    hash_code = hash_stack.top();
+    hash_stack.pop();
     return prev_move;
 }
 
 bool Board::is_king_in_check() {
-    King *my_king = get_my_king(move);
-    std::vector<Piece *> *opponent_pieces = get_opposite_pieces(move);
+    King *my_king = get_my_king(turn);
+    std::vector<Piece *> *opponent_pieces = get_opposite_pieces(turn);
     for (Piece *p : *opponent_pieces) {
         if (p->can_attack(my_king->file, my_king->rank)) {
             return true;

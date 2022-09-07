@@ -7,15 +7,15 @@ void Rook::add_moves(std::vector<uint32_t> *move_list) {
 
     uint32_t move, mask = 0;
     King *my_king = parent->get_my_king(this->color);
-    if (rank == 1 && file == A_FILE && my_king->long_castle_rights) {
+    if (rank == 1 + this->color * 7 && file == A_FILE && my_king->long_castle_rights) {
         mask = REM_LONG_CASTLE;
-    } else if (rank == 1 && file == H_FILE && my_king->short_castle_rights) {
+    } else if (rank == 1 + this->color * 7 && file == H_FILE && my_king->short_castle_rights) {
         mask = REM_SHORT_CASTLE;
     }
     while (i > A_FILE) {
         --i;
         move = mask | create_move(i, rank, ROOK);
-        squares_hit |= (1ULL << parent->offset(i, rank));
+        squares_hit |= (1ULL << Board::offset(i, rank));
         if (move == BREAK) {
             break;
         }
@@ -28,7 +28,7 @@ void Rook::add_moves(std::vector<uint32_t> *move_list) {
     while (i < H_FILE) {
         ++i;
         move = mask | create_move(i, rank, ROOK);
-        squares_hit |= (1ULL << parent->offset(i, rank));
+        squares_hit |= (1ULL << Board::offset(i, rank));
         if (move == BREAK) {
             break;
         }
@@ -41,7 +41,7 @@ void Rook::add_moves(std::vector<uint32_t> *move_list) {
     while (i > 1) {
         --i;
         move = mask | create_move(file, i, ROOK);
-        squares_hit |= (1ULL << parent->offset(file, i));
+        squares_hit |= (1ULL << Board::offset(file, i));
         if (move == BREAK) {
             break;
         }
@@ -54,7 +54,7 @@ void Rook::add_moves(std::vector<uint32_t> *move_list) {
     while (i < 8) {
         ++i;
         move = mask | create_move(file, i, ROOK);
-        squares_hit |= (1ULL << parent->offset(file, i));
+        squares_hit |= (1ULL << Board::offset(file, i));
         if (move == BREAK) {
             break;
         }
@@ -98,10 +98,6 @@ char Rook::get_piece_char() {
     return 'R';
 }
 
-uint8_t Rook::get_type() {
+uint8_t Rook::get_type() const {
     return ROOK;
-}
-
-uint8_t Rook::hash_value() {
-    return ROOK | (color * (1 << 3)) | (parent->move * (1 << 4));
 }

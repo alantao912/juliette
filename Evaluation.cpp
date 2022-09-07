@@ -3,8 +3,8 @@
 /* Pointer to board object that we are currently evaluating */
 extern Board *game;
 
-std::vector<Piece *> *white_pieces = nullptr;
-std::vector<Piece *> *black_pieces = nullptr;
+const static std::vector<Piece *> *white_pieces = nullptr;
+const static std::vector<Piece *> *black_pieces = nullptr;
 
 void initialize_evaluation() {
     white_pieces = game->get_white_pieces();
@@ -14,14 +14,14 @@ void initialize_evaluation() {
 int32_t evaluate() {
     int evaluation = 0;
     evaluation += material_score();
-    return (1 - 2 * (game->move == Board::BLACK)) * evaluation;
+    return (1 - 2 * (game->turn == Board::BLACK)) * evaluation;
 }
 
 int32_t material_score() {
     int material_evaluation = 0;
 
     for (Piece *p : *white_pieces) {
-        if (p->is_taken) {
+        if (p->get_is_taken()) {
             continue;
         }
         switch (p->get_type()) {
@@ -44,7 +44,7 @@ int32_t material_score() {
     }
 
     for (Piece *p : *black_pieces) {
-        if (p->is_taken) {
+        if (p->get_is_taken()) {
                 continue;
         }
         switch (p->get_type()) {
