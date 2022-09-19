@@ -4,7 +4,7 @@
 #include "Evaluation.h"
 
 #define CHECKMATE(depth) ((INT32_MIN + 1) + (UINT16_MAX - depth))
-#define DRAW (int32_t) 0;
+#define DRAW (int32_t) 0
 
 std::unordered_map<uint64_t, TTEntry> transposition_table;
 
@@ -14,7 +14,6 @@ std::vector<uint32_t> top_line;
 void initialize_search() {
     top_line.clear();
     transposition_table.clear();
-    initialize_zobrist();
 }
 
 /**
@@ -26,9 +25,18 @@ void initialize_search() {
 
 int32_t negamax(uint16_t depth, int32_t alpha, int32_t beta, std::vector<uint32_t> *considered_line) {
     uint64_t hash_code = hash(game);
-    std::unordered_map<uint64_t, TTEntry>::const_iterator t;
+    std::unordered_map<uint64_t, TTEntry>::iterator t;
+    uint8_t num_seen = 0;
     if ((t = transposition_table.find(hash_code)) != transposition_table.end()) {
         TTEntry entry = t->second;
+        if (entry.num_seen >= 3) {
+            return DRAW;
+        }
+        if (entry.depth >= depth) {
+            return entry.evaluation;
+        }
+        ++entry.num_seen;
+        num_seen = entry.num_seen;
     }
     std::vector<uint32_t> *move_list = game->generate_moves();
     if (move_list->empty()) {
@@ -73,7 +81,7 @@ int32_t negamax(uint16_t depth, int32_t alpha, int32_t beta, std::vector<uint32_
     PRUNE:
     delete move_list;
     /* Current node has been searched */
-    transposition_table.insert(std::pair<uint64_t, TTEntry>(hash_code, TTEntry(value, depth, 0)));
+    transposition_table.insert(std::pair<uint64_t, TTEntry>(hash_code, TTEntry(value, depth, num_seen)));
     return value;
 }
 

@@ -332,7 +332,7 @@ std::vector<uint32_t> *Board::generate_moves() {
             p->add_moves(move_list);
         }
     }
-    // filter_moves(move_list);
+    filter_moves(move_list);
     return move_list;
 }
 

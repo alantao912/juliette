@@ -8,11 +8,9 @@
 #include <cstdio>
 #include<vector>
 #include <unordered_map>
-#include <ctime>
 
 #include "Board.h"
 #include "UCI.h"
-#include "Zobrist.h"
 
 #pragma comment(lib, "Ws2_32.lib")
 #undef UNICODE
@@ -203,46 +201,8 @@ int main(int argc, char *argv[]) {
                 std::cout << "uci" << std::endl;
                 std::cout << "dev (developer use)" << std::endl;
             } else if (strcmp(recvbuf, "dev") == 0) {
-                std::cout << "juliette:: switched to experimental mode." << std::endl;
-                initialize_zobrist();
-                auto *b = new Board(START_POSITION);
-                srand(time(nullptr));
-                std::cout << hash(b) << ", " << b->hash_code << std::endl;
-                while (true) {
-                    uint64_t incremental_hash_code = b->hash_code;
-                    auto *move_list = b->generate_moves();
-                    if (!move_list->size()) {
-                        std::cout << "no moves" << std::endl;
-                        break;
-                    }
-                    if (incremental_hash_code != b->hash_code) {
-                        std::cout << "Hashcode changed from movegen!" << std::endl;
-                        break;
-                    }
-#ifdef DEBUG
-                    size_t i = 0;
-                    for (uint32_t m : *move_list) {
-                        ++i;
-                        std::cout << i << ". ";
-                        b->print_move(m);
-                        std::cout << '\n';
-                    }
-                    scanf("%d", &i);
-                    uint32_t move = move_list->at((i - 1) % move_list->size());
-#endif
-#ifndef DEBUG
-                    uint32_t move = move_list->at(rand() % move_list->size());
-#endif
-                    delete move_list;
-                    Board::print_move(move);
-                    std::cout << '\n';
-                    b->make_move(move);
-                    uint64_t h = hash(b);
-                    if (h != b->hash_code) {
-                        std::cout << hash(b) << ", " << b->hash_code << std::endl;
-                        break;
-                    }
-                }
+                std::cout << "juliette:: switched to development mode." << std::endl;
+
             } else {
                 std::cout << R"(juliette:: communication format not set, type "uci" to specify UCI communication protocol or type "comm" to see a list of communication protocol.)" << std::endl;
             }
