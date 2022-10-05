@@ -1,3 +1,4 @@
 # juliette
 ![alt text](https://github.com/alantao912/juliette/blob/main/juliette-logo.png)  
-Computer program that plays chess.
+~~Computer program that plays chess.~~
+Oujia board to Bobby Fischer.
