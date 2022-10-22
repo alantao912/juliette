@@ -578,8 +578,6 @@ void Board::make_move(uint32_t move) {
     }
 
     if (GET_REM_LCASTLE(move)) {
-
-        std::cout << "Removing long castle rights" << std::endl;
         King *my_king = get_my_king(turn);
         my_king->long_castle_rights = false;
         if (GET_PIECE_MOVED(move) == KING) {
@@ -589,7 +587,6 @@ void Board::make_move(uint32_t move) {
         }
     }
     if (GET_REM_SCASTLE(move)) {
-        std::cout << "Removing short castle rights" << std::endl;
         King *my_king = get_my_king(turn);
         my_king->short_castle_rights = false;
         if (GET_PIECE_MOVED(move) == KING) {

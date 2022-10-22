@@ -1,3 +1,4 @@
+#include <unordered_map>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <wspiapi.h>
@@ -6,8 +7,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <cstdio>
+#include <chrono>
 #include<vector>
-#include <unordered_map>
+
 
 #include "Board.h"
 #include "UCI.h"
@@ -129,6 +131,8 @@ SOCKET listen() {
 enum input_source { REMOTE, STDIN};
 input_source source;
 
+extern int32_t leaf_nodes;
+
 int main(int argc, char *argv[]) {
     std::cout << "juliette:: \"hi, let's play chess!\"" << std::endl;
     if (argc == 1) {
@@ -200,10 +204,18 @@ int main(int argc, char *argv[]) {
                 std::cout << "juliette:: to select a communication protocol, enter it's name:" << std::endl;
                 std::cout << "uci" << std::endl;
                 std::cout << "dev (developer use)" << std::endl;
+                std::cout << "perft" << std::endl;
             } else if (strcmp(recvbuf, "dev") == 0) {
                 std::cout << "juliette:: switched to development mode." << std::endl;
-
-            } else {
+            } else if (strcmp(recvbuf, "perft") == 0) {
+                std::cout << "juliette:: starting performance test..." << std::endl;
+                std::string s("startpos");
+                position(s);
+                std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+                search(10);
+                std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+                std::cout << "juliette:: Searched " << leaf_nodes << " leaf nodes in " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[us]" << std::endl;
+            } else if (strlen(recvbuf)) {
                 std::cout << R"(juliette:: communication format not set, type "uci" to specify UCI communication protocol or type "comm" to see a list of communication protocol.)" << std::endl;
             }
 
