@@ -16,11 +16,6 @@ std::unordered_map<uint64_t, TTEntry> transposition_table;
 extern bitboard board;
 std::vector<Move> top_line;
 
-void initialize_search() {
-    top_line.clear();
-    transposition_table.clear();
-}
-
 /**
  * @brief Returns an integer value, representing the evaluation of the specified turn.
  * 
@@ -53,7 +48,6 @@ int32_t negamax(uint16_t depth, int32_t alpha, int32_t beta, std::vector<Move> *
         /* Stalemate. The board is drawn. */
         return DRAW;
     }
-
     if (depth == 0) {
         return evaluate();
     }
@@ -61,9 +55,7 @@ int32_t negamax(uint16_t depth, int32_t alpha, int32_t beta, std::vector<Move> *
     size_t best_move_index = 0;
     std::vector<Move> subsequent_lines[n];
     for (size_t i = 0; i < n; ++i) {
-        // uint32_t candidate_move = move_list->at(i);
         Move candidate_move = moves[i];
-        // board->make_move(candidate_move);
         push(candidate_move);
         subsequent_lines[i].push_back(candidate_move);
         int32_t next_value = -negamax(depth - 1, -beta, -alpha, &(subsequent_lines[i]));

@@ -483,7 +483,6 @@ int gen_legal_moves(Move* moves, bool color) {
                     pop();
                     if (invalid) continue;
                 }
-
                 moves[i++] = move;
             }
         }
@@ -566,7 +565,6 @@ int gen_legal_captures(Move* moves, bool color) {
                         }
                     }
                 }
-
                 break;
             }
             case 'N':

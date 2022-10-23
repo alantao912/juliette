@@ -7,8 +7,10 @@
 #include <cstring>
 #include <cstdio>
 
-#include "UCI.h"
+#include "bitboard.h"
 #include "movegen.h"
+#include "stack.h"
+#include "UCI.h"
 
 #pragma comment(lib, "Ws2_32.lib")
 #undef UNICODE
@@ -16,7 +18,25 @@
 #define PORT "10531"
 #define CONNECTION_FAILED 1
 
+extern bitboard board;
+
 void play_game() {
+    init_board(START_POSITION);
+    init_stack();
+    Move moves[MAX_MOVE_NUM];
+    int n;
+    do {
+        n = gen_legal_moves(moves, board.turn);
+        for (int i = 0; i < n; ++i) {
+            Move m = moves[i];
+            std::cout << i + 1 << ") ";
+            print_move(m);
+            std::cout << '\n';
+        }
+        n = scanf("%d", &n);
+        make_move(moves[n - 1]);
+        std::cout << '\n';
+    } while (n != 0);
     // TODO Re-implement vanilla chess gameplay with bitboards
 }
 

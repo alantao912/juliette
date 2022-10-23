@@ -1,8 +1,8 @@
+#include <string.h>
 #include <stdlib.h>
 #include "stack.h"
 #include "util.h"
 #include "bitboard.h"
-
 
 extern bitboard board;
 extern Stack *stack;
@@ -26,8 +26,11 @@ void init_stack() {
 void push(Move move) {
     // Update move stack
     Stack *node = (Stack *) malloc(sizeof(Stack));
-    make_move(move);
+    if (!node) {
+        exit(-1);
+    }
     node->board = board;
+    make_move(move);
     node->move = move;
     node->next = stack;
     stack = node;
@@ -48,8 +51,8 @@ void pop(void) {
 
     // Update move stack
     Stack *temp = stack;
-    stack = stack->next;
     board = stack->board;
+    stack = stack->next;
     free(temp);
 }
 

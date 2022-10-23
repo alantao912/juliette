@@ -7,6 +7,7 @@
 #define WHITE 1
 #define BLACK 0
 #define INVALID (-1)
+#define START_POSITION "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -"
 
 enum squares {
     A1, B1, C1, D1, E1, F1, G1, H1,

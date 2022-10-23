@@ -2,6 +2,7 @@
 #include "util.h"
 #include "movegen.h"
 
+#include <iostream>
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
@@ -142,6 +143,7 @@ void init_board(const char *fen) {
         board.zobrist ^= ZOBRIST_VALUES[773 + file_of(board.en_passant_square)];
     }
     free(rest);
+    print_board();
 }
 
 /**
@@ -168,7 +170,15 @@ void make_move(Move move) {
         board.zobrist ^= ZOBRIST_VALUES[773 + file_of(board.en_passant_square)];
         board.en_passant_square = INVALID;
     }
+    std::cout << "Entering make_move()\n";
     uint64_t *attacker_bb = get_bitboard(attacker);
+    if (!attacker_bb) {
+        if (board.turn) {
+            printf("White\n");
+        } else printf("BLack\n");
+        print_move(move);
+        print_board();
+    }
     clear_bit(attacker_bb, from);
     set_bit(attacker_bb, to);
     board.mailbox[from] = '-';
@@ -212,7 +222,6 @@ void make_move(Move move) {
                         break;
                 }
             }
-
             break;
         case 'R':
             if (from == H1 && board.w_kingside_castling_rights) {
@@ -225,7 +234,6 @@ void make_move(Move move) {
             break;
         case 'K':
             board.w_king_square = to;
-
             if (flag == CASTLING) {
                 if (file_of(to) - file_of(from) > 0) { // Kingside
                     clear_bit(&board.w_rooks, H1);
@@ -252,7 +260,6 @@ void make_move(Move move) {
                 board.w_queenside_castling_rights = false;
                 board.zobrist ^= ZOBRIST_VALUES[770];
             }
-
             break;
         case 'p':
             reset_halfmove = true;
@@ -436,6 +443,20 @@ uint64_t* get_bitboard(char piece) {
         case 'k':
             return &board.b_king;
         default:
+            printf("bat thing happened: '%d'\n", piece);
             return NULL;
     }
+}
+
+/**
+ * Prints the labeled representation of the mailbox board.
+ */
+void print_board(void) {
+    for (int rank = 7; rank >= 0; rank--) {
+        for (int file = 0; file <= 7; file++) {
+            printf("%d ", board.mailbox[8 * rank + file]);
+        }
+        printf("\n");
+    }
+    printf("\n");
 }

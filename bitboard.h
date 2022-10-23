@@ -20,3 +20,5 @@ static bool _is_threefold_rep(void);
 static bool _is_fifty_move_rule(void);
 
 uint64_t* get_bitboard(char piece);
+
+void print_board(void);
