@@ -11,9 +11,8 @@
 #include <cinttypes>
 #include <windows.h>
 
-#include "Board.h"
 #include "Search.h"
-#include "Zobrist.h"
+#include "tables.h"
 #include "Evaluation.h"
 
 void initialize_UCI(SOCKET clientSocket);
