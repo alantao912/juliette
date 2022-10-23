@@ -5,7 +5,7 @@
 #include "bitboard.h"
 #include "stack.h"
 #include "util.h"
-#include "UCI.h"
+#include "uci.h"
 
 #define BUFLEN 512
 
@@ -38,7 +38,7 @@ void initialize_UCI(SOCKET clientSocket) {
     options.insert(std::pair<std::string, std::string>("debug", "off"));
 }
 
-void parse_UCI_string(char *uci) {
+void parse_UCI_string(const char *uci) {
     std::string uci_string(uci), buff;
     size_t i = 0;
 

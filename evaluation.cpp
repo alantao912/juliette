@@ -1,5 +1,5 @@
 #include <iostream>
-#include "Evaluation.h"
+#include "evaluation.h"
 
 /* Pointer to board object that we are currently evaluating */
 extern bitboard board;

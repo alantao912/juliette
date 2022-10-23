@@ -2,7 +2,6 @@
 #include "util.h"
 #include "movegen.h"
 
-#include <iostream>
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
@@ -143,7 +142,6 @@ void init_board(const char *fen) {
         board.zobrist ^= ZOBRIST_VALUES[773 + file_of(board.en_passant_square)];
     }
     free(rest);
-    print_board();
 }
 
 /**
@@ -170,15 +168,7 @@ void make_move(Move move) {
         board.zobrist ^= ZOBRIST_VALUES[773 + file_of(board.en_passant_square)];
         board.en_passant_square = INVALID;
     }
-    std::cout << "Entering make_move()\n";
     uint64_t *attacker_bb = get_bitboard(attacker);
-    if (!attacker_bb) {
-        if (board.turn) {
-            printf("White\n");
-        } else printf("BLack\n");
-        print_move(move);
-        print_board();
-    }
     clear_bit(attacker_bb, from);
     set_bit(attacker_bb, to);
     board.mailbox[from] = '-';

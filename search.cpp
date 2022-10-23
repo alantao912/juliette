@@ -1,8 +1,8 @@
 #include <iostream>
 #include <unordered_map>
 #include "tables.h"
-#include "Search.h"
-#include "Evaluation.h"
+#include "search.h"
+#include "evaluation.h"
 #include "bitboard.h"
 #include "movegen.h"
 #include "util.h"
@@ -16,6 +16,8 @@ std::unordered_map<uint64_t, TTEntry> transposition_table;
 extern bitboard board;
 std::vector<Move> top_line;
 
+int leaf_nodes = 0;
+
 /**
  * @brief Returns an integer value, representing the evaluation of the specified turn.
  * 
@@ -24,6 +26,7 @@ std::vector<Move> top_line;
  */
 
 int32_t negamax(uint16_t depth, int32_t alpha, int32_t beta, std::vector<Move> *considered_line) {
+    ++leaf_nodes;
     uint64_t hash_code = board.zobrist;
     std::unordered_map<uint64_t, TTEntry>::iterator t;
     uint8_t num_seen = 0;
