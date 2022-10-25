@@ -11,14 +11,13 @@
 #include <cinttypes>
 #include <windows.h>
 
-#include "Board.h"
-#include "Search.h"
-#include "Zobrist.h"
-#include "Evaluation.h"
+#include "search.h"
+#include "tables.h"
+#include "evaluation.h"
 
 void initialize_UCI(SOCKET clientSocket);
 
-void parse_UCI_string(char *uci);
+void parse_UCI_string(const char *uci);
 
 std::vector<std::string> split(std::string &input);
 

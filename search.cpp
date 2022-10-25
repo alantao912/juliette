@@ -1,20 +1,22 @@
+#include <iostream>
 #include <unordered_map>
-#include "Zobrist.h"
-#include "Search.h"
-#include "Evaluation.h"
+#include "tables.h"
+#include "search.h"
+#include "evaluation.h"
+#include "bitboard.h"
+#include "movegen.h"
+#include "util.h"
+#include "stack.h"
 
 #define CHECKMATE(depth) ((INT32_MIN + 1) + (UINT16_MAX - depth))
 #define DRAW (int32_t) 0
 
 std::unordered_map<uint64_t, TTEntry> transposition_table;
 
-extern Board *game;
-std::vector<uint32_t> top_line;
+extern bitboard board;
+std::vector<Move> top_line;
 
-void initialize_search() {
-    top_line.clear();
-    transposition_table.clear();
-}
+int leaf_nodes = 0;
 
 /**
  * @brief Returns an integer value, representing the evaluation of the specified turn.
@@ -23,8 +25,9 @@ void initialize_search() {
  * @param beta: Maximum score that the minimizing player is assured of.
  */
 
-int32_t negamax(uint16_t depth, int32_t alpha, int32_t beta, std::vector<uint32_t> *considered_line) {
-    uint64_t hash_code = hash(game);
+int32_t negamax(uint16_t depth, int32_t alpha, int32_t beta, std::vector<Move> *considered_line) {
+    ++leaf_nodes;
+    uint64_t hash_code = board.zobrist;
     std::unordered_map<uint64_t, TTEntry>::iterator t;
     uint8_t num_seen = 0;
     if ((t = transposition_table.find(hash_code)) != transposition_table.end()) {
@@ -38,28 +41,28 @@ int32_t negamax(uint16_t depth, int32_t alpha, int32_t beta, std::vector<uint32_
         ++entry.num_seen;
         num_seen = entry.num_seen;
     }
-    std::vector<uint32_t> *move_list = game->generate_moves();
-    if (move_list->empty()) {
-        if (game->is_king_in_check()) {
+    Move moves[MAX_MOVE_NUM];
+    int n = gen_legal_moves(moves, board.turn);
+    if (n == 0) {
+        if (is_check(board.turn)) {
             /* Return negative or positive infinity when white to play and black to place respectively. */
             return CHECKMATE(depth);
         }
-        /* Stalemate. The game is drawn. */
+        /* Stalemate. The board is drawn. */
         return DRAW;
     }
-
     if (depth == 0) {
         return evaluate();
     }
     int32_t value = INT32_MIN;
     size_t best_move_index = 0;
-    std::vector<uint32_t> subsequent_lines[move_list->size()];
-    for (size_t i = 0; i < move_list->size(); ++i) {
-        uint32_t candidate_move = move_list->at(i);
-        game->make_move(candidate_move);
+    std::vector<Move> subsequent_lines[n];
+    for (size_t i = 0; i < n; ++i) {
+        Move candidate_move = moves[i];
+        push(candidate_move);
         subsequent_lines[i].push_back(candidate_move);
         int32_t next_value = -negamax(depth - 1, -beta, -alpha, &(subsequent_lines[i]));
-        game->revert_move();
+        pop();
         if (next_value > value) {
             value = next_value;
             best_move_index = i;
@@ -75,26 +78,25 @@ int32_t negamax(uint16_t depth, int32_t alpha, int32_t beta, std::vector<uint32_
             alpha = value;
         }
     }
-    for (unsigned int & i : subsequent_lines[best_move_index]) {
+    for (Move i : subsequent_lines[best_move_index]) {
         considered_line->push_back(i);
     }
     PRUNE:
-    delete move_list;
     /* Current node has been searched */
     transposition_table.insert(std::pair<uint64_t, TTEntry>(hash_code, TTEntry(value, depth, num_seen)));
     return value;
 }
 
-uint32_t search(uint16_t depth) {
+Move search(uint16_t depth) {
     negamax(depth, INT32_MIN, INT32_MAX, &top_line);
     return top_line.front();
 }
 
 void showTopLine() {
     for (size_t i = 0; i < top_line.size() - 1; ++i) {
-        uint32_t move = top_line.at(i);
-        Board::print_move(move);
+        Move move = top_line.at(i);
+        print_move(move);
         std::cout << ", ";
     }
-    Board::print_move(top_line.back());
+    print_move(top_line.back());
 }

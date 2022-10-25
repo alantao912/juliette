@@ -4,18 +4,7 @@
 #pragma once
 
 #include <cstddef>
-
-#include "Board.h"
-
-class Board;
-
-void initialize_zobrist();
-
-uint64_t rand_bitstring();
-
-uint64_t fetch_bitstring(const Piece *p, const King *king);
-
-uint64_t hash(const Board *game);
+#include <stdint.h>
 
 struct TTEntry {
     int32_t evaluation;

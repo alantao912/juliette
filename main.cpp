@@ -4,15 +4,14 @@
 #include <wspiapi.h>
 #include <windows.h>
 #include <iostream>
-#include <cstdlib>
 #include <cstring>
 #include <cstdio>
 #include <chrono>
-#include<vector>
 
-
-#include "Board.h"
-#include "UCI.h"
+#include "bitboard.h"
+#include "movegen.h"
+#include "stack.h"
+#include "uci.h"
 
 #pragma comment(lib, "Ws2_32.lib")
 #undef UNICODE
@@ -20,40 +19,27 @@
 #define PORT "10531"
 #define CONNECTION_FAILED 1
 
+extern bitboard board;
+extern int leaf_nodes;
+
 void play_game() {
-    auto *board = new Board("8/4k3/RR4K1/8/8/8/8/8 w -- --");
-    while (true) {
-        board->print_board();
-        std::vector<uint32_t> *move_list = board->generate_moves();
-        if (move_list->empty()) {
-            if (board->is_king_in_check()) {
-                std::cout << "Checkmate!" << std::endl;
-                break;
-            }
-            std::cout << "Stalemate!" << std::endl;
-            break;
+    init_board(START_POSITION);
+    init_stack();
+    Move moves[MAX_MOVE_NUM];
+    int n;
+    do {
+        n = gen_legal_moves(moves, board.turn);
+        for (int i = 0; i < n; ++i) {
+            Move m = moves[i];
+            std::cout << i + 1 << ") ";
+            print_move(m);
+            std::cout << '\n';
         }
-
-        for (int i = 0; i < move_list->size(); ++i) {
-            std::cout << i + 1 <<  ". ";
-            Board::print_move(move_list->at(i));
-            std::cout << std::endl;
-        }
-
-        int move_num;
-        scanf("%d", &move_num);
-        if (move_num == 0) {
-            board->revert_move();
-            
-        } else if (move_num > move_list->size()) {
-            std::cout << "Please enter a number < " << move_list->size() + 1 << std::endl;
-        } else {
-            board->make_move(move_list->at(move_num - 1));
-        }
-        system("cls");
-        delete move_list;
-    }
-    delete board;
+        n = scanf("%d", &n);
+        make_move(moves[n - 1]);
+        std::cout << '\n';
+    } while (n != 0);
+    // TODO Re-implement vanilla chess gameplay with bitboards
 }
 
 SOCKET listen() {
@@ -131,10 +117,11 @@ SOCKET listen() {
 enum input_source { REMOTE, STDIN};
 input_source source;
 
-extern int32_t leaf_nodes;
-
 int main(int argc, char *argv[]) {
     std::cout << "juliette:: \"hi, let's play chess!\"" << std::endl;
+    init_bishop_attacks();
+    init_rook_attacks();
+    _init_rays();
     if (argc == 1) {
         /* If no options are provided */
         play_game();
@@ -209,12 +196,14 @@ int main(int argc, char *argv[]) {
                 std::cout << "juliette:: switched to development mode." << std::endl;
             } else if (strcmp(recvbuf, "perft") == 0) {
                 std::cout << "juliette:: starting performance test..." << std::endl;
-                std::string s("startpos");
-                position(s);
+                std::string s("ucinewgame"), t("startpos");
+                parse_UCI_string(s.c_str());
+                position(t);
                 std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-                search(10);
+                search(6);
                 std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
                 std::cout << "juliette:: Searched " << leaf_nodes << " leaf nodes in " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[us]" << std::endl;
+                // TODO: Re-implement performance test with bitboard implementation.
             } else if (strlen(recvbuf)) {
                 std::cout << R"(juliette:: communication format not set, type "uci" to specify UCI communication protocol or type "comm" to see a list of communication protocol.)" << std::endl;
             }
