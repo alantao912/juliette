@@ -24,7 +24,7 @@ std::string replies[] = {"id", "uciok", "readyok", "bestmove", "copyprotection",
 #define option 7
 
 bitboard board;
-Stack stack;
+Stack *stack;
 
 /* Engine should use clientSocket to send reply to GUI */
 SOCKET clientSocket;
@@ -92,7 +92,6 @@ void position(std::string &arg) {
     if (arg == "startpos") {
         init_board(START_POSITION);
     } else {
-        std::cout << "initializing board\n";
         init_board(arg.c_str());
     }
     /* Initialization of evaluation and search must occur after board instantiation as these initializations depend on board being non-null */

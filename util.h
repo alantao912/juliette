@@ -98,6 +98,8 @@ typedef struct Stack {
     struct Stack *next;
 } Stack;
 
+extern const uint64_t BB_KNIGHT_ATTACKS[64];
+
 extern const uint64_t BB_SQUARES[64];
 
 extern const uint64_t BB_ALL;

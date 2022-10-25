@@ -413,7 +413,6 @@ int gen_legal_moves(Move* moves, bool color) {
 
         while (moves_bb) {
             int to = pull_lsb(&moves_bb);
-
             if (piece == 'P' && (rank_of(to) == 0 || rank_of(to) == 7)) { // Add all promotions
                 if (board.mailbox[to] == '-') {
                     Move queen_promotion = {from, to, PR_QUEEN};
@@ -869,7 +868,6 @@ uint64_t get_pawn_moves(bool color, int square) {
  */
 uint64_t get_knight_moves(bool color, int square) {
     uint64_t moves = BB_KNIGHT_ATTACKS[square];
-
     return moves & ~(board.w_occupied * color + board.b_occupied * !color);
 }
 
@@ -883,7 +881,6 @@ uint64_t get_bishop_moves(bool color, int square) {
     uint64_t occupied = board.occupied & BB_BISHOP_ATTACK_MASKS[square];
     uint64_t key = (occupied * BISHOP_MAGICS[square]) >> BISHOP_ATTACK_SHIFTS[square];
     uint64_t moves = BB_BISHOP_ATTACKS[square][key];
-
     return moves & ~(board.w_occupied * color + board.b_occupied * !color);
 }
 
@@ -897,7 +894,6 @@ uint64_t get_rook_moves(bool color, int square) {
     uint64_t occupied = board.occupied & BB_ROOK_ATTACK_MASKS[square];
     uint64_t key = (occupied * ROOK_MAGICS[square]) >> ROOK_ATTACK_SHIFTS[square];
     uint64_t moves = BB_ROOK_ATTACKS[square][key];
-
     return moves & ~(board.w_occupied * color + board.b_occupied * !color);
 }
 

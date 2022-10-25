@@ -62,7 +62,7 @@ void pop(void) {
  */
 static void _free_stack() {
     while (stack) {
-        Stack* temp = stack;
+        Stack *temp = stack;
         stack = stack->next;
         free(temp);
     }
