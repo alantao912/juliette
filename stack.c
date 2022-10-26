@@ -1,4 +1,3 @@
-#include <string.h>
 #include <stdlib.h>
 #include "stack.h"
 #include "util.h"
@@ -12,10 +11,6 @@ extern Stack *stack;
  */
 void init_stack() {
     _free_stack();
-    stack = (Stack *) malloc(sizeof(Stack));
-    stack->move = NULL_MOVE;
-    stack->board = board;
-    stack->next = NULL;
 }
 
 

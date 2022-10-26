@@ -6,7 +6,6 @@
 #include <iostream>
 #include <cstring>
 #include <cstdio>
-#include <chrono>
 
 #include "bitboard.h"
 #include "movegen.h"
@@ -20,7 +19,7 @@
 #define CONNECTION_FAILED 1
 
 extern bitboard board;
-extern int leaf_nodes;
+int leaf_nodes = 0;
 
 void play_game() {
     init_board(START_POSITION);
@@ -194,8 +193,22 @@ int main(int argc, char *argv[]) {
                 std::cout << "perft" << std::endl;
             } else if (strcmp(recvbuf, "dev") == 0) {
                 std::cout << "juliette:: switched to development mode." << std::endl;
+                std::string s("ucinewgame"), t("position startpos");
+                parse_UCI_string(s.c_str());
+                parse_UCI_string(t.c_str());
+                Move m = search(2);
+                std::cout << "Best move: ";
+                print_move(m);
+                std::cout << '\n';
+                showTopLine();
             } else if (strcmp(recvbuf, "perft") == 0) {
                 std::cout << "juliette:: starting performance test..." << std::endl;
+                std::string s("ucinewgame"), t("7k/8/3R4/8/8/8/3R4/7K w - -");
+                parse_UCI_string(s.c_str());
+                position(t);
+                int32_t eval = evaluate();
+                std::cout << "Evaluation: " << eval << std::endl;
+                /*
                 std::string s("ucinewgame"), t("startpos");
                 parse_UCI_string(s.c_str());
                 position(t);
@@ -203,7 +216,8 @@ int main(int argc, char *argv[]) {
                 search(6);
                 std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
                 std::cout << "juliette:: Searched " << leaf_nodes << " leaf nodes in " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[us]" << std::endl;
-                // TODO: Re-implement performance test with bitboard implementation.
+                */
+                 // TODO: Re-implement performance test with bitboard implementation.
             } else if (strlen(recvbuf)) {
                 std::cout << R"(juliette:: communication format not set, type "uci" to specify UCI communication protocol or type "comm" to see a list of communication protocol.)" << std::endl;
             }

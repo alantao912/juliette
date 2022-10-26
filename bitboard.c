@@ -444,7 +444,7 @@ uint64_t* get_bitboard(char piece) {
 void print_board(void) {
     for (int rank = 7; rank >= 0; rank--) {
         for (int file = 0; file <= 7; file++) {
-            printf("%d ", board.mailbox[8 * rank + file]);
+            printf("%c ", board.mailbox[8 * rank + file]);
         }
         printf("\n");
     }

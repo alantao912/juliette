@@ -1,12 +1,12 @@
 #include "evaluation.h"
 #include "movegen.h"
+#include "weights.h"
+
+#include <cmath>
+#include <algorithm>
 
 /* Pointer to board object that we are currently evaluating */
 extern bitboard board;
-
-uint8_t knight_hitboard[] = {
-
-};
 
 uint64_t w_pawn_attacks, b_pawn_attacks;
 
@@ -20,18 +20,30 @@ inline uint64_t reverse_bb(uint64_t bb) {
     return (bb << 48) | ((bb & 0xffff0000) << 16) | ((bb >> 16) & 0xffff0000) | (bb >> 48);
 }
 
+double game_progression() {
+    return 0.0;
+}
+
 int32_t evaluate() {
-    material_score();
+    midgame_score = 0;
+    endgame_score = 0;
     w_pawn_attacks = (((board.w_pawns << 9) & ~BB_FILE_A) | ((board.w_pawns << 7) & ~BB_FILE_H));
     b_pawn_attacks = (((board.b_pawns >> 9) & ~BB_FILE_H) | ((board.b_pawns >> 7) & ~BB_FILE_A));
+
+    material_score();
+    /*
     pawn_structure();
     pawn_progression();
     doubled_pawns();
+    */
     knight_activity();
+    /*
     bishop_activity();
     rook_activity();
     queen_activity();
-    return (1 - 2 * (board.turn == BLACK)) * (midgame_score);
+    */
+    const double gp = game_progression();
+    return (1 - 2 * (board.turn == BLACK)) * (int32_t) std::round(midgame_score * (1 - gp) + endgame_score * gp);
 }
 
 inline void material_score() {
@@ -79,31 +91,36 @@ inline void pawn_structure() {
 
 inline void pawn_progression() {
     int n = pop_count(board.w_pawns & BB_RANK_5);
-    midgame_score += n * RANK_5_PAWN_BONUS;
     endgame_score += n * RANK_5_PAWN_BONUS_E;
     n = pop_count(board.w_pawns & BB_RANK_6);
-    midgame_score += n * RANK_6_PAWN_BONUS;
     endgame_score += n * RANK_6_PAWN_BONUS_E;
     n = pop_count(board.w_pawns & BB_RANK_7);
-    midgame_score += n * RANK_7_PAWN_BONUS;
     endgame_score += n * RANK_7_PAWN_BONUS_E;
+    uint64_t pawns = board.w_pawns;
+    while (pawns) {
+        n = pull_lsb(&pawns);
+        midgame_score += Weights::pawn_psqt[n];
+    }
 
-    n = pop_count(board.b_pawns & BB_RANK_5);
-    midgame_score -= n * RANK_5_PAWN_BONUS;
+    uint64_t rotated_bpawns = reverse_bb(board.b_pawns);
+    n = pop_count(rotated_bpawns & BB_RANK_5);
     endgame_score -= n * RANK_5_PAWN_BONUS_E;
-    n = pop_count(board.b_pawns & BB_RANK_6);
-    midgame_score -= n * RANK_6_PAWN_BONUS;
-    midgame_score -= n * RANK_6_PAWN_BONUS_E;
-    n = pop_count(board.b_pawns & BB_RANK_7);
-    midgame_score -= n * RANK_7_PAWN_BONUS;
-    midgame_score -= n * RANK_7_PAWN_BONUS_E;
+    n = pop_count(rotated_bpawns & BB_RANK_6);
+    endgame_score -= n * RANK_6_PAWN_BONUS_E;
+    n = pop_count(rotated_bpawns & BB_RANK_7);
+    endgame_score -= n * RANK_7_PAWN_BONUS_E;
+    pawns = board.b_rooks;
+    while (pawns) {
+        n = pull_lsb(&pawns);
+        midgame_score -= Weights::pawn_psqt[n];
+    }
 }
 
 inline void doubled_pawns() {
     uint64_t mask = BB_FILE_A;
     for (int i = 0; i < 8; ++i) {
         /** Calculates the number of pawns of pawns in a file - 1 and penalizes accordingly */
-        int n = pop_count(board.w_pawns & mask) - 1;
+        int n = std::max(pop_count(board.w_pawns & mask) - 1, 0);
         midgame_score -= n * DOUBLED_PAWN_PENALTY;
         endgame_score -= n * DOUBLED_PAWN_PENALTY_E;
         /** Shifts bitmask one file right */
@@ -111,7 +128,7 @@ inline void doubled_pawns() {
     }
     mask = BB_FILE_A;
     for (int i = 0; i < 8; ++i) {
-        int n = (pop_count(board.b_pawns & mask) - 1);
+        int n = std::max((pop_count(board.b_pawns & mask) - 1), 0);
         midgame_score += n * DOUBLED_PAWN_PENALTY;
         endgame_score += n * DOUBLED_PAWN_PENALTY_E;
         mask <<= 1;
@@ -123,38 +140,66 @@ inline void knight_activity() {
     uint64_t knights = board.w_knights;
     while (knights) {
         int i = pull_lsb(&knights);
-        uint64_t attacks = (BB_KNIGHT_ATTACKS[i] & ~board.w_occupied);
-        while (attacks) {
-            i = pull_lsb(&attacks);
-            midgame_score += knight_hitboard[i];
-        }
+        midgame_score += Weights::knight_psqt[i];
     }
     knights = reverse_bb(board.b_knights);
     while (knights) {
         int i = pull_lsb(&knights);
-        uint64_t attacks = (BB_KNIGHT_ATTACKS[i] & ~board.b_occupied);
-        while (attacks) {
-            i = pull_lsb(&attacks);
-            midgame_score -= knight_hitboard[i];
-        }
+        midgame_score -= Weights::knight_psqt[i];
     }
 }
 
 inline void bishop_activity() {
-    uint64_t bishops = board.w_bishops;
-    while (bishops) {
-    }
-    bishops = board.b_bishops;
-    while (bishops) {
-
-
-    }
+    int n = pop_count(get_bishop_rays_setwise(board.w_bishops, ~board.occupied));
+    midgame_score += n * HIT_BONUS;
+    endgame_score += n * HIT_BONUS_E;
+    n = pop_count(get_bishop_rays_setwise(board.b_bishops, ~board.occupied));
+    midgame_score -= n * HIT_BONUS;
+    endgame_score -= n * HIT_BONUS_E;
 }
 
-inline int32_t rook_activity() {
-
+inline void rook_activity() {
+    uint64_t rays = get_rook_rays_setwise(board.w_rooks, ~(board.occupied ^ board.w_rooks));
+    int n = pop_count(rays ^ board.w_rooks);
+    midgame_score += n * HIT_BONUS;
+    endgame_score += n * HIT_BONUS_E;
+    n = pop_count(board.w_rooks & BB_RANK_7);
+    midgame_score += n * ROOK_ON_7_BONUS;
+    endgame_score += n * ROOK_ON_7_BONUS_E;
+    n = std::max((pop_count(rays & board.w_rooks) - 1), 0);
+    midgame_score += n * CONNECTED_ROOK_BONUS;
+    endgame_score += n * CONNECTED_ROOK_BONUS_E;
+    rays = get_rook_rays_setwise(board.b_rooks, ~(board.occupied ^ board.b_rooks));
+    n = pop_count(rays ^ board.b_rooks);
+    midgame_score -= n * HIT_BONUS;
+    endgame_score -= n * HIT_BONUS_E;
+    n = pop_count(board.b_rooks & BB_RANK_2);
+    midgame_score -= n * ROOK_ON_7_BONUS;
+    endgame_score -= n * ROOK_ON_7_BONUS_E;
+    n = std::max(pop_count(rays & board.b_rooks) - 1, 0);
+    midgame_score -= n * CONNECTED_ROOK_BONUS;
+    endgame_score -= n * CONNECTED_ROOK_BONUS_E;
 }
 
-inline int32_t queen_activity() {
-
+inline void queen_activity() {
+    uint64_t rays = get_queen_rays_setwise(board.w_queens, (~board.occupied ^ board.w_queens ^ board.w_rooks ^ board.w_bishops));
+    int n = std::max(pop_count(rays & board.w_rooks) - 1, 0);
+    midgame_score += n * QR_BATTERY;
+    endgame_score += n * QR_BATTERY_E;
+    n = std::max(pop_count(rays & board.w_queens) - 1, 0);
+    midgame_score += n * QQ_BATTERY;
+    endgame_score += n * QQ_BATTERY_E;
+    n = std::max(pop_count(rays & board.w_bishops) - 1, 0);
+    midgame_score += n * QB_BATTERY;
+    endgame_score += n * QB_BATTERY_E;
+    rays = get_queen_rays_setwise(board.b_queens, (~board.occupied ^ board.b_queens ^ board.b_rooks ^ board.b_bishops));
+    n = std::max(pop_count(rays & board.b_rooks) - 1, 0);
+    midgame_score -= n * QR_BATTERY;
+    endgame_score -= n * QR_BATTERY_E;
+    n = std::max(pop_count(rays & board.b_queens) - 1, 0);
+    midgame_score -= n * QQ_BATTERY;
+    endgame_score -= n * QQ_BATTERY_E;
+    n = std::max(pop_count(rays & board.b_bishops) - 1, 0);
+    midgame_score -= n * QB_BATTERY;
+    endgame_score -= n * QB_BATTERY_E;
 }

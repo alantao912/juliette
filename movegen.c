@@ -779,17 +779,14 @@ static uint64_t _get_checkmask(bool color) {
 static uint64_t _get_pinmask(bool color, int square) {
     uint64_t pinmask = 0;
 
-    uint64_t king_bb;
     int king_square;
     uint64_t enemy_rq_bb;
     uint64_t enemy_bq_bb;
     if (color == WHITE) {
-        king_bb = board.w_king;
         king_square = board.w_king_square;
         enemy_rq_bb = board.b_rooks | board.b_queens;
         enemy_bq_bb = board.b_bishops | board.b_queens;
     } else {
-        king_bb = board.b_king;
         king_square = board.b_king_square;
         enemy_rq_bb = board.w_rooks | board.w_queens;
         enemy_bq_bb = board.w_bishops | board.w_queens;

@@ -24,7 +24,7 @@ std::string replies[] = {"id", "uciok", "readyok", "bestmove", "copyprotection",
 #define option 7
 
 bitboard board;
-Stack *stack;
+Stack *stack = nullptr;
 
 /* Engine should use clientSocket to send reply to GUI */
 SOCKET clientSocket;
@@ -64,7 +64,6 @@ void parse_UCI_string(const char *uci) {
         // TODO finish implementing ucinewgame command
         /* initialize_zobrist() must occur before board instantiation as board instantiation depends on the hash codes initialized */
         initialize_zobrist();
-        init_stack();
     } else if (buff == "position") {
         position(args);
     } else if (buff == "go") {
@@ -103,7 +102,7 @@ void go(std::string &args) {
     if (board.mailbox) {
         // TODO Check it board is set up or not
     }
-    Move best_move = search(4);
+    Move best_move = search(6);
     sprintf(sendbuf, "%s %c%d%c%d", replies[bestmove].c_str(),
             file_of(best_move.from) + 'a', rank_of(best_move.from) + 1, file_of(best_move.to) + 'a', rank_of(best_move.to) + 1);
     reply();
