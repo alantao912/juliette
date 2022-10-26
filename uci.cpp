@@ -102,7 +102,7 @@ void go(std::string &args) {
     if (board.mailbox) {
         // TODO Check it board is set up or not
     }
-    Move best_move = search(6);
+    Move best_move = search(8);
     sprintf(sendbuf, "%s %c%d%c%d", replies[bestmove].c_str(),
             file_of(best_move.from) + 'a', rank_of(best_move.from) + 1, file_of(best_move.to) + 'a', rank_of(best_move.to) + 1);
     reply();

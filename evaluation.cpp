@@ -29,19 +29,14 @@ int32_t evaluate() {
     endgame_score = 0;
     w_pawn_attacks = (((board.w_pawns << 9) & ~BB_FILE_A) | ((board.w_pawns << 7) & ~BB_FILE_H));
     b_pawn_attacks = (((board.b_pawns >> 9) & ~BB_FILE_H) | ((board.b_pawns >> 7) & ~BB_FILE_A));
-
     material_score();
-    /*
     pawn_structure();
     pawn_progression();
     doubled_pawns();
-    */
     knight_activity();
-    /*
     bishop_activity();
     rook_activity();
     queen_activity();
-    */
     const double gp = game_progression();
     return (1 - 2 * (board.turn == BLACK)) * (int32_t) std::round(midgame_score * (1 - gp) + endgame_score * gp);
 }

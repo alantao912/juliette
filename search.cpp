@@ -8,7 +8,8 @@
 #include "util.h"
 #include "stack.h"
 
-#define CHECKMATE(depth) ((INT32_MIN + 1) + (UINT16_MAX - depth))
+#define MIN_SCORE (INT32_MIN + 100)
+#define CHECKMATE(depth) ((MIN_SCORE + 1) + (UINT16_MAX - depth))
 #define DRAW (int32_t) 0
 
 std::unordered_map<uint64_t, TTEntry> transposition_table;
@@ -49,42 +50,17 @@ int32_t negamax(uint16_t depth, int32_t alpha, int32_t beta, std::vector<Move> *
         return DRAW;
     }
     if (depth == 0) {
-        int32_t v = evaluate();
-        if (false) {
-            std::cout << "Leaf: " << v << std::endl;
-            print_board();
-            std::cout << '\n';
-        }
-        return v;
+        return evaluate();
     }
     int32_t value = INT32_MIN;
     size_t best_move_index = 0;
     std::vector<Move> subsequent_lines[n];
     for (size_t i = 0; i < n; ++i) {
         Move candidate_move = moves[i];
-
-            for (int i = 0; i < 2 - depth; ++i) {
-                std::cout << '\t';
-            }
-            std::cout << "Considering: ";
-            print_move(candidate_move);
-            std::cout << " at depth: ";
-            std::cout << depth << '\n';
-
-
         push(candidate_move);
         subsequent_lines[i].push_back(candidate_move);
-        int32_t next_value = -1 * negamax(depth - 1, -beta, -alpha, &(subsequent_lines[i]));
+        int32_t next_value = -negamax(depth - 1, -beta, -alpha, &(subsequent_lines[i]));
         pop();
-
-            for (int i = 0; i < 2 - depth; ++i) {
-                std::cout << '\t';
-            }
-            std::cout << " Value: ";
-            std::cout << next_value;
-            std::cout << '\n';
-
-
         if (next_value > value) {
             value = next_value;
             best_move_index = i;
@@ -93,8 +69,6 @@ int32_t negamax(uint16_t depth, int32_t alpha, int32_t beta, std::vector<Move> *
         }
         if (value >= beta) {
             /* Beta cutoff. Previous turn is refuted. No further moves need be considered */
-            /* TODO: Add move to killer heuristic */
-            std::cout << "pruning" << '\n';
             goto PRUNE;
         }
         if (value > alpha) {
@@ -112,13 +86,12 @@ int32_t negamax(uint16_t depth, int32_t alpha, int32_t beta, std::vector<Move> *
 
 Move search(uint16_t depth) {
     top_line.clear();
-    int32_t eval = negamax(depth, INT32_MIN, INT32_MAX, &top_line);
-    std::cout << "Evaluation: " << eval << '\n';
+    negamax(depth, MIN_SCORE, -MIN_SCORE, &top_line);
     return top_line.front();
 }
 
 void showTopLine() {
-    std::cout << "Top line: (" << top_line.size() << "):\n";
+    std::cout << "Top line: ";
     for (size_t i = 0; i < top_line.size() - 1; ++i) {
         Move move = top_line.at(i);
         print_move(move);
@@ -127,4 +100,5 @@ void showTopLine() {
     if (!top_line.empty()) {
         print_move(top_line.back());
     }
+    std::cout << '\n';
 }
