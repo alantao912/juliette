@@ -86,11 +86,11 @@ inline void pawn_structure() {
 
 inline void pawn_progression() {
     int n = pop_count(board.w_pawns & BB_RANK_5);
-    endgame_score += n * RANK_5_PAWN_BONUS_E;
+    endgame_score += n * P5_E;
     n = pop_count(board.w_pawns & BB_RANK_6);
-    endgame_score += n * RANK_6_PAWN_BONUS_E;
+    endgame_score += n * P6_E;
     n = pop_count(board.w_pawns & BB_RANK_7);
-    endgame_score += n * RANK_7_PAWN_BONUS_E;
+    endgame_score += n * P7_E;
     uint64_t pawns = board.w_pawns;
     while (pawns) {
         n = pull_lsb(&pawns);
@@ -99,11 +99,11 @@ inline void pawn_progression() {
 
     uint64_t rotated_bpawns = reverse_bb(board.b_pawns);
     n = pop_count(rotated_bpawns & BB_RANK_5);
-    endgame_score -= n * RANK_5_PAWN_BONUS_E;
+    endgame_score -= n * P5_E;
     n = pop_count(rotated_bpawns & BB_RANK_6);
-    endgame_score -= n * RANK_6_PAWN_BONUS_E;
+    endgame_score -= n * P6_E;
     n = pop_count(rotated_bpawns & BB_RANK_7);
-    endgame_score -= n * RANK_7_PAWN_BONUS_E;
+    endgame_score -= n * P7_E;
     pawns = board.b_rooks;
     while (pawns) {
         n = pull_lsb(&pawns);

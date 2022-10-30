@@ -1,25 +1,26 @@
-#include <unordered_map>
-#include <winsock2.h>
-#include <ws2tcpip.h>
+#include <cstdio>
+#include <cstring>
+#include <iostream>
 #include <wspiapi.h>
 #include <windows.h>
-#include <iostream>
-#include <cstring>
-#include <cstdio>
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <unordered_map>
 
-#include "bitboard.h"
-#include "movegen.h"
-#include "stack.h"
 #include "uci.h"
+#include "coach.h"
+#include "stack.h"
+#include "movegen.h"
+#include "bitboard.h"
 
 #pragma comment(lib, "Ws2_32.lib")
+
 #undef UNICODE
 #define BUFLEN 512
 #define PORT "10531"
 #define CONNECTION_FAILED 1
 
 extern bitboard board;
-int leaf_nodes = 0;
 
 void play_game() {
     init_board(START_POSITION);
@@ -41,7 +42,7 @@ void play_game() {
     // TODO Re-implement vanilla chess gameplay with bitboards
 }
 
-SOCKET listen() {
+SOCKET listen(const char *port) {
     WSADATA wsaData;
     int iResult;
 
@@ -62,8 +63,8 @@ SOCKET listen() {
     hints.ai_flags = AI_PASSIVE;
 
     /* Resolve the server address and port */
-    iResult = getaddrinfo(nullptr, PORT, &hints, &result);
-    if ( iResult != 0 ) {
+    iResult = getaddrinfo(nullptr, port, &hints, &result);
+    if (iResult != 0) {
         std::cout << "juliette:: getaddrinfo() failed with error: " << iResult << std::endl;
         WSACleanup();
         return CONNECTION_FAILED;
@@ -116,6 +117,8 @@ SOCKET listen() {
 enum input_source { REMOTE, STDIN};
 input_source source;
 
+/* g++ *.cpp *.c -lWS2_32 -o juliette */
+
 int main(int argc, char *argv[]) {
     std::cout << "juliette:: \"hi, let's play chess!\"" << std::endl;
     init_bishop_attacks();
@@ -135,7 +138,11 @@ int main(int argc, char *argv[]) {
         source = REMOTE;
         /* Engine is set to remote mode. Sending and receiving commands using sockets */
         while (true) {
-            SOCKET clientSocket = listen();
+            const char *port = PORT;
+            if (argc >= 3 && strtol(argv[2], nullptr, 10)) {
+                port = argv[2];
+            }
+            SOCKET clientSocket = listen(port);
             if (clientSocket == CONNECTION_FAILED) {
                 std::cout << "juliette:: Internal server error. Exiting ..." << std::endl;
                 return -1;
@@ -203,11 +210,6 @@ int main(int argc, char *argv[]) {
                 showTopLine();
             } else if (strcmp(recvbuf, "perft") == 0) {
                 std::cout << "juliette:: starting performance test..." << std::endl;
-                std::string s("ucinewgame"), t("7k/8/3R4/8/8/8/3R4/7K w - -");
-                parse_UCI_string(s.c_str());
-                position(t);
-                int32_t eval = evaluate();
-                std::cout << "Evaluation: " << eval << std::endl;
                 /*
                 std::string s("ucinewgame"), t("startpos");
                 parse_UCI_string(s.c_str());
@@ -221,8 +223,12 @@ int main(int argc, char *argv[]) {
             } else if (strlen(recvbuf)) {
                 std::cout << R"(juliette:: communication format not set, type "uci" to specify UCI communication protocol or type "comm" to see a list of communication protocol.)" << std::endl;
             }
-
         } while (strlen(recvbuf));
+    } else if (strcmp(argv[1], "coach") == 0) {
+        coach trainer(argv[2]);
+
+        trainer.save(argv[2]);
+
     }
     return 0;
 }

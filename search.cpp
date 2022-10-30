@@ -1,12 +1,12 @@
 #include <iostream>
 #include <unordered_map>
-#include "tables.h"
-#include "search.h"
-#include "evaluation.h"
-#include "bitboard.h"
-#include "movegen.h"
 #include "util.h"
 #include "stack.h"
+#include "tables.h"
+#include "search.h"
+#include "movegen.h"
+#include "bitboard.h"
+#include "evaluation.h"
 
 #define MIN_SCORE (INT32_MIN + 100)
 #define CHECKMATE(depth) ((MIN_SCORE + 1) + (UINT16_MAX - depth))
@@ -23,6 +23,10 @@ std::vector<Move> top_line;
  * @param alpha: Minimum score that the maximizing player is assured of.
  * @param beta: Maximum score that the minimizing player is assured of.
  */
+
+int32_t quiesence_search(int32_t alpha, int32_t beta) {
+
+}
 
 int32_t negamax(uint16_t depth, int32_t alpha, int32_t beta, std::vector<Move> *considered_line) {
     uint64_t hash_code = board.zobrist;
@@ -64,11 +68,8 @@ int32_t negamax(uint16_t depth, int32_t alpha, int32_t beta, std::vector<Move> *
         if (next_value > value) {
             value = next_value;
             best_move_index = i;
-        } else {
-            // TODO Free vector of inferior line
         }
         if (value >= beta) {
-            /* Beta cutoff. Previous turn is refuted. No further moves need be considered */
             goto PRUNE;
         }
         if (value > alpha) {

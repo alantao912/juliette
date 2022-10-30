@@ -585,7 +585,6 @@ int gen_legal_captures(Move* moves, bool color) {
 
         while (moves_bb) {
             int to = pull_lsb(&moves_bb);
-
             if (piece == 'P' && (rank_of(to) == 0 || rank_of(to) == 7)) { // Add all promotion captures
                 if (board.mailbox[to] != '-') {
                     Move queen_promotion = {from, to, PC_QUEEN};

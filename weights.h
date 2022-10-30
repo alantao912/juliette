@@ -1,7 +1,3 @@
-//
-// Created by Alan Tao on 10/26/2022.
-//
-
 #pragma once
 
 #include <cstdint>
@@ -19,17 +15,13 @@
 #define PAWN_MATERIAL_E 100
 
 #define CONNECTED_PAWN_BONUS 5
-#define P4 30
-#define P5 50
-#define P6 100
-#define P7 150
 
 #define DOUBLED_PAWN_PENALTY 20
 
 #define CONNECTED_PAWN_BONUS_E 5
-#define RANK_5_PAWN_BONUS_E 50
-#define RANK_6_PAWN_BONUS_E 150
-#define RANK_7_PAWN_BONUS_E 250
+#define P5_E 50
+#define P6_E 150
+#define P7_E 250
 
 #define DOUBLED_PAWN_PENALTY_E 20
 
@@ -53,7 +45,9 @@
 
 namespace Weights {
     int32_t king_psqt[] = {
-
+        120, 110, -120, -100, -120, 110, 80, 120,
+        60, 55, -100, -140, -140, 55, 40, 60,
+        -100, -140, -180, -200, -200, -180, -140, -100,
     };
 
     int32_t queen_psqt[] = {
@@ -76,17 +70,17 @@ namespace Weights {
             0, 10, 20, 30, 30, 20, 10, 0,
             0, 10, 20, 30, 30, 20, 10, 0,
             -10, 0, 10, 20, 20, 10, 0, -10,
-            0, 0, 0, 0, 0, 0, 0, 0
+            -20, -15, -10, -10, -10, -10, -15, -20
     };
 
     int32_t pawn_psqt[] = {
             0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0,
-            P4, P4, P4, P4, P4, P4, P4, P4,
-            P5, P5, P5, P5, P5, P5, P5, P5,
-            P6, P6, P6, P6, P6, P6, P6, P6,
-            P7, P7, P7, P7, P7, P7, P7, P7,
+            5, 5, 5, 5, 5, 5, 5, 5,
+            10, 10, 10, 10, 10, 10, 10, 10,
+            15, 15, 15, 15, 15, 15, 15, 15,
+            20, 20, 20, 20, 20, 20, 20, 20,
+            80, 80, 80, 80, 80, 80, 80, 80,
             0, 0, 0, 0, 0, 0, 0, 0
     };
 }
