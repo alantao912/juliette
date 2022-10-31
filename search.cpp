@@ -13,48 +13,105 @@
 #define DRAW (int32_t) 0
 
 std::unordered_map<uint64_t, TTEntry> transposition_table;
+std::unordered_map<uint64_t, RTEntry> repetition_table;
 
 extern bitboard board;
 std::vector<Move> top_line;
 
 /**
+ * @brief Extends the search position until a "quiet" position is reached.
+ * @param alpha: Minimum score that the maximizing player is assured of.
+ * @param beta: Maximum score that the minimizing player is assured of.
+ * @return
+ */
+
+int32_t quiesence_search(uint16_t *depth, int32_t alpha, int32_t beta, std::vector<Move> *considered_line) {
+    Move moves[MAX_MOVE_NUM];
+    int n;
+    if (!is_check(board.turn)) {
+        /** Generate non-quiet moves, such as checks, promotions, and captures. */
+        n = gen_nonquiescent_moves(moves, board.turn);
+        if (n == 0) {
+            /** Position is quiet, return evaluation. */
+            return evaluate();
+        }
+    } else if (!(n = gen_legal_moves(moves, board.turn))) {
+        /** Checkmate :( */
+        return CHECKMATE(0);
+    }
+
+    std::vector<Move> subsequent_lines[n];
+    size_t best_move_index = 0;
+    int32_t value = INT32_MIN;
+    for (int i = 0; i < n; ++i) {
+        Move candidate_move = moves[i];
+        push(candidate_move);
+        subsequent_lines[i].push_back(candidate_move);
+        int32_t next_value = -quiesence_search(depth, -beta, -alpha, &(subsequent_lines[i]));
+        pop();
+        if (next_value > value) {
+            best_move_index = i;
+            value = next_value;
+        }
+        if (value >= beta) {
+            /** Prune */
+            goto PRUNE;
+        }
+        if (value > alpha) {
+            alpha = value;
+        }
+    }
+    for (Move m : subsequent_lines[best_move_index]) {
+        considered_line->push_back(m);
+    }
+    PRUNE:
+    return value;
+}
+
+/**
  * @brief Returns an integer value, representing the evaluation of the specified turn.
- * 
+ *
  * @param alpha: Minimum score that the maximizing player is assured of.
  * @param beta: Maximum score that the minimizing player is assured of.
  */
 
-int32_t quiesence_search(int32_t alpha, int32_t beta) {
-
-}
-
 int32_t negamax(uint16_t depth, int32_t alpha, int32_t beta, std::vector<Move> *considered_line) {
     uint64_t hash_code = board.zobrist;
-    std::unordered_map<uint64_t, TTEntry>::iterator t;
-    uint8_t num_seen = 0;
-    if ((t = transposition_table.find(hash_code)) != transposition_table.end()) {
-        TTEntry entry = t->second;
-        if (entry.num_seen >= 3) {
-            return DRAW;
-        }
-        if (entry.depth >= depth) {
+    auto t = transposition_table.find(hash_code);
+    if (t != transposition_table.end()) {
+        /** Current board state has been reached before. */
+        TTEntry &entry = t->second;
+        if (!entry.searched || entry.depth >= depth) {
             return entry.evaluation;
         }
-        ++entry.num_seen;
-        num_seen = entry.num_seen;
+        /** Continue normal search if current position has been searched before and was searched at a lower depth */
+        entry.searched = false;
+        entry.evaluation = alpha;
+        entry.depth = depth;
+    } else {
+        /** Novel position has been reached */
+        transposition_table.insert(std::pair<uint64_t, TTEntry>(hash_code, TTEntry(alpha, depth)));
     }
     Move moves[MAX_MOVE_NUM];
     int n = gen_legal_moves(moves, board.turn);
-    if (n == 0) {
+    if (!n) {
+        TTEntry &entry = transposition_table.find(hash_code)->second;
+        entry.searched = true;
         if (is_check(board.turn)) {
-            /* Return negative or positive infinity when white to play and black to place respectively. */
-            return CHECKMATE(depth);
+            /** King is in check, and there are no legal moves. Checkmate */
+            entry.evaluation = CHECKMATE(depth);
+            return entry.evaluation;
         }
-        /* Stalemate. The board is drawn. */
-        return DRAW;
+        /** No legal moves, yet king is not in check. This is a stalemate, and the game is drawn. */
+        entry.evaluation = DRAW;
+        return entry.evaluation;
     }
-    if (depth == 0) {
-        return evaluate();
+    if (!depth) {
+        /** Extend the search until the position is quiet */
+        TTEntry &entry = transposition_table.find(hash_code)->second;
+        entry.searched = true;
+        entry.evaluation = quiesence_search(&depth, alpha, beta, considered_line);
+        return entry.evaluation;
     }
     int32_t value = INT32_MIN;
     size_t best_move_index = 0;
@@ -80,8 +137,10 @@ int32_t negamax(uint16_t depth, int32_t alpha, int32_t beta, std::vector<Move> *
         considered_line->push_back(m);
     }
     PRUNE:
-    /* Current node has been searched */
-    transposition_table.insert(std::pair<uint64_t, TTEntry>(hash_code, TTEntry(value, depth, num_seen)));
+    /** Current node has been fully searched, update evaluation. */
+    auto entry = transposition_table.find(hash_code);
+    entry->second.searched = true;
+    entry->second.evaluation = value;
     return value;
 }
 

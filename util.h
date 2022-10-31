@@ -25,9 +25,9 @@ enum squares {
 enum move_flags {
     NONE, // No special flag
     PASS, // Null move
+    CASTLING,
     CAPTURE,
     EN_PASSANT,
-    CASTLING,
     PR_KNIGHT,
     PR_BISHOP,
     PR_ROOK,

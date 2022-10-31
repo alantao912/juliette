@@ -4,13 +4,20 @@
 #pragma once
 
 #include <cstddef>
-#include <stdint.h>
+#include <cstdint>
 
 struct TTEntry {
     int32_t evaluation;
     uint16_t depth;
-    uint8_t num_seen;
+    bool searched;
 
-    TTEntry(int32_t e, uint16_t d, uint8_t n) : evaluation(e), depth(d), num_seen(n) {};
+    TTEntry(int32_t e, uint16_t d) : evaluation(e), depth(d) {
+        searched = false;
+    };
 };
 
+struct RTEntry {
+    uint8_t num_seen;
+
+    explicit RTEntry(uint8_t n) : num_seen(n) {};
+};

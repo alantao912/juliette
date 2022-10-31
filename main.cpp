@@ -228,7 +228,6 @@ int main(int argc, char *argv[]) {
         coach trainer(argv[2]);
 
         trainer.save(argv[2]);
-
     }
     return 0;
 }

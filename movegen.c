@@ -11,7 +11,6 @@
 
 extern bitboard board;
 
-
 // Pseudo-legal bitboards indexed by square to determine where that piece can attack
 const uint64_t BB_KNIGHT_ATTACKS[64] = {
         0x20400, 0x50800, 0xa1100, 0x142200, 0x284400,
@@ -88,7 +87,6 @@ uint64_t BB_BISHOP_ATTACK_MASKS[64];
 uint64_t BB_ROOK_ATTACK_MASKS[64];
 uint64_t ROOK_ATTACK_SHIFTS[64];
 uint64_t BISHOP_ATTACK_SHIFTS[64];
-
 
 /**
  * Initalizes the bishop attack magic bitboard
@@ -618,6 +616,31 @@ int gen_legal_captures(Move* moves, bool color) {
     return i;
 }
 
+int gen_nonquiescent_moves(Move *moves, bool color) {
+    int n = gen_legal_moves(moves, color);
+    int num_checks = 0, num_proms = 0, num_captures = 0;
+    for (int i = 0; i < n; ++i) {
+        push(moves[i]);
+        if (is_check(board.turn)) {
+            /* Move puts opponent in check */
+            moves[num_checks + num_proms + num_captures] = moves[num_checks + num_proms];
+            moves[num_checks + num_proms] = moves[num_checks];
+            moves[num_checks] = moves[i];
+            ++num_checks;
+        } else if (moves[i].flag >= PR_KNIGHT) {
+            /* Move is a promotion */
+            moves[num_checks + num_proms + num_captures] = moves[num_checks + num_proms];
+            moves[num_checks + num_proms] = moves[i];
+            ++num_proms;
+        } else if (moves[i].flag >= CAPTURE) {
+            /* Move is a capture */
+            moves[num_checks + num_proms + num_captures] = moves[i];
+            ++num_captures;
+        }
+        pop();
+    }
+    return num_checks + num_proms + num_captures;
+}
 
 /**
  * @param color the side to move

@@ -30,6 +30,7 @@ static uint64_t _perft(int depth);
 
 int gen_legal_moves(Move* moves, bool color);
 int gen_legal_captures(Move* moves, bool color);
+int gen_nonquiescent_moves(Move *moves, bool color);
 
 int get_flag(bool color, char piece, int from, int to);
 
