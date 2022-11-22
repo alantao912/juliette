@@ -1,11 +1,11 @@
-#include "bitboard.h"
-#include "util.h"
-#include "movegen.h"
-
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
+
+#include "bitboard.h"
+#include "util.h"
+#include "movegen.h"
 
 extern bitboard board;
 
@@ -148,7 +148,7 @@ void init_board(const char *fen) {
  * Updates the board with the move.
  * @param move
  */
-void make_move(Move move) {
+void make_move(move_t move) {
     int from = move.from;
     int to = move.to;
     int flag = move.flag;
@@ -341,14 +341,9 @@ void make_move(Move move) {
     } else {
         board.halfmove_clock++;
     }
-    /** Original code from not-carlsen
-    if (color == BLACK) board.fullmove_number++;
-    board.turn = !color;
-     */
     // Below two lines are an attempted optimization of the above:
     board.turn = !color;
     board.fullmove_number += color;
-    //
     board.zobrist ^= ZOBRIST_VALUES[768];
 }
 

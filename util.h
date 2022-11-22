@@ -44,11 +44,11 @@ enum move_flags {
  * TODO
  * Bitfields dont seem to be faster?
  */
-typedef struct Move {
+typedef struct move_t {
     unsigned int from : 6; // square piece is moving from
     unsigned int to : 6; // square piece is moving to
     unsigned int flag : 4; // any special characteristic of the move
-} Move;
+} move_t;
 
 typedef struct bitboard {
     char mailbox[64]; // piece-centric board representation
@@ -94,7 +94,6 @@ typedef struct bitboard {
  */
 typedef struct Stack {
     bitboard board;
-    Move move;
     struct Stack *next;
 } Stack;
 
@@ -165,7 +164,7 @@ extern uint64_t BB_RAYS[64][64];
 
 extern uint64_t ZOBRIST_VALUES[781];
 
-extern const Move NULL_MOVE;
+extern const move_t NULL_MOVE;
 extern const int MAX_MOVE_NUM;
 
 uint64_t get_ray_between(int square1, int square2);
@@ -193,4 +192,4 @@ int parse_square(char* square);
 
 int parse_piece(char piece);
 
-void print_move(Move move);
+void print_move(move_t move);

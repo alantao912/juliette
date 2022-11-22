@@ -9,7 +9,7 @@ void initialize_zobrist();
 
 void init_board(const char *fen);
 
-void make_move(Move move);
+void make_move(move_t move);
 
 bool is_check(bool color);
 

@@ -269,7 +269,7 @@ uint64_t print_divided_perft(int depth) {
 
     uint64_t total_nodes = 0;
 
-    Move moves[MAX_MOVE_NUM];
+    move_t moves[MAX_MOVE_NUM];
     int n = gen_legal_moves(moves, board.turn);
 
     for (int i = 0; i < n; i++) {
@@ -300,7 +300,7 @@ uint64_t print_divided_perft(int depth) {
 static uint64_t _perft(int depth) {
     uint64_t nodes = 0;
 
-    Move moves[MAX_MOVE_NUM];
+    move_t moves[MAX_MOVE_NUM];
     int n = gen_legal_moves(moves, board.turn);
 
     if (depth == 0) return 1;
@@ -323,9 +323,8 @@ static uint64_t _perft(int depth) {
  * @param color the side to move.
  * @param return the number of moves.
  */
-int gen_legal_moves(Move* moves, bool color) {
+int gen_legal_moves(move_t* moves, bool color) {
     int i = 0;
-
     uint64_t pieces;
     uint64_t king_bb;
     int king_square;
@@ -355,7 +354,7 @@ int gen_legal_moves(Move* moves, bool color) {
             int to = pull_lsb(&moves_bb);
             int flag = get_flag(color, 'K', king_square, to);
             if (flag == CASTLING) continue;
-            Move move = {king_square, to, flag};
+            move_t move = {king_square, to, flag};
             moves[i++] = move;
         }
         return i;
@@ -413,28 +412,28 @@ int gen_legal_moves(Move* moves, bool color) {
             int to = pull_lsb(&moves_bb);
             if (piece == 'P' && (rank_of(to) == 0 || rank_of(to) == 7)) { // Add all promotions
                 if (board.mailbox[to] == '-') {
-                    Move queen_promotion = {from, to, PR_QUEEN};
+                    move_t queen_promotion = {from, to, PR_QUEEN};
                     moves[i++] = queen_promotion;
-                    Move rook_promotion = {from, to, PR_ROOK};
+                    move_t rook_promotion = {from, to, PR_ROOK};
                     moves[i++] = rook_promotion;
-                    Move bishop_promotion = {from, to, PR_BISHOP};
+                    move_t bishop_promotion = {from, to, PR_BISHOP};
                     moves[i++] = bishop_promotion;
-                    Move knight_promotion = {from, to, PR_KNIGHT};
+                    move_t knight_promotion = {from, to, PR_KNIGHT};
                     moves[i++] = knight_promotion;
                 } else {
-                    Move queen_promotion = {from, to, PC_QUEEN};
+                    move_t queen_promotion = {from, to, PC_QUEEN};
                     moves[i++] = queen_promotion;
-                    Move rook_promotion = {from, to, PC_ROOK};
+                    move_t rook_promotion = {from, to, PC_ROOK};
                     moves[i++] = rook_promotion;
-                    Move bishop_promotion = {from, to, PC_BISHOP};
+                    move_t bishop_promotion = {from, to, PC_BISHOP};
                     moves[i++] = bishop_promotion;
-                    Move knight_promotion = {from, to, PC_KNIGHT};
+                    move_t knight_promotion = {from, to, PC_KNIGHT};
                     moves[i++] = knight_promotion;
                 }
 
             } else {
                 int flag = get_flag(color, piece, from, to);
-                Move move = {from, to, flag};
+                move_t move = {from, to, flag};
 
                 // Determine if castling is legal
                 if (flag == CASTLING) {
@@ -494,7 +493,7 @@ int gen_legal_moves(Move* moves, bool color) {
  * @param color the side to move.
  * @param return the number of captures.
  */
-int gen_legal_captures(Move* moves, bool color) {
+int gen_legal_captures(move_t* moves, bool color) {
     int i = 0;
 
     uint64_t pieces;
@@ -528,7 +527,7 @@ int gen_legal_captures(Move* moves, bool color) {
         while (moves_bb) {
             int to = pull_lsb(&moves_bb);
             int flag = get_flag(color, 'K', king_square, to);
-            Move move = {king_square, to, flag};
+            move_t move = {king_square, to, flag};
             moves[i++] = move;
         }
         return i;
@@ -585,18 +584,18 @@ int gen_legal_captures(Move* moves, bool color) {
             int to = pull_lsb(&moves_bb);
             if (piece == 'P' && (rank_of(to) == 0 || rank_of(to) == 7)) { // Add all promotion captures
                 if (board.mailbox[to] != '-') {
-                    Move queen_promotion = {from, to, PC_QUEEN};
+                    move_t queen_promotion = {from, to, PC_QUEEN};
                     moves[i++] = queen_promotion;
-                    Move rook_promotion = {from, to, PC_ROOK};
+                    move_t rook_promotion = {from, to, PC_ROOK};
                     moves[i++] = rook_promotion;
-                    Move bishop_promotion = {from, to, PC_BISHOP};
+                    move_t bishop_promotion = {from, to, PC_BISHOP};
                     moves[i++] = bishop_promotion;
-                    Move knight_promotion = {from, to, PC_KNIGHT};
+                    move_t knight_promotion = {from, to, PC_KNIGHT};
                     moves[i++] = knight_promotion;
                 }
             } else {
                 int flag = get_flag(color, piece, from, to);
-                Move move = {from, to, flag};
+                move_t move = {from, to, flag};
 
                 if (flag == EN_PASSANT) {
                     // Remove possible en passant capture that leaves king in check
@@ -616,24 +615,24 @@ int gen_legal_captures(Move* moves, bool color) {
     return i;
 }
 
-int gen_nonquiescent_moves(Move *moves, bool color) {
+int gen_nonquiescent_moves(move_t *moves, bool color) {
     int n = gen_legal_moves(moves, color);
     int num_checks = 0, num_proms = 0, num_captures = 0;
     for (int i = 0; i < n; ++i) {
         push(moves[i]);
         if (is_check(board.turn)) {
-            /* Move puts opponent in check */
+            /* move_t puts opponent in check */
             moves[num_checks + num_proms + num_captures] = moves[num_checks + num_proms];
             moves[num_checks + num_proms] = moves[num_checks];
             moves[num_checks] = moves[i];
             ++num_checks;
         } else if (moves[i].flag >= PR_KNIGHT) {
-            /* Move is a promotion */
+            /* move_t is a promotion */
             moves[num_checks + num_proms + num_captures] = moves[num_checks + num_proms];
             moves[num_checks + num_proms] = moves[i];
             ++num_proms;
         } else if (moves[i].flag >= CAPTURE) {
-            /* Move is a capture */
+            /* move_t is a capture */
             moves[num_checks + num_proms + num_captures] = moves[i];
             ++num_captures;
         }

@@ -1,4 +1,5 @@
 #include <stdlib.h>
+
 #include "stack.h"
 #include "util.h"
 #include "bitboard.h"
@@ -18,7 +19,7 @@ void init_stack() {
  * Makes the given move and updates the tables.
  * @param move
  */
-void push(Move move) {
+void push(move_t move) {
     // Update move stack
     Stack *node = (Stack *) malloc(sizeof(Stack));
     if (!node) {
@@ -26,7 +27,6 @@ void push(Move move) {
     }
     node->board = board;
     make_move(move);
-    node->move = move;
     node->next = stack;
     stack = node;
 

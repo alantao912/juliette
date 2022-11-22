@@ -4,7 +4,7 @@
 
 void init_stack(void);
 
-void push(Move move);
+void push(move_t move);
 void pop(void);
 
 static void _free_stack();

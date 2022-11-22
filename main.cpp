@@ -25,12 +25,12 @@ extern bitboard board;
 void play_game() {
     init_board(START_POSITION);
     init_stack();
-    Move moves[MAX_MOVE_NUM];
+    move_t moves[MAX_MOVE_NUM];
     int n;
     do {
         n = gen_legal_moves(moves, board.turn);
         for (int i = 0; i < n; ++i) {
-            Move m = moves[i];
+            move_t m = moves[i];
             std::cout << i + 1 << ") ";
             print_move(m);
             std::cout << '\n';
@@ -200,14 +200,15 @@ int main(int argc, char *argv[]) {
                 std::cout << "perft" << std::endl;
             } else if (strcmp(recvbuf, "dev") == 0) {
                 std::cout << "juliette:: switched to development mode." << std::endl;
-                std::string s("ucinewgame"), t("position startpos");
-                parse_UCI_string(s.c_str());
-                parse_UCI_string(t.c_str());
-                Move m = search(2);
-                std::cout << "Best move: ";
-                print_move(m);
-                std::cout << '\n';
-                showTopLine();
+                init_board("r4rk1/5q1p/1n1b1pp1/n3p3/P1PpP3/5N2/1B1N1PPP/R1RQ2K1 b - -");
+                move_t moves[MAX_MOVE_NUM];
+                int n = gen_nonquiescent_moves(moves, BLACK);
+                std::cout << "Generated " << n << " non quiescent moves" << std::endl;
+                for (int i = 0; i < n; ++i) {
+                    print_move(moves[i]);
+                    std::cout << '\n';
+                }
+                std::cout << "Done!" << std::endl;
             } else if (strcmp(recvbuf, "perft") == 0) {
                 std::cout << "juliette:: starting performance test..." << std::endl;
                 /*

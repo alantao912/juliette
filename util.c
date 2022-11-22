@@ -78,7 +78,7 @@ uint64_t BB_RAYS[64][64];
 
 uint64_t ZOBRIST_VALUES[781];
 
-const Move NULL_MOVE = {A1, A1, PASS};
+const move_t NULL_MOVE = {A1, A1, PASS};
 
 /* Maximum number of legal moves in a given position */
 const int MAX_MOVE_NUM = 218;
@@ -184,7 +184,7 @@ int parse_piece(char piece) {
     }
 }
 
-void print_move(Move move) {
+void print_move(move_t move) {
     printf("%c", 'a' + file_of(move.from));
     printf("%d", rank_of(move.from) + 1);
     printf("%c", 'a' + file_of(move.to));

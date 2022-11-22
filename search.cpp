@@ -16,7 +16,7 @@ std::unordered_map<uint64_t, TTEntry> transposition_table;
 std::unordered_map<uint64_t, RTEntry> repetition_table;
 
 extern bitboard board;
-std::vector<Move> top_line;
+std::vector<move_t> top_line;
 
 /**
  * @brief Extends the search position until a "quiet" position is reached.
@@ -25,13 +25,14 @@ std::vector<Move> top_line;
  * @return
  */
 
-int32_t quiesence_search(uint16_t *depth, int32_t alpha, int32_t beta, std::vector<Move> *considered_line) {
-    Move moves[MAX_MOVE_NUM];
+int32_t quiescence_search(int32_t alpha, int32_t beta, std::vector<move_t> *considered_line) {
+    std::cout << "qsearch " << std::endl;
+    move_t moves[MAX_MOVE_NUM];
     int n;
     if (!is_check(board.turn)) {
         /** Generate non-quiet moves, such as checks, promotions, and captures. */
         n = gen_nonquiescent_moves(moves, board.turn);
-        if (n == 0) {
+        if (!n) {
             /** Position is quiet, return evaluation. */
             return evaluate();
         }
@@ -39,15 +40,14 @@ int32_t quiesence_search(uint16_t *depth, int32_t alpha, int32_t beta, std::vect
         /** Checkmate :( */
         return CHECKMATE(0);
     }
-
-    std::vector<Move> subsequent_lines[n];
+    std::vector<move_t> subsequent_lines[n];
     size_t best_move_index = 0;
     int32_t value = INT32_MIN;
-    for (int i = 0; i < n; ++i) {
-        Move candidate_move = moves[i];
+    for (size_t i = 0; i < n; ++i) {
+        move_t candidate_move = moves[i];
         push(candidate_move);
         subsequent_lines[i].push_back(candidate_move);
-        int32_t next_value = -quiesence_search(depth, -beta, -alpha, &(subsequent_lines[i]));
+        int32_t next_value = -quiescence_search(-beta, -alpha, &(subsequent_lines[i]));
         pop();
         if (next_value > value) {
             best_move_index = i;
@@ -61,10 +61,11 @@ int32_t quiesence_search(uint16_t *depth, int32_t alpha, int32_t beta, std::vect
             alpha = value;
         }
     }
-    for (Move m : subsequent_lines[best_move_index]) {
+    for (move_t m : subsequent_lines[best_move_index]) {
         considered_line->push_back(m);
     }
     PRUNE:
+    std::cout << "Returning" << std::endl;
     return value;
 }
 
@@ -75,52 +76,52 @@ int32_t quiesence_search(uint16_t *depth, int32_t alpha, int32_t beta, std::vect
  * @param beta: Maximum score that the minimizing player is assured of.
  */
 
-int32_t negamax(uint16_t depth, int32_t alpha, int32_t beta, std::vector<Move> *considered_line) {
+int32_t negamax(uint16_t remaining_depth, int32_t alpha, int32_t beta, std::vector<move_t> *considered_line) {
     uint64_t hash_code = board.zobrist;
     auto t = transposition_table.find(hash_code);
     if (t != transposition_table.end()) {
         /** Current board state has been reached before. */
         TTEntry &entry = t->second;
-        if (!entry.searched || entry.depth >= depth) {
+        if (!entry.searched || entry.depth >= remaining_depth) {
             return entry.evaluation;
         }
-        /** Continue normal search if current position has been searched before and was searched at a lower depth */
+        /** Continue normal search if current position has been searched before and was searched at a lower remaining_depth */
         entry.searched = false;
         entry.evaluation = alpha;
-        entry.depth = depth;
+        entry.depth = remaining_depth;
     } else {
         /** Novel position has been reached */
-        transposition_table.insert(std::pair<uint64_t, TTEntry>(hash_code, TTEntry(alpha, depth)));
+        transposition_table.insert(std::pair<uint64_t, TTEntry>(hash_code, TTEntry(alpha, remaining_depth)));
     }
-    Move moves[MAX_MOVE_NUM];
+    move_t moves[MAX_MOVE_NUM];
     int n = gen_legal_moves(moves, board.turn);
     if (!n) {
         TTEntry &entry = transposition_table.find(hash_code)->second;
         entry.searched = true;
         if (is_check(board.turn)) {
             /** King is in check, and there are no legal moves. Checkmate */
-            entry.evaluation = CHECKMATE(depth);
+            entry.evaluation = CHECKMATE(remaining_depth);
             return entry.evaluation;
         }
         /** No legal moves, yet king is not in check. This is a stalemate, and the game is drawn. */
         entry.evaluation = DRAW;
         return entry.evaluation;
     }
-    if (!depth) {
+    if (!remaining_depth) {
         /** Extend the search until the position is quiet */
         TTEntry &entry = transposition_table.find(hash_code)->second;
         entry.searched = true;
-        entry.evaluation = quiesence_search(&depth, alpha, beta, considered_line);
+        entry.evaluation = quiescence_search(alpha, beta, considered_line);
         return entry.evaluation;
     }
     int32_t value = INT32_MIN;
     size_t best_move_index = 0;
-    std::vector<Move> subsequent_lines[n];
+    std::vector<move_t> subsequent_lines[n];
     for (size_t i = 0; i < n; ++i) {
-        Move candidate_move = moves[i];
+        move_t candidate_move = moves[i];
         push(candidate_move);
         subsequent_lines[i].push_back(candidate_move);
-        int32_t next_value = -negamax(depth - 1, -beta, -alpha, &(subsequent_lines[i]));
+        int32_t next_value = -negamax(remaining_depth - 1, -beta, -alpha, &(subsequent_lines[i]));
         pop();
         if (next_value > value) {
             value = next_value;
@@ -133,7 +134,7 @@ int32_t negamax(uint16_t depth, int32_t alpha, int32_t beta, std::vector<Move> *
             alpha = value;
         }
     }
-    for (Move m : subsequent_lines[best_move_index]) {
+    for (move_t m : subsequent_lines[best_move_index]) {
         considered_line->push_back(m);
     }
     PRUNE:
@@ -144,7 +145,7 @@ int32_t negamax(uint16_t depth, int32_t alpha, int32_t beta, std::vector<Move> *
     return value;
 }
 
-Move search(uint16_t depth) {
+move_t search(uint16_t depth) {
     top_line.clear();
     negamax(depth, MIN_SCORE, -MIN_SCORE, &top_line);
     return top_line.front();
@@ -153,7 +154,7 @@ Move search(uint16_t depth) {
 void showTopLine() {
     std::cout << "Top line: ";
     for (size_t i = 0; i < top_line.size() - 1; ++i) {
-        Move move = top_line.at(i);
+        move_t move = top_line.at(i);
         print_move(move);
         std::cout << ", ";
     }

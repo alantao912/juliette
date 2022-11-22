@@ -9,6 +9,7 @@
 struct TTEntry {
     int32_t evaluation;
     uint16_t depth;
+    move_t best_move;
     bool searched;
 
     TTEntry(int32_t e, uint16_t d) : evaluation(e), depth(d) {

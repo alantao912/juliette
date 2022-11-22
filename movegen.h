@@ -28,9 +28,9 @@ static uint64_t _get_reverse_bb(uint64_t bb);
 uint64_t print_divided_perft(int depth);
 static uint64_t _perft(int depth);
 
-int gen_legal_moves(Move* moves, bool color);
-int gen_legal_captures(Move* moves, bool color);
-int gen_nonquiescent_moves(Move *moves, bool color);
+int gen_legal_moves(move_t* moves, bool color);
+int gen_legal_captures(move_t* moves, bool color);
+int gen_nonquiescent_moves(move_t *moves, bool color);
 
 int get_flag(bool color, char piece, int from, int to);
 

@@ -60,8 +60,8 @@ void parse_UCI_string(const char *uci) {
         strcpy(&sendbuf[len + 1], replies[uciok].c_str());
         reply();
     } else if (buff == "ucinewgame") {
-        // TODO finish implementing ucinewgame command
-        /* initialize_zobrist() must occur before board instantiation as board instantiation depends on the hash codes initialized */
+        // TODO: finish implementing ucinewgame command
+        /** initialize_zobrist() must occur before board instantiation as board instantiation depends on the hash codes initialized **/
         initialize_zobrist();
     } else if (buff == "position") {
         position(args);
@@ -92,7 +92,6 @@ void position(std::string &arg) {
     } else {
         init_board(arg.c_str());
     }
-    /* Initialization of evaluation and search must occur after board instantiation as these initializations depend on board being non-null */
 }
 
 void go(std::string &args) {
@@ -101,7 +100,8 @@ void go(std::string &args) {
     if (board.mailbox) {
         // TODO Check it board is set up or not
     }
-    Move best_move = search(8);
+    move_t best_move = search(2);
+    std::cout << "Done searching" << std::endl;
     sprintf(sendbuf, "%s %c%d%c%d", replies[bestmove].c_str(),
             file_of(best_move.from) + 'a', rank_of(best_move.from) + 1, file_of(best_move.to) + 'a', rank_of(best_move.to) + 1);
     reply();
