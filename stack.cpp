@@ -1,11 +1,15 @@
-#include <stdlib.h>
+#include <cstdlib>
+#include <unordered_map>
 
 #include "stack.h"
 #include "util.h"
 #include "bitboard.h"
+#include "tables.h"
 
 extern bitboard board;
 extern Stack *stack;
+
+extern std::unordered_map<uint64_t, RTEntry> repetition_table;
 
 /**
  * Initalizes the stack.
@@ -32,7 +36,15 @@ void push(move_t move) {
 
     // Update threefold rep table
     // TODO create own repetition table, and add hash to the table
-    // rtable_add(board.zobrist);
+    auto rt_pair = repetition_table.find(board.zobrist);
+    if (rt_pair != repetition_table.end()) {
+        RTEntry &rt_entry = rt_pair->second;
+        ++rt_entry.num_seen;
+    } else {
+        repetition_table.insert(std::pair<uint64_t, RTEntry>(board.zobrist, RTEntry(1)));
+    }
+
+
 }
 
 
@@ -42,8 +54,11 @@ void push(move_t move) {
 void pop(void) {
     // Update threefold rep table
     // TODO create own repetition table, and add hash to the table
-    // rtable_remove(board.zobrist);
-
+    RTEntry &rt_pair = repetition_table.find(board.zobrist)->second;
+    --rt_pair.num_seen;
+    if (!rt_pair.num_seen) {
+        repetition_table.erase(board.zobrist);
+    }
     // Update move stack
     Stack *temp = stack;
     board = stack->board;

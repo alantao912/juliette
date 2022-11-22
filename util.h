@@ -103,9 +103,6 @@ extern const uint64_t BB_SQUARES[64];
 
 extern const uint64_t BB_ALL;
 
-extern const uint64_t BB_LIGHT_SQUARES;
-extern const uint64_t BB_DARK_SQUARES;
-
 extern const uint64_t BB_FILE_A;
 extern const uint64_t BB_FILE_B;
 extern const uint64_t BB_FILE_C;

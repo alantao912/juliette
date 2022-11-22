@@ -13,9 +13,6 @@ const uint64_t BB_SQUARES[64] = {
 
 const uint64_t BB_ALL = 0xffffffffffffffff;
 
-const uint64_t BB_LIGHT_SQUARES = 0x55aa55aa55aa55aa;
-const uint64_t BB_DARK_SQUARES = 0xaa55aa55aa55aa55;
-
 const uint64_t BB_FILE_A = 0x0101010101010101;
 const uint64_t BB_FILE_B = BB_FILE_A << 1;
 const uint64_t BB_FILE_C = BB_FILE_A << 2;
