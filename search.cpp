@@ -117,10 +117,6 @@ int32_t quiescence_search(uint16_t remaining_ply, int32_t alpha, int32_t beta, s
 
 int32_t negamax(uint16_t remaining_ply, int32_t alpha, int32_t beta, std::vector<move_t> *considered_line) {
     const int32_t original_alpha = alpha;
-    /** Implements draw by three-fold repetition and 50 move draw rule. */
-    if (is_drawn()) {
-        return DRAW;
-    }
     auto t = transposition_table.find(board.hash_code);
     if (t != transposition_table.end() && t->second.depth >= remaining_ply) {
         const TTEntry &tt_entry = t->second;
@@ -145,6 +141,9 @@ int32_t negamax(uint16_t remaining_ply, int32_t alpha, int32_t beta, std::vector
         /** No legal moves, yet king is not in check. This is a stalemate, and the game is drawn. */
         return DRAW;
     }
+    if (is_drawn()) {
+        return DRAW;
+    }
     if (!remaining_ply) {
         /** Extend the search until the position is quiet */
         return quiescence_search(qsearch_lim, alpha, beta, considered_line);
@@ -163,10 +162,12 @@ int32_t negamax(uint16_t remaining_ply, int32_t alpha, int32_t beta, std::vector
             goto PRUNE;
         }
     }
+    /** Propogates up the principal variation */
     for (move_t m : subsequent_lines[best_move_index]) {
         considered_line->push_back(m);
     }
     PRUNE:
+    /** Updates the transposition table with the appropriate values */
     TTEntry tt_entry(0, 0, EXACT);
     if (value <= original_alpha) {
         tt_entry.flag = UPPER;
