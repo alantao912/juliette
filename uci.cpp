@@ -100,7 +100,7 @@ void go(std::string &args) {
     if (board.mailbox) {
         // TODO Check it board is set up or not
     }
-    move_t best_move = search(2);
+    move_t best_move = search(6);
     std::cout << "Done searching" << std::endl;
     sprintf(sendbuf, "%s %c%d%c%d", replies[bestmove].c_str(),
             file_of(best_move.from) + 'a', rank_of(best_move.from) + 1, file_of(best_move.to) + 'a', rank_of(best_move.to) + 1);

@@ -244,55 +244,6 @@ static uint64_t _get_reverse_bb(uint64_t bb) {
 
 
 /**
- * Prints out the legal perft grouped by the first moves made.
- * @param depth what depth to perform moves to.
- * @return the number of legal moves at depth n.
- *
- * https://www.chessprogramming.org/Perft_Results:
- * pos 1 accurate to depth 7
- * pos 2 accurate to depth 6
- * pos 3 accurate to depth 8
- * pos 4 accurate to depth 6
- * pos 5 accurate to depth 6
- * pos 6 accurate to depth 5
- *
- * Steven Edwards (Chess Programming Wiki) Challenge Positions:
- * pos 1 accurate to depth 7
- * pos 2 accurate to depth 7
- * pos 3 accurate to depth 7
- * pos 4 accurate to depth 7
- * pos 5 accurate to depth 7
- * pos 6 accurate to depth 7
- */
-uint64_t print_divided_perft(int depth) {
-    clock_t start = clock();
-
-    uint64_t total_nodes = 0;
-
-    move_t moves[MAX_MOVE_NUM];
-    int n = gen_legal_moves(moves, board.turn);
-
-    for (int i = 0; i < n; i++) {
-        push(moves[i]);
-        if (is_draw()) break;
-
-        print_move(moves[i]);
-        uint64_t nodes = _perft(depth - 1);
-        total_nodes += nodes;
-        printf(": %llu\n", nodes);
-        pop();
-    }
-    printf("\nNodes searched: %llu\n", total_nodes);
-
-    clock_t elapsed = clock() - start;
-    double time = (double) elapsed / CLOCKS_PER_SEC;
-    printf("nps: %.0f\n\n", total_nodes / time);
-
-    return total_nodes;
-}
-
-
-/**
  * Performance test debug function to determine the accuracy of the legal move generator.
  * Uses bulk counting.
  * @return the number of legal moves at depth n.

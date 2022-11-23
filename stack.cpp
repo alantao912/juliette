@@ -36,15 +36,13 @@ void push(move_t move) {
 
     // Update threefold rep table
     // TODO create own repetition table, and add hash to the table
-    auto rt_pair = repetition_table.find(board.zobrist);
+    auto rt_pair = repetition_table.find(board.hash_code);
     if (rt_pair != repetition_table.end()) {
         RTEntry &rt_entry = rt_pair->second;
         ++rt_entry.num_seen;
     } else {
-        repetition_table.insert(std::pair<uint64_t, RTEntry>(board.zobrist, RTEntry(1)));
+        repetition_table.insert(std::pair<uint64_t, RTEntry>(board.hash_code, RTEntry(1)));
     }
-
-
 }
 
 
@@ -52,18 +50,20 @@ void push(move_t move) {
  * Unmakes the most recent move and updates the tables.
  */
 void pop(void) {
+    printf("popping()\n");
     // Update threefold rep table
     // TODO create own repetition table, and add hash to the table
-    RTEntry &rt_pair = repetition_table.find(board.zobrist)->second;
+    RTEntry &rt_pair = repetition_table.find(board.hash_code)->second;
     --rt_pair.num_seen;
     if (!rt_pair.num_seen) {
-        repetition_table.erase(board.zobrist);
+        repetition_table.erase(board.hash_code);
     }
     // Update move stack
     Stack *temp = stack;
     board = stack->board;
     stack = stack->next;
     free(temp);
+    printf("done pop\n");
 }
 
 

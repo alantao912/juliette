@@ -115,31 +115,31 @@ void init_board(const char *fen) {
     token = strtok_r(rest, " ", &rest);
     board.fullmove_number = strtol(token, NULL, 10);
 
-    // Initalize zobrist
-    board.zobrist = 0;
+    // Initalize hash_code
+    board.hash_code = 0;
     for (int square = A1; square <= H8; square++) {
         char piece = board.mailbox[square];
         if (piece != '-') {
-            board.zobrist ^= ZOBRIST_VALUES[64 * parse_piece(piece) + square];
+            board.hash_code ^= ZOBRIST_VALUES[64 * parse_piece(piece) + square];
         }
     }
     if (board.turn == BLACK) {
-        board.zobrist ^= ZOBRIST_VALUES[768];
+        board.hash_code ^= ZOBRIST_VALUES[768];
     }
     if (board.w_kingside_castling_rights) {
-        board.zobrist ^= ZOBRIST_VALUES[769];
+        board.hash_code ^= ZOBRIST_VALUES[769];
     }
     if (board.w_queenside_castling_rights) {
-        board.zobrist ^= ZOBRIST_VALUES[770];
+        board.hash_code ^= ZOBRIST_VALUES[770];
     }
     if (board.b_kingside_castling_rights) {
-        board.zobrist ^= ZOBRIST_VALUES[771];
+        board.hash_code ^= ZOBRIST_VALUES[771];
     }
     if (board.b_queenside_castling_rights) {
-        board.zobrist ^= ZOBRIST_VALUES[772];
+        board.hash_code ^= ZOBRIST_VALUES[772];
     }
     if (board.en_passant_square != INVALID) {
-        board.zobrist ^= ZOBRIST_VALUES[773 + file_of(board.en_passant_square)];
+        board.hash_code ^= ZOBRIST_VALUES[773 + file_of(board.en_passant_square)];
     }
     free(rest);
 }
@@ -159,13 +159,13 @@ void make_move(move_t move) {
 
     if (flag == PASS) {
         board.turn = !color;
-        board.zobrist ^= ZOBRIST_VALUES[768];
+        board.hash_code ^= ZOBRIST_VALUES[768];
         return;
     }
 
     bool reset_halfmove = false;
     if (board.en_passant_square != INVALID) {
-        board.zobrist ^= ZOBRIST_VALUES[773 + file_of(board.en_passant_square)];
+        board.hash_code ^= ZOBRIST_VALUES[773 + file_of(board.en_passant_square)];
         board.en_passant_square = INVALID;
     }
     uint64_t *attacker_bb = get_bitboard(attacker);
@@ -173,42 +173,42 @@ void make_move(move_t move) {
     set_bit(attacker_bb, to);
     board.mailbox[from] = '-';
     board.mailbox[to] = attacker;
-    board.zobrist ^= ZOBRIST_VALUES[64 * parse_piece(attacker) + from];
-    board.zobrist ^= ZOBRIST_VALUES[64 * parse_piece(attacker) + to];
+    board.hash_code ^= ZOBRIST_VALUES[64 * parse_piece(attacker) + from];
+    board.hash_code ^= ZOBRIST_VALUES[64 * parse_piece(attacker) + to];
 
     switch (attacker) {
         case 'P':
             reset_halfmove = true;
             if (rank_of(to) - rank_of(from) == 2) {
                 board.en_passant_square = to - 8;
-                board.zobrist ^= ZOBRIST_VALUES[773 + file_of(board.en_passant_square)];
+                board.hash_code ^= ZOBRIST_VALUES[773 + file_of(board.en_passant_square)];
             } else if (flag == EN_PASSANT) {
                 clear_bit(&board.b_pawns, to - 8);
                 board.mailbox[to - 8] = '-';
-                board.zobrist ^= ZOBRIST_VALUES[64*6 + (to - 8)];
+                board.hash_code ^= ZOBRIST_VALUES[64 * 6 + (to - 8)];
             } else if (rank_of(to) == 7) { // Promotions
                 clear_bit(&board.w_pawns, to);
-                board.zobrist ^= ZOBRIST_VALUES[64*0 + to];
+                board.hash_code ^= ZOBRIST_VALUES[64 * 0 + to];
                 switch (flag) {
                     case PR_QUEEN:
                         set_bit(&board.w_queens, to);
                         board.mailbox[to] = 'Q';
-                        board.zobrist ^= ZOBRIST_VALUES[64*4 + to];
+                        board.hash_code ^= ZOBRIST_VALUES[64 * 4 + to];
                         break;
                     case PR_ROOK:
                         set_bit(&board.w_rooks, to);
                         board.mailbox[to] = 'R';
-                        board.zobrist ^= ZOBRIST_VALUES[64*3 + to];
+                        board.hash_code ^= ZOBRIST_VALUES[64 * 3 + to];
                         break;
                     case PR_BISHOP:
                         set_bit(&board.w_bishops, to);
                         board.mailbox[to] = 'B';
-                        board.zobrist ^= ZOBRIST_VALUES[64*2 + to];
+                        board.hash_code ^= ZOBRIST_VALUES[64 * 2 + to];
                         break;
                     case PR_KNIGHT:
                         set_bit(&board.w_knights, to);
                         board.mailbox[to] = 'N';
-                        board.zobrist ^= ZOBRIST_VALUES[64*1 + to];
+                        board.hash_code ^= ZOBRIST_VALUES[64 * 1 + to];
                         break;
                 }
             }
@@ -216,10 +216,10 @@ void make_move(move_t move) {
         case 'R':
             if (from == H1 && board.w_kingside_castling_rights) {
                 board.w_kingside_castling_rights = false;
-                board.zobrist ^= ZOBRIST_VALUES[769];
+                board.hash_code ^= ZOBRIST_VALUES[769];
             } else if (from == A1 && board.w_queenside_castling_rights) {
                 board.w_queenside_castling_rights = false;
-                board.zobrist ^= ZOBRIST_VALUES[770];
+                board.hash_code ^= ZOBRIST_VALUES[770];
             }
             break;
         case 'K':
@@ -230,59 +230,59 @@ void make_move(move_t move) {
                     set_bit(&board.w_rooks, F1);
                     board.mailbox[H1] = '-';
                     board.mailbox[F1] = 'R';
-                    board.zobrist ^= ZOBRIST_VALUES[64*3 + H1];
-                    board.zobrist ^= ZOBRIST_VALUES[64*3 + F1];
+                    board.hash_code ^= ZOBRIST_VALUES[64 * 3 + H1];
+                    board.hash_code ^= ZOBRIST_VALUES[64 * 3 + F1];
                 } else { // Queenside
                     clear_bit(&board.w_rooks, A1);
                     set_bit(&board.w_rooks, D1);
                     board.mailbox[A1] = '-';
                     board.mailbox[D1] = 'R';
-                    board.zobrist ^= ZOBRIST_VALUES[64*3 + A1];
-                    board.zobrist ^= ZOBRIST_VALUES[64*3 + D1];
+                    board.hash_code ^= ZOBRIST_VALUES[64 * 3 + A1];
+                    board.hash_code ^= ZOBRIST_VALUES[64 * 3 + D1];
                 }
             }
 
             if (board.w_kingside_castling_rights) {
                 board.w_kingside_castling_rights = false;
-                board.zobrist ^= ZOBRIST_VALUES[769];
+                board.hash_code ^= ZOBRIST_VALUES[769];
             }
             if (board.w_queenside_castling_rights) {
                 board.w_queenside_castling_rights = false;
-                board.zobrist ^= ZOBRIST_VALUES[770];
+                board.hash_code ^= ZOBRIST_VALUES[770];
             }
             break;
         case 'p':
             reset_halfmove = true;
             if (rank_of(to) - rank_of(from) == -2) {
                 board.en_passant_square = to + 8;
-                board.zobrist ^= ZOBRIST_VALUES[773 + file_of(board.en_passant_square)];
+                board.hash_code ^= ZOBRIST_VALUES[773 + file_of(board.en_passant_square)];
             } else if (flag == EN_PASSANT) {
                 clear_bit(&board.w_pawns, to + 8);
                 board.mailbox[to + 8] = '-';
-                board.zobrist ^= ZOBRIST_VALUES[64*0 + (to + 8)];
+                board.hash_code ^= ZOBRIST_VALUES[64 * 0 + (to + 8)];
             } else if (rank_of(to) == 0) { // Promotions
                 clear_bit(&board.b_pawns, to);
-                board.zobrist ^= ZOBRIST_VALUES[64*6 + to];
+                board.hash_code ^= ZOBRIST_VALUES[64 * 6 + to];
                 switch (flag) {
                     case PR_QUEEN:
                         set_bit(&board.b_queens, to);
                         board.mailbox[to] = 'q';
-                        board.zobrist ^= ZOBRIST_VALUES[64*10 + to];
+                        board.hash_code ^= ZOBRIST_VALUES[64 * 10 + to];
                         break;
                     case PR_ROOK:
                         set_bit(&board.b_rooks, to);
                         board.mailbox[to] = 'r';
-                        board.zobrist ^= ZOBRIST_VALUES[64*9 + to];
+                        board.hash_code ^= ZOBRIST_VALUES[64 * 9 + to];
                         break;
                     case PR_BISHOP:
                         set_bit(&board.b_bishops, to);
                         board.mailbox[to] = 'b';
-                        board.zobrist ^= ZOBRIST_VALUES[64*8 + to];
+                        board.hash_code ^= ZOBRIST_VALUES[64 * 8 + to];
                         break;
                     case PR_KNIGHT:
                         set_bit(&board.b_knights, to);
                         board.mailbox[to] = 'n';
-                        board.zobrist ^= ZOBRIST_VALUES[64*7 + to];
+                        board.hash_code ^= ZOBRIST_VALUES[64 * 7 + to];
                         break;
                 }
             }
@@ -291,10 +291,10 @@ void make_move(move_t move) {
         case 'r':
             if (from == H8 && board.b_kingside_castling_rights) {
                 board.b_kingside_castling_rights = false;
-                board.zobrist ^= ZOBRIST_VALUES[771];
+                board.hash_code ^= ZOBRIST_VALUES[771];
             } else if (from == A8 && board.b_queenside_castling_rights) {
                 board.b_queenside_castling_rights = false;
-                board.zobrist ^= ZOBRIST_VALUES[772];
+                board.hash_code ^= ZOBRIST_VALUES[772];
             }
             break;
         case 'k':
@@ -305,25 +305,25 @@ void make_move(move_t move) {
                     set_bit(&board.b_rooks, F8);
                     board.mailbox[H8] = '-';
                     board.mailbox[F8] = 'r';
-                    board.zobrist ^= ZOBRIST_VALUES[64*9 + H8];
-                    board.zobrist ^= ZOBRIST_VALUES[64*9 + F8];
+                    board.hash_code ^= ZOBRIST_VALUES[64 * 9 + H8];
+                    board.hash_code ^= ZOBRIST_VALUES[64 * 9 + F8];
                 } else { // Queenside
                     clear_bit(&board.b_rooks, A8);
                     set_bit(&board.b_rooks, D8);
                     board.mailbox[A8] = '-';
                     board.mailbox[D8] = 'r';
-                    board.zobrist ^= ZOBRIST_VALUES[64*9 + A8];
-                    board.zobrist ^= ZOBRIST_VALUES[64*9 + D8];
+                    board.hash_code ^= ZOBRIST_VALUES[64 * 9 + A8];
+                    board.hash_code ^= ZOBRIST_VALUES[64 * 9 + D8];
                 }
             }
 
             if (board.b_kingside_castling_rights) {
                 board.b_kingside_castling_rights = false;
-                board.zobrist ^= ZOBRIST_VALUES[771];
+                board.hash_code ^= ZOBRIST_VALUES[771];
             }
             if (board.b_queenside_castling_rights) {
                 board.b_queenside_castling_rights = false;
-                board.zobrist ^= ZOBRIST_VALUES[772];
+                board.hash_code ^= ZOBRIST_VALUES[772];
             }
             break;
     }
@@ -331,7 +331,7 @@ void make_move(move_t move) {
         reset_halfmove = true;
         uint64_t* victim_bb = get_bitboard(victim);
         clear_bit(victim_bb, to);
-        board.zobrist ^= ZOBRIST_VALUES[64*parse_piece(victim) + to];
+        board.hash_code ^= ZOBRIST_VALUES[64 * parse_piece(victim) + to];
     }
     board.w_occupied = board.w_pawns | board.w_knights | board.w_bishops | board.w_rooks | board.w_queens | board.w_king;
     board.b_occupied = board.b_pawns | board.b_knights | board.b_bishops | board.b_rooks | board.b_queens | board.b_king;
@@ -344,7 +344,7 @@ void make_move(move_t move) {
     // Below two lines are an attempted optimization of the above:
     board.turn = !color;
     board.fullmove_number += color;
-    board.zobrist ^= ZOBRIST_VALUES[768];
+    board.hash_code ^= ZOBRIST_VALUES[768];
 }
 
 bool is_check(bool color) {

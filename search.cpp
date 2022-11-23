@@ -8,12 +8,22 @@
 #include "bitboard.h"
 #include "evaluation.h"
 
-const uint16_t qsearch_lim = 6;
+/**
+ * Quiescent search max ply count.
+ */
+
+const uint16_t qsearch_lim = 4;
+
+/**
+ * Contempt factor indicates respect for opponent.
+ * Positive contempt indicates respect for stronger opponent.
+ * Negative contempt indicates perceived weaker opponent
+ */
 const int32_t contempt = 0;
 
 #define MIN_SCORE (INT32_MIN + 100)
 #define CHECKMATE(depth) ((MIN_SCORE + 1) + (UINT16_MAX - depth))
-#define DRAW (int32_t) -contempt;
+#define DRAW (int32_t) contempt;
 
 
 std::unordered_map<uint64_t, TTEntry> transposition_table;
@@ -21,6 +31,22 @@ std::unordered_map<uint64_t, RTEntry> repetition_table;
 
 extern bitboard board;
 std::vector<move_t> top_line;
+
+static inline bool is_drawn() {
+    auto iterator = repetition_table.find(board.hash_code);
+    if (iterator != repetition_table.end()) {
+        const RTEntry &rt_entry = iterator->second;
+        if (rt_entry.num_seen >= 3) {
+            return true;
+        }
+    }
+    return board.fullmove_number >= 50;
+}
+
+static inline bool verify_repetition() {
+    // TODO: Check move history to see if it actually is a three fold repetition.
+    return true;
+}
 
 /**
  * @brief Extends the search position until a "quiet" position is reached.
@@ -30,19 +56,14 @@ std::vector<move_t> top_line;
  */
 
 int32_t quiescence_search(uint16_t remaining_ply, int32_t alpha, int32_t beta, std::vector<move_t> *considered_line) {
-    if (repetition_table.find(board.zobrist)->second.num_seen >= 3 || board.fullmove_number >= 50) {
+    if (is_drawn()) {
         return DRAW;
     }
     move_t moves[MAX_MOVE_NUM];
     int n;
     if (!is_check(board.turn)) {
-        /** Has reached qsearch limit */
-        if (!remaining_ply) {
-            return evaluate();
-        }
         /** Generate non-quiet moves, such as checks, promotions, and captures. */
-        n = gen_nonquiescent_moves(moves, board.turn);
-        if (!n) {
+        if (!remaining_ply || !(n = gen_nonquiescent_moves(moves, board.turn))) {
             /** Position is quiet, return evaluation. */
             return evaluate();
         }
@@ -95,46 +116,38 @@ int32_t quiescence_search(uint16_t remaining_ply, int32_t alpha, int32_t beta, s
  */
 
 int32_t negamax(uint16_t remaining_ply, int32_t alpha, int32_t beta, std::vector<move_t> *considered_line) {
-    uint64_t hash_code = board.zobrist;
+    const int32_t original_alpha = alpha;
     /** Implements draw by three-fold repetition and 50 move draw rule. */
-    if (repetition_table.find(hash_code)->second.num_seen >= 3 || board.fullmove_number >= 50) {
+    if (is_drawn()) {
         return DRAW;
     }
-    auto t = transposition_table.find(hash_code);
-    if (t != transposition_table.end()) {
-        /** Current board state has been reached before. */
-        TTEntry &entry = t->second;
-        if (!entry.searched || entry.depth >= remaining_ply) {
-            return entry.evaluation;
+    auto t = transposition_table.find(board.hash_code);
+    if (t != transposition_table.end() && t->second.depth >= remaining_ply) {
+        const TTEntry &tt_entry = t->second;
+        switch (tt_entry.flag) {
+            case EXACT:
+                return tt_entry.evaluation;
+            case LOWER:
+                alpha = std::max(alpha, tt_entry.evaluation);
+                break;
+            case UPPER:
+                beta = std::min(beta, tt_entry.evaluation);
+                break;
         }
-        /** Continue normal search if current position has been searched before and was searched at a lower remaining_ply */
-        entry.searched = false;
-        entry.evaluation = alpha;
-        entry.depth = remaining_ply;
-    } else {
-        /** Novel position has been reached */
-        transposition_table.insert(std::pair<uint64_t, TTEntry>(hash_code, TTEntry(alpha, remaining_ply)));
     }
     move_t moves[MAX_MOVE_NUM];
     int n = gen_legal_moves(moves, board.turn);
     if (!n) {
-        TTEntry &entry = transposition_table.find(hash_code)->second;
-        entry.searched = true;
         if (is_check(board.turn)) {
             /** King is in check, and there are no legal moves. Checkmate */
-            entry.evaluation = CHECKMATE(remaining_ply);
-            return entry.evaluation;
+            return CHECKMATE(remaining_ply);
         }
         /** No legal moves, yet king is not in check. This is a stalemate, and the game is drawn. */
-        entry.evaluation = DRAW;
-        return entry.evaluation;
+        return DRAW;
     }
     if (!remaining_ply) {
         /** Extend the search until the position is quiet */
-        TTEntry &entry = transposition_table.find(hash_code)->second;
-        entry.evaluation = quiescence_search(qsearch_lim, alpha, beta, considered_line);
-        entry.searched = true;
-        return entry.evaluation;
+        return quiescence_search(qsearch_lim, alpha, beta, considered_line);
     }
     int32_t value = INT32_MIN;
     size_t best_move_index = 0;
@@ -143,15 +156,9 @@ int32_t negamax(uint16_t remaining_ply, int32_t alpha, int32_t beta, std::vector
         move_t candidate_move = moves[i];
         push(candidate_move);
         subsequent_lines[i].push_back(candidate_move);
-        int32_t next_value = -negamax(remaining_ply - 1, -beta, -alpha, &(subsequent_lines[i]));
+        value = std::max(value, -negamax(remaining_ply - 1, -beta, -alpha, &(subsequent_lines[i])));
         pop();
-        if (next_value > value) {
-            value = next_value;
-            best_move_index = i;
-        }
-        if (value > alpha) {
-            alpha = value;
-        }
+        alpha = std::max(alpha, value);
         if (alpha >= beta) {
             goto PRUNE;
         }
@@ -160,14 +167,23 @@ int32_t negamax(uint16_t remaining_ply, int32_t alpha, int32_t beta, std::vector
         considered_line->push_back(m);
     }
     PRUNE:
-    /** Current node has been fully searched, update evaluation. */
-    auto entry = transposition_table.find(hash_code);
-    entry->second.searched = true;
-    entry->second.evaluation = value;
+    TTEntry tt_entry(0, 0, EXACT);
+    if (value <= original_alpha) {
+        tt_entry.flag = UPPER;
+    } else if (value >= beta) {
+        tt_entry.flag = LOWER;
+    }
+    tt_entry.depth = remaining_ply;
+    if (t != transposition_table.end()) {
+        t->second = tt_entry;
+    } else {
+        transposition_table.insert(std::pair<uint64_t, TTEntry>(board.hash_code, tt_entry));
+    }
     return value;
 }
 
 move_t search(uint16_t depth) {
+    std::cout << "Entereted search" << std::endl;
     top_line.clear();
     negamax(depth, MIN_SCORE, -MIN_SCORE, &top_line);
     return top_line.front();

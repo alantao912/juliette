@@ -85,7 +85,7 @@ typedef struct bitboard {
     int halfmove_clock; // number of halfmoves since the last capture or pawn advance
     int fullmove_number; // number of cycles of a white move and a black move
 
-    uint64_t zobrist; // zobrist hash value for the current position
+    uint64_t hash_code; // hash_code hash value for the current position
 } bitboard;
 
 /**
