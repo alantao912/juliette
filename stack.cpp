@@ -34,8 +34,6 @@ void push(move_t move) {
     node->next = stack;
     stack = node;
 
-    // Update threefold rep table
-    // TODO create own repetition table, and add hash to the table
     auto rt_pair = repetition_table.find(board.hash_code);
     if (rt_pair != repetition_table.end()) {
         RTEntry &rt_entry = rt_pair->second;
@@ -50,9 +48,6 @@ void push(move_t move) {
  * Unmakes the most recent move and updates the tables.
  */
 void pop(void) {
-    printf("popping()\n");
-    // Update threefold rep table
-    // TODO create own repetition table, and add hash to the table
     RTEntry &rt_pair = repetition_table.find(board.hash_code)->second;
     --rt_pair.num_seen;
     if (!rt_pair.num_seen) {
@@ -63,7 +58,6 @@ void pop(void) {
     board = stack->board;
     stack = stack->next;
     free(temp);
-    printf("done pop\n");
 }
 
 

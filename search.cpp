@@ -100,6 +100,7 @@ int32_t quiescence_search(uint16_t remaining_ply, int32_t alpha, int32_t beta, s
         }
         if (value > alpha) {
             alpha = value;
+            best_move_index = i;
         }
     }
     for (move_t m : subsequent_lines[best_move_index]) {
@@ -155,9 +156,15 @@ int32_t negamax(uint16_t remaining_ply, int32_t alpha, int32_t beta, std::vector
         move_t candidate_move = moves[i];
         push(candidate_move);
         subsequent_lines[i].push_back(candidate_move);
-        value = std::max(value, -negamax(remaining_ply - 1, -beta, -alpha, &(subsequent_lines[i])));
+        int32_t sub_score = -negamax(remaining_ply - 1, -beta, -alpha, &(subsequent_lines[i]));
         pop();
-        alpha = std::max(alpha, value);
+        if (sub_score > value) {
+            value = sub_score;
+            best_move_index = i;
+        }
+        if (value > alpha) {
+            alpha = value;
+        }
         if (alpha >= beta) {
             goto PRUNE;
         }
@@ -184,9 +191,9 @@ int32_t negamax(uint16_t remaining_ply, int32_t alpha, int32_t beta, std::vector
 }
 
 move_t search(uint16_t depth) {
-    std::cout << "Entereted search" << std::endl;
     top_line.clear();
-    negamax(depth, MIN_SCORE, -MIN_SCORE, &top_line);
+    int32_t evaluation = negamax(depth, MIN_SCORE, -MIN_SCORE, &top_line);
+    std::cout << "Evaluation: " << evaluation << std::endl;
     return top_line.front();
 }
 

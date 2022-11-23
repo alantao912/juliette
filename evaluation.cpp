@@ -21,6 +21,7 @@ inline uint64_t reverse_bb(uint64_t bb) {
 }
 
 double game_progression() {
+    // TODO: Implement function
     return 0.0;
 }
 
