@@ -7,7 +7,7 @@
 #include "tables.h"
 
 extern bitboard board;
-extern Stack *stack;
+extern stack_t *stack;
 
 extern std::unordered_map<uint64_t, RTEntry> repetition_table;
 
@@ -25,7 +25,7 @@ void init_stack() {
  */
 void push(move_t move) {
     // Update move stack
-    Stack *node = (Stack *) malloc(sizeof(Stack));
+    stack_t *node = (stack_t *) malloc(sizeof(stack_t));
     if (!node) {
         exit(-1);
     }
@@ -54,7 +54,7 @@ void pop(void) {
         repetition_table.erase(board.hash_code);
     }
     // Update move stack
-    Stack *temp = stack;
+    stack_t *temp = stack;
     board = stack->board;
     stack = stack->next;
     free(temp);
@@ -66,7 +66,7 @@ void pop(void) {
  */
 static void _free_stack() {
     while (stack) {
-        Stack *temp = stack;
+        stack_t *temp = stack;
         stack = stack->next;
         free(temp);
     }

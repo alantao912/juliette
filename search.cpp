@@ -1,5 +1,6 @@
 #include <iostream>
 #include <unordered_map>
+#include <cstring>
 #include "util.h"
 #include "stack.h"
 #include "tables.h"
@@ -30,6 +31,7 @@ std::unordered_map<uint64_t, TTEntry> transposition_table;
 std::unordered_map<uint64_t, RTEntry> repetition_table;
 
 extern bitboard board;
+extern stack_t *stack;
 std::vector<move_t> top_line;
 
 static inline bool is_drawn() {
@@ -37,15 +39,26 @@ static inline bool is_drawn() {
     if (iterator != repetition_table.end()) {
         const RTEntry &rt_entry = iterator->second;
         if (rt_entry.num_seen >= 3) {
-            return true;
+            return verify_repetition(iterator->first);
         }
     }
     return board.fullmove_number >= 50;
 }
 
-static inline bool verify_repetition() {
-    // TODO: Check move history to see if it actually is a three fold repetition.
-    return true;
+static inline bool verify_repetition(uint64_t hash) {
+    uint8_t num_seen = 0;
+    stack_t *iterator = stack;
+    while (iterator) {
+        if (iterator->board.hash_code == hash && strncmp(reinterpret_cast<const char *>(&(iterator->board)),
+                                                         reinterpret_cast<const char *>(&board), sizeof(bitboard)) == 0) {
+            ++num_seen;
+            if (num_seen >= 3) {
+                return true;
+            }
+        }
+        iterator = iterator->next;
+    }
+    return false;
 }
 
 /**

@@ -92,10 +92,10 @@ typedef struct bitboard {
  * A stack of all the board positions that's been reached and
  * the moves that got to them.
  */
-typedef struct Stack {
+typedef struct stack_t {
     bitboard board;
-    struct Stack *next;
-} Stack;
+    struct stack_t *next;
+} stack_t;
 
 extern const uint64_t BB_KNIGHT_ATTACKS[64];
 
