@@ -12,7 +12,7 @@
  * Quiescent search max ply count.
  */
 
-const uint16_t qsearch_lim = 4;
+const uint16_t qsearch_lim = 2;
 
 /**
  * Contempt factor indicates respect for opponent.
@@ -74,37 +74,37 @@ int32_t quiescence_search(uint16_t remaining_ply, int32_t alpha, int32_t beta, s
         /** Side to move is in check, evasions do not exist. Checkmate :( */
         return CHECKMATE(remaining_ply);
     }
-
     {
         --remaining_ply;
         int32_t stand_pat = evaluate();
         if (stand_pat >= beta) {
             return beta;
         }
-        if (stand_pat > alpha) {
+        if (alpha < stand_pat) {
             alpha = stand_pat;
         }
     }
-
     CHECK_EVASIONS:
+    ssize_t best_move_index = -1;
     std::vector<move_t> subsequent_lines[n];
-    size_t best_move_index = 0;
-    for (size_t i = 0; i < n; ++i) {
+    for (ssize_t i = 0; i < n; ++i) {
         move_t candidate_move = moves[i];
         push(candidate_move);
         subsequent_lines[i].push_back(candidate_move);
-        int32_t value = -quiescence_search(remaining_ply, -beta, -alpha, &(subsequent_lines[i]));
+        int32_t score = -quiescence_search(remaining_ply, -beta, -alpha, &(subsequent_lines[i]));
         pop();
-        if (value >= beta) {
+        if (score >= beta) {
             return beta;
         }
-        if (value > alpha) {
-            alpha = value;
+        if (score > alpha) {
+            alpha = score;
             best_move_index = i;
         }
     }
-    for (move_t m : subsequent_lines[best_move_index]) {
-        considered_line->push_back(m);
+    if (best_move_index != -1) {
+        for (move_t m: subsequent_lines[best_move_index]) {
+            considered_line->push_back(m);
+        }
     }
     return alpha;
 }
@@ -149,7 +149,7 @@ int32_t negamax(uint16_t remaining_ply, int32_t alpha, int32_t beta, std::vector
         /** Extend the search until the position is quiet */
         return quiescence_search(qsearch_lim, alpha, beta, considered_line);
     }
-    int32_t value = INT32_MIN;
+    int32_t value = MIN_SCORE;
     size_t best_move_index = 0;
     std::vector<move_t> subsequent_lines[n];
     for (size_t i = 0; i < n; ++i) {
