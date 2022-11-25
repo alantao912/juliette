@@ -37,7 +37,6 @@ int32_t evaluate() {
     b_pawn_attacks = (((board.b_pawns >> 9) & ~BB_FILE_H) | ((board.b_pawns >> 7) & ~BB_FILE_A));
     material_score();
     pawn_structure();
-    pawn_progression();
     doubled_pawns();
     knight_activity();
     bishop_activity();

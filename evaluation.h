@@ -11,7 +11,6 @@ int32_t evaluate();
 
 void material_score();
 void pawn_structure();
-void pawn_progression();
 void doubled_pawns();
 void knight_activity();
 void bishop_activity();
