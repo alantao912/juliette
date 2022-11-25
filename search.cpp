@@ -12,7 +12,7 @@
  * Quiescent search max ply count.
  */
 
-const uint16_t qsearch_lim = 2;
+const uint16_t qsearch_lim = 12;
 
 /**
  * Contempt factor indicates respect for opponent.
