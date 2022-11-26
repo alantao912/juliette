@@ -6,5 +6,5 @@ To compile and run, navigate to the directory of the source files and invoke the
     - juliette.exe uci  
 ```
 <p align="center">
-![alt text](https://github.com/alantao912/juliette/blob/main/juliette-logo.png)  
+<img src="https://github.com/alantao912/juliette/blob/main/juliette-logo.png"/>  
 </p>
