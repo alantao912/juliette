@@ -49,9 +49,24 @@ static inline bool verify_repetition(uint64_t hash) {
     uint8_t num_seen = 0;
     stack_t *iterator = stack;
     while (iterator) {
-        if (iterator->board.hash_code == hash && strncmp(reinterpret_cast<const char *>(&(iterator->board)),
-                                                         reinterpret_cast<const char *>(&board), sizeof(bitboard)) == 0) {
-            ++num_seen;
+        if (iterator->board.hash_code == hash) {
+
+            /**
+             * When checking if two positions are equal, it could be the case that two positions are equal, but have
+             * different half move and full move number values. Thus, before and after using strncmp, we save and
+             * restore the true values of the two varaibles.
+             */
+
+            int t0 = iterator->board.halfmove_clock;
+            int t1 = iterator->board.fullmove_number;
+            iterator->board.halfmove_clock = board.halfmove_clock;
+            iterator->board.fullmove_number = board.fullmove_number;
+            if (strncmp(reinterpret_cast<const char *>(&(iterator->board)),
+                        reinterpret_cast<const char *>(&board), sizeof(bitboard)) == 0) {
+                ++num_seen;
+            }
+            iterator->board.halfmove_clock = t0;
+            iterator->board.fullmove_number = t1;
             if (num_seen >= 3) {
                 return true;
             }

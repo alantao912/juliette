@@ -31,8 +31,8 @@ char sendbuf[BUFLEN];
 
 extern int source;
 
-void initialize_UCI(SOCKET clientSocket) {
-    clientSocket = clientSocket;
+void initialize_UCI(SOCKET cs) {
+    clientSocket = cs;
     options.insert(std::pair<std::string, std::string>("OwnBook", "off"));
     options.insert(std::pair<std::string, std::string>("debug", "off"));
 }

@@ -15,7 +15,7 @@
 #include "tables.h"
 #include "evaluation.h"
 
-void initialize_UCI(SOCKET clientSocket);
+void initialize_UCI(SOCKET cs);
 
 void parse_UCI_string(const char *uci);
 

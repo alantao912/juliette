@@ -144,7 +144,7 @@ int main(int argc, char *argv[]) {
             }
             SOCKET clientSocket = listen(port);
             if (clientSocket == CONNECTION_FAILED) {
-                std::cout << "juliette:: Internal server error. Exiting ..." << std::endl;
+                std::cout << "juliette:: Internal engine error. Exiting ..." << std::endl;
                 return -1;
             }
 
@@ -200,27 +200,10 @@ int main(int argc, char *argv[]) {
                 std::cout << "perft" << std::endl;
             } else if (strcmp(recvbuf, "dev") == 0) {
                 std::cout << "juliette:: switched to development mode." << std::endl;
-                init_board("r4rk1/5q1p/1n1b1pp1/n3p3/P1PpP3/5N2/1B1N1PPP/R1RQ2K1 b - -");
-                move_t moves[MAX_MOVE_NUM];
-                int n = gen_nonquiescent_moves(moves, BLACK);
-                std::cout << "Generated " << n << " non quiescent moves" << std::endl;
-                for (int i = 0; i < n; ++i) {
-                    print_move(moves[i]);
-                    std::cout << '\n';
-                }
-                std::cout << "Done!" << std::endl;
+
             } else if (strcmp(recvbuf, "perft") == 0) {
                 std::cout << "juliette:: starting performance test..." << std::endl;
-                /*
-                std::string s("ucinewgame"), t("startpos");
-                parse_UCI_string(s.c_str());
-                position(t);
-                std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-                search(6);
-                std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-                std::cout << "juliette:: Searched " << leaf_nodes << " leaf nodes in " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[us]" << std::endl;
-                */
-                 // TODO: Re-implement performance test with bitboard implementation.
+                // TODO: Re-implement performance test
             } else if (strlen(recvbuf)) {
                 std::cout << R"(juliette:: communication format not set, type "uci" to specify UCI communication protocol or type "comm" to see a list of communication protocol.)" << std::endl;
             }
