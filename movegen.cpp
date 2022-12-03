@@ -305,7 +305,7 @@ int gen_legal_moves(move_t* moves, bool color) {
             int to = pull_lsb(&moves_bb);
             int flag = get_flag(color, 'K', king_square, to);
             if (flag == CASTLING) continue;
-            move_t move = {king_square, to, flag};
+            move_t move = {(unsigned int) king_square, (unsigned int) to, (unsigned int) flag};
             moves[i++] = move;
         }
         return i;
@@ -363,28 +363,28 @@ int gen_legal_moves(move_t* moves, bool color) {
             int to = pull_lsb(&moves_bb);
             if (piece == 'P' && (rank_of(to) == 0 || rank_of(to) == 7)) { // Add all promotions
                 if (board.mailbox[to] == '-') {
-                    move_t queen_promotion = {from, to, PR_QUEEN};
+                    move_t queen_promotion = {(unsigned int) from, (unsigned int) to, PR_QUEEN};
                     moves[i++] = queen_promotion;
-                    move_t rook_promotion = {from, to, PR_ROOK};
+                    move_t rook_promotion = {(unsigned int) from, (unsigned int) to, PR_ROOK};
                     moves[i++] = rook_promotion;
-                    move_t bishop_promotion = {from, to, PR_BISHOP};
+                    move_t bishop_promotion = {(unsigned int) from, (unsigned int) to, PR_BISHOP};
                     moves[i++] = bishop_promotion;
-                    move_t knight_promotion = {from, to, PR_KNIGHT};
+                    move_t knight_promotion = {(unsigned int) from, (unsigned int) to, PR_KNIGHT};
                     moves[i++] = knight_promotion;
                 } else {
-                    move_t queen_promotion = {from, to, PC_QUEEN};
+                    move_t queen_promotion = {(unsigned int) from, (unsigned int) to, PC_QUEEN};
                     moves[i++] = queen_promotion;
-                    move_t rook_promotion = {from, to, PC_ROOK};
+                    move_t rook_promotion = {(unsigned int) from, (unsigned int) to, PC_ROOK};
                     moves[i++] = rook_promotion;
-                    move_t bishop_promotion = {from, to, PC_BISHOP};
+                    move_t bishop_promotion = {(unsigned int) from, (unsigned int)  to, PC_BISHOP};
                     moves[i++] = bishop_promotion;
-                    move_t knight_promotion = {from, to, PC_KNIGHT};
+                    move_t knight_promotion = {(unsigned int) from, (unsigned int) to, PC_KNIGHT};
                     moves[i++] = knight_promotion;
                 }
 
             } else {
                 int flag = get_flag(color, piece, from, to);
-                move_t move = {from, to, flag};
+                move_t move = {(unsigned int) from, (unsigned int) to, (unsigned int) flag};
 
                 // Determine if castling is legal
                 if (flag == CASTLING) {
@@ -478,7 +478,7 @@ int gen_legal_captures(move_t* moves, bool color) {
         while (moves_bb) {
             int to = pull_lsb(&moves_bb);
             int flag = get_flag(color, 'K', king_square, to);
-            move_t move = {king_square, to, flag};
+            move_t move = {(unsigned int) king_square, (unsigned int) to,(unsigned int)  flag};
             moves[i++] = move;
         }
         return i;
@@ -535,18 +535,18 @@ int gen_legal_captures(move_t* moves, bool color) {
             int to = pull_lsb(&moves_bb);
             if (piece == 'P' && (rank_of(to) == 0 || rank_of(to) == 7)) { // Add all promotion captures
                 if (board.mailbox[to] != '-') {
-                    move_t queen_promotion = {from, to, PC_QUEEN};
+                    move_t queen_promotion = {(unsigned int) from, (unsigned int) to, PC_QUEEN};
                     moves[i++] = queen_promotion;
-                    move_t rook_promotion = {from, to, PC_ROOK};
+                    move_t rook_promotion = {(unsigned int) from, (unsigned int) to, PC_ROOK};
                     moves[i++] = rook_promotion;
-                    move_t bishop_promotion = {from, to, PC_BISHOP};
+                    move_t bishop_promotion = {(unsigned int) from, (unsigned int) to, PC_BISHOP};
                     moves[i++] = bishop_promotion;
-                    move_t knight_promotion = {from, to, PC_KNIGHT};
+                    move_t knight_promotion = {(unsigned int) from, (unsigned int) to, PC_KNIGHT};
                     moves[i++] = knight_promotion;
                 }
             } else {
                 int flag = get_flag(color, piece, from, to);
-                move_t move = {from, to, flag};
+                move_t move = {(unsigned int) from, (unsigned int) to, (unsigned int) flag};
 
                 if (flag == EN_PASSANT) {
                     // Remove possible en passant capture that leaves king in check
@@ -666,9 +666,7 @@ static uint64_t _get_attackmask(bool color) {
                 break;
         }
     }
-
     set_bit(&board.occupied, king_square);
-
     return moves_bb;
 }
 
