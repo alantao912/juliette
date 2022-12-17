@@ -303,7 +303,7 @@ int gen_legal_moves(move_t* moves, bool color) {
         uint64_t moves_bb = get_king_moves(color, king_square) & ~attackmask;
         while (moves_bb) {
             int to = pull_lsb(&moves_bb);
-            int flag = get_flag(color, 'K', king_square, to);
+            int flag = get_flag('K', king_square, to);
             if (flag == CASTLING) continue;
             move_t move = {(unsigned int) king_square, (unsigned int) to, (unsigned int) flag};
             moves[i++] = move;
@@ -383,7 +383,7 @@ int gen_legal_moves(move_t* moves, bool color) {
                 }
 
             } else {
-                int flag = get_flag(color, piece, from, to);
+                int flag = get_flag(piece, from, to);
                 move_t move = {(unsigned int) from, (unsigned int) to, (unsigned int) flag};
 
                 // Determine if castling is legal
@@ -477,7 +477,7 @@ int gen_legal_captures(move_t* moves, bool color) {
         uint64_t moves_bb = get_king_moves(color, king_square) & ~attackmask & enemy_bb;
         while (moves_bb) {
             int to = pull_lsb(&moves_bb);
-            int flag = get_flag(color, 'K', king_square, to);
+            int flag = get_flag('K', king_square, to);
             move_t move = {(unsigned int) king_square, (unsigned int) to,(unsigned int)  flag};
             moves[i++] = move;
         }
@@ -545,7 +545,7 @@ int gen_legal_captures(move_t* moves, bool color) {
                     moves[i++] = knight_promotion;
                 }
             } else {
-                int flag = get_flag(color, piece, from, to);
+                int flag = get_flag(piece, from, to);
                 move_t move = {(unsigned int) from, (unsigned int) to, (unsigned int) flag};
 
                 if (flag == EN_PASSANT) {
@@ -664,7 +664,7 @@ int value(int square) {
  * @param to the square the piece is moving to
  * @return the appropriate flag for the move, excludes promotions
  */
-int get_flag(bool color, char piece, int from, int to) {
+int get_flag(char piece, int from, int to) {
     switch (piece) {
         case 'P':
             if (to == board.en_passant_square) return EN_PASSANT;

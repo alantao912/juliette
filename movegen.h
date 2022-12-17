@@ -36,7 +36,7 @@ bool SEE(move_t move);
 int find_lva(move_t recaptures[], int num_recaptures, int square);
 int value(int square);
 
-int get_flag(bool color, char piece, int from, int to);
+int get_flag(char piece, int from, int to);
 
 static uint64_t _get_attackmask(bool color);
 static uint64_t _get_checkmask(bool color);
