@@ -200,7 +200,18 @@ int main(int argc, char *argv[]) {
                 std::cout << "perft" << std::endl;
             } else if (strcmp(recvbuf, "dev") == 0) {
                 std::cout << "juliette:: switched to development mode." << std::endl;
-
+                init_board("b6k/3q4/8/3p4/8/2NQN3/8/K7 w - - ");
+                move_t moves[MAX_MOVE_NUM];
+                int n = gen_legal_captures(moves, board.turn);
+                for (int i = 0; i < n; ++i) {
+                    std::cout << i + 1 << ' ';
+                    print_move(moves[i]);
+                    std::cout << '\n';
+                }
+                int move_num;
+                scanf("%d", &move_num);
+                int see = SEE((moves[move_num - 1]));
+                std::cout << "Static exchange evaluation: " << see << std::endl;
             } else if (strcmp(recvbuf, "perft") == 0) {
                 std::cout << "juliette:: starting performance test..." << std::endl;
                 // TODO: Re-implement performance test

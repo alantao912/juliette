@@ -79,6 +79,7 @@ const move_t NULL_MOVE = {A1, A1, PASS};
 
 /* Maximum number of legal moves in a given position */
 const int MAX_MOVE_NUM = 218;
+const int MAX_CAPTURE_NUM = 74;
 
 uint64_t get_ray_between(int square1, int square2) {
     return (BB_RAYS[square1][square2] & ((BB_ALL << square1) ^ (BB_ALL << square2))) | BB_SQUARES[square2];

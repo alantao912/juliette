@@ -108,7 +108,7 @@ int32_t quiescence_search(uint16_t remaining_ply, int32_t alpha, int32_t beta, s
         if (stand_pat >= beta) {
             return beta;
         }
-        if (alpha < stand_pat) {
+        if (stand_pat > alpha) {
             alpha = stand_pat;
         }
     }

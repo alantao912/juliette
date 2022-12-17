@@ -1,12 +1,12 @@
-#include <stdio.h>
-#include <stdint.h>
-#include <ctype.h>
-#include <stdlib.h>
-#include <time.h>
+#include <iostream>
+#include <cstdint>
+#include <cctype>
+#include <cstdlib>
 #include "movegen.h"
 #include "util.h"
 #include "bitboard.h"
 #include "stack.h"
+#include "weights.h"
 
 
 extern bitboard board;
@@ -582,7 +582,7 @@ int gen_nonquiescent_moves(move_t *moves, bool color) {
             moves[num_checks + num_proms + num_captures] = moves[num_checks + num_proms];
             moves[num_checks + num_proms] = moves[i];
             ++num_proms;
-        } else if (moves[i].flag >= CAPTURE) {
+        } else if (moves[i].flag >= CAPTURE && SEE(moves[i])) {
             /* move_t is a capture */
             moves[num_checks + num_proms + num_captures] = moves[i];
             ++num_captures;
@@ -590,6 +590,71 @@ int gen_nonquiescent_moves(move_t *moves, bool color) {
         pop();
     }
     return num_checks + num_proms + num_captures;
+}
+
+/**
+ * Static exchange evaluation:
+ * @param move a move that captures an opponent's piece
+ * @return returns whether or not the capture does not lose material
+ */
+
+bool SEE(move_t move) {
+    bitboard curr_board = board;
+    int see_evaluation = -value(move.to);
+    bool negd = true;
+    make_move(move);
+
+    int num_recaptures;
+    move_t recaptures[MAX_CAPTURE_NUM];
+
+    num_recaptures = gen_legal_captures(recaptures, board.turn);
+    int lva_index = find_lva(recaptures, num_recaptures, move.to);
+
+    while (lva_index != -1 && see_evaluation + value(recaptures[lva_index].to) >= value(recaptures[lva_index].from)) {
+        see_evaluation += value(recaptures[lva_index].to);
+        make_move(recaptures[lva_index]);
+        see_evaluation *= -1;
+        negd = !negd;
+        num_recaptures = gen_legal_captures(recaptures, board.turn);
+        lva_index = find_lva(recaptures, num_recaptures, move.to);
+    }
+    board = curr_board;
+    see_evaluation *= 1 - (2 * negd);
+    return see_evaluation >= 0;
+}
+
+int find_lva(move_t recaptures[], int num_recaptures, int square) {
+    int lva_index = -1;
+    for (int i = 0; i < num_recaptures; ++i) {
+        if (recaptures[i].to == square && (lva_index == -1 || value(recaptures[i].from) < value(recaptures[lva_index].from))) {
+            lva_index = i;
+        }
+    }
+    return lva_index;
+}
+
+/**
+ * Returns the value of the piece moved in centipawns.
+ * @param move self-explanatory
+ * @return the value of the piece moved in centipawns
+ */
+
+int value(int square) {
+    char piece = toupper(board.mailbox[square]);
+    switch(piece) {
+        case 'P':
+            return PAWN_MATERIAL;
+        case 'N':
+            return KNIGHT_MATERIAL;
+        case 'B':
+            return BISHOP_MATERIAL;
+        case 'R':
+            return ROOK_MATERIAL;
+        case 'Q':
+            return QUEEN_MATERIAL;
+        default:
+            return 0;
+    }
 }
 
 /**

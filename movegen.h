@@ -32,6 +32,10 @@ int gen_legal_moves(move_t* moves, bool color);
 int gen_legal_captures(move_t* moves, bool color);
 int gen_nonquiescent_moves(move_t *moves, bool color);
 
+bool SEE(move_t move);
+int find_lva(move_t recaptures[], int num_recaptures, int square);
+int value(int square);
+
 int get_flag(bool color, char piece, int from, int to);
 
 static uint64_t _get_attackmask(bool color);

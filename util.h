@@ -163,6 +163,7 @@ extern uint64_t ZOBRIST_VALUES[781];
 
 extern const move_t NULL_MOVE;
 extern const int MAX_MOVE_NUM;
+extern const int MAX_CAPTURE_NUM;
 
 uint64_t get_ray_between(int square1, int square2);
 uint64_t get_ray_between_inclusive(int square1, int square2);
