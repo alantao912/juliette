@@ -13,4 +13,6 @@ int32_t quiescence_search(uint16_t remaining_ply, int32_t alpha, int32_t beta, s
 
 move_t search(uint16_t depth);
 
+void order_moves(move_t moves[], int n);
+
 void showTopLine();

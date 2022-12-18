@@ -1,6 +1,7 @@
 #include <iostream>
 #include <unordered_map>
 #include <cstring>
+#include <algorithm>
 #include "util.h"
 #include "stack.h"
 #include "tables.h"
@@ -162,6 +163,7 @@ int32_t negamax(uint16_t remaining_ply, int32_t alpha, int32_t beta, std::vector
     }
     move_t moves[MAX_MOVE_NUM];
     int n = gen_legal_moves(moves, board.turn);
+    order_moves(moves, n);
     if (!n) {
         if (is_check(board.turn)) {
             /** King is in check, and there are no legal moves. Checkmate */
@@ -216,6 +218,11 @@ int32_t negamax(uint16_t remaining_ply, int32_t alpha, int32_t beta, std::vector
         transposition_table.insert(std::pair<uint64_t, TTEntry>(board.hash_code, tt_entry));
     }
     return value;
+}
+
+void order_moves(move_t moves[], int n) {
+    /** Places captures before non-captures in accordance to MVV-LVA*/
+    std::sort(moves, &(moves[n]));
 }
 
 move_t search(uint16_t depth) {

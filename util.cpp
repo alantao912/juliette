@@ -1,4 +1,5 @@
 #include "util.h"
+#include "movegen.h"
 
 const uint64_t BB_SQUARES[64] = {
         1ULL << A1, 1ULL << B1, 1ULL << C1, 1ULL << D1, 1ULL << E1, 1ULL << F1, 1ULL << G1, 1ULL << H1,
@@ -75,11 +76,20 @@ uint64_t BB_RAYS[64][64];
 
 uint64_t ZOBRIST_VALUES[781];
 
+extern bitboard board;
+
 const move_t NULL_MOVE = {A1, A1, PASS};
 
 /* Maximum number of legal moves in a given position */
 const int MAX_MOVE_NUM = 218;
 const int MAX_CAPTURE_NUM = 74;
+
+bool move_t::operator <(const move_t &other) const {
+    if (flag == CAPTURE && other.flag == CAPTURE) {
+        return value(to) > value(other.to) || (value(to) == value(other.to) && value(from) < value(other.from));
+    }
+    return (flag == CAPTURE) > (other.flag == CAPTURE);
+};
 
 uint64_t get_ray_between(int square1, int square2) {
     return (BB_RAYS[square1][square2] & ((BB_ALL << square1) ^ (BB_ALL << square2))) | BB_SQUARES[square2];
