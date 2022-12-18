@@ -222,7 +222,7 @@ int32_t negamax(uint16_t remaining_ply, int32_t alpha, int32_t beta, std::vector
 
 void order_moves(move_t moves[], int n) {
     /** Places captures before non-captures in accordance to MVV-LVA*/
-    std::sort(moves, &(moves[n]));
+    std::sort(moves, moves + n);
 }
 
 move_t search(uint16_t depth) {
