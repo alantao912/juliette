@@ -85,10 +85,10 @@ const int MAX_MOVE_NUM = 218;
 const int MAX_CAPTURE_NUM = 74;
 
 bool move_t::operator <(const move_t &other) const {
-    if (flag == CAPTURE && other.flag == CAPTURE) {
+    if (flag >= CAPTURE && other.flag >= CAPTURE) {
         return value(to) > value(other.to) || (value(to) == value(other.to) && value(from) < value(other.from));
     }
-    return (flag == CAPTURE) > (other.flag == CAPTURE);
+    return flag > other.flag;
 };
 
 uint64_t get_ray_between(int square1, int square2) {

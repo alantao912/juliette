@@ -26,16 +26,17 @@ enum move_flags {
     NONE, // No special flag
     PASS, // Null move
     CASTLING,
-    CAPTURE,
-    EN_PASSANT,
     PR_KNIGHT,
     PR_BISHOP,
     PR_ROOK,
     PR_QUEEN,
+    CAPTURE,
+    EN_PASSANT,
     PC_KNIGHT, // Promotion that is also a capture
     PC_BISHOP,
     PC_ROOK,
-    PC_QUEEN
+    PC_QUEEN,
+    CHECK
 };
 
 /**
