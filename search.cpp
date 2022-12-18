@@ -228,7 +228,6 @@ void order_moves(move_t moves[], int n) {
 move_t search(uint16_t depth) {
     top_line.clear();
     int32_t evaluation = negamax(depth, MIN_SCORE, -MIN_SCORE, &top_line);
-    std::cout << "Evaluation: " << evaluation << std::endl;
     return top_line.front();
 }
 

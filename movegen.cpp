@@ -569,26 +569,27 @@ int gen_legal_captures(move_t* moves, bool color) {
 int gen_nonquiescent_moves(move_t *moves, bool color) {
     int n = gen_legal_moves(moves, color);
     int num_checks = 0, num_proms = 0, num_captures = 0;
-    bitboard curr_board = board;
     for (int i = 0; i < n; ++i) {
-        make_move(moves[i]);
+        push(moves[i]);
         if (is_check(board.turn)) {
             /* move_t puts opponent in check */
             moves[num_checks + num_proms + num_captures] = moves[num_checks + num_proms];
             moves[num_checks + num_proms] = moves[num_checks];
             moves[num_checks] = moves[i];
             ++num_checks;
-        } else if (moves[i].flag >= CAPTURE && SEE(moves[i])) {
+        } else if (moves[i].flag >= CAPTURE) {
             /* move_t is a capture */
-            moves[num_checks + num_proms + num_captures] = moves[i];
-            ++num_captures;
+            if (SEE(moves[i])) {
+                moves[num_checks + num_proms + num_captures] = moves[i];
+                ++num_captures;
+            }
         } else if (moves[i].flag >= PR_KNIGHT) {
             /* move_t is a promotion */
             moves[num_checks + num_proms + num_captures] = moves[num_checks + num_proms];
             moves[num_checks + num_proms] = moves[i];
             ++num_proms;
         }
-        board = curr_board;
+        pop();
     }
     return num_checks + num_proms + num_captures;
 }
@@ -603,7 +604,6 @@ bool SEE(move_t move) {
     bitboard curr_board = board;
     int see_evaluation = -value(move.to);
     bool negd = true;
-    make_move(move);
 
     int num_recaptures;
     move_t recaptures[MAX_CAPTURE_NUM];
