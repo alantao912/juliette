@@ -242,32 +242,6 @@ static uint64_t _get_reverse_bb(uint64_t bb) {
     return (bb << 48) | ((bb & 0xffff0000) << 16) | ((bb >> 16) & 0xffff0000) | (bb >> 48);
 }
 
-
-/**
- * Performance test debug function to determine the accuracy of the legal move generator.
- * Uses bulk counting.
- * @return the number of legal moves at depth n.
- */
-static uint64_t _perft(int depth) {
-    uint64_t nodes = 0;
-
-    move_t moves[MAX_MOVE_NUM];
-    int n = gen_legal_moves(moves, board.turn);
-
-    if (depth == 0) return 1;
-    if (depth == 1) return n;
-
-    for (int i = 0; i < n; i++) {
-        push(moves[i]);
-        if (is_draw()) break;
-
-        nodes += _perft(depth - 1);
-        pop();
-    }
-    return nodes;
-}
-
-
 /**
  * Takes in an empty array and generates the list of legal moves in it.
  * @param moves the array to store the moves in.
@@ -570,8 +544,7 @@ int gen_nonquiescent_moves(move_t *moves, bool color) {
     int n = gen_legal_moves(moves, color);
     int num_checks = 0, num_proms = 0, num_captures = 0;
     for (int i = 0; i < n; ++i) {
-        push(moves[i]);
-        if (is_check(board.turn)) {
+        if (is_move_check(moves[i])) {
             /* move_t puts opponent in check */
             moves[num_checks + num_proms + num_captures] = moves[num_checks + num_proms];
             moves[num_checks + num_proms] = moves[num_checks];
@@ -579,17 +552,20 @@ int gen_nonquiescent_moves(move_t *moves, bool color) {
             ++num_checks;
         } else if (moves[i].flag >= CAPTURE) {
             /* move_t is a capture */
-            if (SEE(moves[i])) {
+            bitboard curr_board = board;
+            int cpv = value(moves[i].to);
+            make_move(moves[i]);
+            if (cpv - SEE(moves[i].to) >= 0) {
                 moves[num_checks + num_proms + num_captures] = moves[i];
                 ++num_captures;
             }
+            board = curr_board;
         } else if (moves[i].flag >= PR_KNIGHT) {
             /* move_t is a promotion */
             moves[num_checks + num_proms + num_captures] = moves[num_checks + num_proms];
             moves[num_checks + num_proms] = moves[i];
             ++num_proms;
         }
-        pop();
     }
     return num_checks + num_proms + num_captures;
 }
@@ -600,38 +576,30 @@ int gen_nonquiescent_moves(move_t *moves, bool color) {
  * @return returns whether or not the capture does not lose material
  */
 
-bool SEE(move_t move) {
-    bitboard curr_board = board;
-    int see_evaluation = -value(move.to);
-    bool negd = true;
-
-    int num_recaptures;
-    move_t recaptures[MAX_CAPTURE_NUM];
-
-    num_recaptures = gen_legal_captures(recaptures, board.turn);
-    int lva_index = find_lva(recaptures, num_recaptures, move.to);
-
-    while (lva_index != -1 && see_evaluation + value(recaptures[lva_index].to) >= value(recaptures[lva_index].from)) {
-        see_evaluation += value(recaptures[lva_index].to);
-        make_move(recaptures[lva_index]);
-        see_evaluation *= -1;
-        negd = !negd;
-        num_recaptures = gen_legal_captures(recaptures, board.turn);
-        lva_index = find_lva(recaptures, num_recaptures, move.to);
+int SEE(int square) {
+    int see = 0;
+    move_t lva_move = find_lva(square);
+    if (lva_move.flag != PASS) {
+        int cpv = value(board.mailbox[square]);
+        make_move(lva_move);
+        see = std::max(0, cpv - SEE(square));
     }
-    board = curr_board;
-    see_evaluation *= 1 - (2 * negd);
-    return see_evaluation >= 0;
+    return see;
 }
 
-int find_lva(move_t recaptures[], int num_recaptures, int square) {
+move_t find_lva(int square) {
+    move_t recaptures[MAX_CAPTURE_NUM];
+    int num_recaptures = gen_legal_captures(recaptures, board.turn);
+
     int lva_index = -1;
     for (int i = 0; i < num_recaptures; ++i) {
         if (recaptures[i].to == square && (lva_index == -1 || value(recaptures[i].from) < value(recaptures[lva_index].from))) {
             lva_index = i;
         }
     }
-    return lva_index;
+    if (lva_index == -1)
+        return NULL_MOVE;
+    return recaptures[lva_index];
 }
 
 /**

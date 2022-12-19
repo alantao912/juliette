@@ -200,9 +200,9 @@ int main(int argc, char *argv[]) {
                 std::cout << "perft" << std::endl;
             } else if (strcmp(recvbuf, "dev") == 0) {
                 std::cout << "juliette:: switched to development mode." << std::endl;
-                init_board("b2q3k/8/8/1b1p4/8/2NQN3/8/K7 w - - ");
+                init_board("4q3/8/8/4p3/8/3N4/8/8 w - - ");
                 move_t moves[MAX_MOVE_NUM];
-                int n = gen_legal_moves(moves, board.turn);
+                int n = gen_legal_captures(moves, board.turn);
                 order_moves(moves, n);
                 for (int i = 0; i < n; ++i) {
                     std::cout << i + 1 << ' ';
@@ -211,7 +211,7 @@ int main(int argc, char *argv[]) {
                 }
                 int move_num;
                 scanf("%d", &move_num);
-                int see = SEE((moves[move_num - 1]));
+                int see = SEE(moves[move_num - 1].to);
                 std::cout << "Static exchange evaluation: " << see << std::endl;
             } else if (strcmp(recvbuf, "perft") == 0) {
                 std::cout << "juliette:: starting performance test..." << std::endl;

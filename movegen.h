@@ -25,15 +25,12 @@ static uint64_t _init_bishop_attacks_helper(int square, uint64_t subset);
 static uint64_t _init_rook_attacks_helper(int square, uint64_t subset);
 static uint64_t _get_reverse_bb(uint64_t bb);
 
-uint64_t print_divided_perft(int depth);
-static uint64_t _perft(int depth);
-
 int gen_legal_moves(move_t* moves, bool color);
 int gen_legal_captures(move_t* moves, bool color);
 int gen_nonquiescent_moves(move_t *moves, bool color);
 
-bool SEE(move_t move);
-int find_lva(move_t recaptures[], int num_recaptures, int square);
+int SEE(int square);
+move_t find_lva(int square);
 int value(int square);
 
 int get_flag(char piece, int from, int to);

@@ -1,7 +1,6 @@
-#include <ctype.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stdbool.h>
+#include <cctype>
+#include <cstring>
+#include <cstdlib>
 
 #include "bitboard.h"
 #include "util.h"
@@ -23,8 +22,8 @@ uint64_t rand_bitstring() {
 }
 
 void initialize_zobrist() {
-    for (int i = 0; i < 781; ++i) {
-        ZOBRIST_VALUES[i] = rand_bitstring();
+    for (unsigned long long & i : ZOBRIST_VALUES) {
+        i = rand_bitstring();
     }
 }
 
@@ -109,11 +108,11 @@ void init_board(const char *fen) {
 
     // Initalize halfmove clock
     token = strtok_r(rest, " ", &rest);
-    board.halfmove_clock = strtol(token, NULL, 10);
+    board.halfmove_clock = strtol(token, nullptr, 10);
 
     // Initalize fullmove number
     token = strtok_r(rest, " ", &rest);
-    board.fullmove_number = strtol(token, NULL, 10);
+    board.fullmove_number = strtol(token, nullptr, 10);
 
     // Initalize hash_code
     board.hash_code = 0;
@@ -355,6 +354,14 @@ bool is_check(bool color) {
     }
 }
 
+bool is_move_check(move_t move) {
+    bitboard curr_board = board;
+    make_move(move);
+    bool i = is_check(board.turn);
+    board = curr_board;
+    return i;
+}
+
 /**
  * @param color the color of the attackers.
  * @param square the square potentially being attacked.
@@ -382,19 +389,6 @@ bool is_attacked(bool color, int square) {
 
         return false;
     }
-}
-
-bool is_draw() {
-    return (_is_threefold_rep() || _is_fifty_move_rule());
-}
-
-static bool _is_threefold_rep(void) {
-    // TODO: Create own threefold repetition table and implement
-    return false;
-}
-
-static bool _is_fifty_move_rule(void) {
-    return (board.halfmove_clock >= 50);
 }
 
 /**
