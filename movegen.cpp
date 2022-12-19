@@ -92,7 +92,7 @@ uint64_t BISHOP_ATTACK_SHIFTS[64];
  * Initalizes the bishop attack magic bitboard
  * @author github.com/nkarve
  */
-void init_bishop_attacks(void) {
+void init_bishop_attacks() {
     for (int square = A1; square <= H8; square++) {
         uint64_t edges = ((BB_RANK_1 | BB_RANK_8) & ~BB_RANKS[rank_of(square)]) |
                          ((BB_FILE_A | BB_FILE_H) & ~BB_FILES[file_of(square)]);
@@ -118,7 +118,7 @@ void init_bishop_attacks(void) {
  * Initalizes the rook attack magic bitboard
  * @author github.com/nkarve
  */
-void init_rook_attacks(void) {
+void init_rook_attacks() {
     for (int square = A1; square <= H8; square++) {
         uint64_t edges = ((BB_RANK_1 | BB_RANK_8) & ~BB_RANKS[rank_of(square)]) |
                          ((BB_FILE_A | BB_FILE_H) & ~BB_FILES[file_of(square)]);
@@ -139,7 +139,7 @@ void init_rook_attacks(void) {
     }
 }
 
-void _init_rays(void) {
+void _init_rays() {
     for (int square1 = A1; square1 <= H8; square1++) {
         for (int square2 = A1; square2 <= H8; square2++) {
             if (square1 == square2) {
