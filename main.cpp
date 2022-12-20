@@ -201,7 +201,8 @@ int main(int argc, char *argv[]) {
                 std::cout << "perft" << std::endl;
             } else if (strcmp(recvbuf, "dev") == 0) {
                 std::cout << "juliette:: switched to development mode." << std::endl;
-
+                init_board("8/4k3/8/8/8/6P1/5P1P/6K1 w - - ");
+                print_bitboard(compute_king_vulnerabilities(board.w_king, board.w_pawns));
             } else if (strcmp(recvbuf, "perft") == 0) {
                 std::cout << "juliette:: starting performance test..." << std::endl;
                 // TODO: Re-implement performance test

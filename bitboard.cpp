@@ -1,6 +1,7 @@
 #include <cstring>
 
 #include "bitboard.h"
+#include "evaluation.h"
 #include "util.h"
 #include "movegen.h"
 
@@ -112,7 +113,6 @@ void init_board(const char *fen) {
     token = strtok_r(rest, " ", &rest);
     board.fullmove_number = strtol(token, nullptr, 10);
 
-    // Initalize hash_code
     board.hash_code = 0;
     for (int square = A1; square <= H8; square++) {
         char piece = board.mailbox[square];
@@ -283,7 +283,6 @@ void make_move(move_t move) {
                         break;
                 }
             }
-
             break;
         case 'r':
             if (from == H8 && board.b_kingside_castling_rights) {
@@ -422,6 +421,30 @@ uint64_t* get_bitboard(char piece) {
         default:
             std::cout << "Bad thing happened: " << piece << '\n';
             return nullptr;
+    }
+}
+
+void print_bitboard(uint64_t bb) {
+    uint64_t iterator = 1;
+    char str[64];
+    memset(str, 0, 64);
+    int i = 0;
+    while (iterator != 0) {
+        if (bb & iterator) {
+            str[i] = '1';
+        } else {
+            str[i] = '0';
+        }
+        ++i;
+        iterator <<= 1;
+    }
+
+    for (int r = 7; r >= 0; --r) {
+        for (int c = 0; c < 8; ++c) {
+            int j = r * 8 + c;
+            std::cout <<(char) str[j];
+        }
+        std::cout << '\n';
     }
 }
 

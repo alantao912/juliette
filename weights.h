@@ -29,6 +29,9 @@
 #define QB_BATTERY   30
 #define QB_BATTERY_E 20
 
+#define KING_THREAT 60
+#define KING_THREAT_E 20
+
 namespace Weights {
 
     const int32_t board_ctrl_tb[64] = {
