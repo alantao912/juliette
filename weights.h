@@ -15,35 +15,39 @@
 #define PAWN_MATERIAL_E 110
 
 #define CONNECTED_PAWN_BONUS 2
-
-#define DOUBLED_PAWN_PENALTY 20
-
 #define CONNECTED_PAWN_BONUS_E 3
 
+#define DOUBLED_PAWN_PENALTY 20
 #define DOUBLED_PAWN_PENALTY_E 20
 
-#define HIT_BONUS 2
-#define HIT_BONUS_E 1
+#define CONNECTED_ROOK_BONUS 20
+#define CONNECTED_ROOK_BONUS_E 40
 
-#define CONNECTED_ROOK_BONUS 40
-#define CONNECTED_ROOK_BONUS_E 80
+#define QR_BATTERY  20
+#define QR_BATTERY_E 10
 
-#define QQ_BATTERY 100
-#define QQ_BATTERY_E 60
-
-#define QR_BATTERY  80
-#define QR_BATTERY_E 40
-
-#define QB_BATTERY   90
-#define QB_BATTERY_E 60
-
-/**
- * @Citation
- * The following piece-square table weights were initialized from Tom Kerrigan's TSCP.
- * Original code can be found: https://www.chessprogramming.org/PeSTO%27s_Evaluation_Function
- */
+#define QB_BATTERY   30
+#define QB_BATTERY_E 20
 
 namespace Weights {
+
+    const int32_t board_ctrl_tb[64] = {
+        1, 1, 1, 2, 2, 1, 1, 1,
+        2, 2, 2, 3, 3, 2, 2, 2,
+        3, 3, 3, 4, 4, 3, 3, 3,
+        4, 4, 4, 5, 5, 4, 4, 4,
+        4, 4, 4, 5, 5, 4, 4, 4,
+        3, 3, 3, 4, 4, 3, 3, 3,
+        2, 2, 2, 3, 3, 2, 2, 2,
+        1, 1, 1, 2, 2, 1, 1, 1
+    };
+
+    /**
+     * @Citation
+     * The following piece-square table weights were initialized from Tom Kerrigan's TSCP.
+     * Original code can be found: https://www.chessprogramming.org/PeSTO%27s_Evaluation_Function
+     */
+
     const int32_t mg_king_psqt[64] = {
             -15,  36,  12, -54,   8, -28,  24,  14,
             1,   7,  -8, -64, -43, -16,   9,   8,
@@ -182,7 +186,7 @@ namespace Weights {
 
     const uint8_t BISHOP_PHASE = 3;
 
-    const uint8_t ROOK_PHASE = 3;
+    const uint8_t ROOK_PHASE = 4;
 
     const uint8_t QUEEN_PHASE = 5;
 

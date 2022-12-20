@@ -5,7 +5,6 @@
 #include <windows.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
-#include <unordered_map>
 
 #include "uci.h"
 #include "coach.h"
@@ -161,6 +160,8 @@ int main(int argc, char *argv[]) {
                 }
                 if (iResult == 0) {
                     std::cout << "juliette:: closing connection ..." << std::endl;
+                } else if (iResult == 10054) {
+                    std::cout << "juliette:: client disconnected" << std::endl;
                 } else if (iResult < 0) {
                     std::cout << "juliette:: recv failed with error: " << WSAGetLastError() << std::endl;
                     closesocket(clientSocket);
@@ -200,19 +201,7 @@ int main(int argc, char *argv[]) {
                 std::cout << "perft" << std::endl;
             } else if (strcmp(recvbuf, "dev") == 0) {
                 std::cout << "juliette:: switched to development mode." << std::endl;
-                init_board("4q3/8/8/4p3/8/3N4/8/8 w - - ");
-                move_t moves[MAX_MOVE_NUM];
-                int n = gen_legal_captures(moves, board.turn);
-                order_moves(moves, n);
-                for (int i = 0; i < n; ++i) {
-                    std::cout << i + 1 << ' ';
-                    print_move(moves[i]);
-                    std::cout << '\n';
-                }
-                int move_num;
-                scanf("%d", &move_num);
-                int see = SEE(moves[move_num - 1].to);
-                std::cout << "Static exchange evaluation: " << see << std::endl;
+
             } else if (strcmp(recvbuf, "perft") == 0) {
                 std::cout << "juliette:: starting performance test..." << std::endl;
                 // TODO: Re-implement performance test

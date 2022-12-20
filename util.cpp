@@ -155,7 +155,7 @@ int pull_lsb(uint64_t* bb) {
     return square;
 }
 
-int parse_square(char *square) {
+int parse_square(const char *square) {
     int file = square[0] - 'a';
     int rank = square[1] - '0';
     return 8 * (rank - 1) + file;
@@ -193,35 +193,29 @@ int parse_piece(char piece) {
 }
 
 void print_move(move_t move) {
-    printf("%c", 'a' + file_of(move.from));
-    printf("%d", rank_of(move.from) + 1);
-    printf("%c", 'a' + file_of(move.to));
-    printf("%d", rank_of(move.to) + 1);
+    std::cout << (char) ( 'a' + file_of(move.from));
+    std::cout << (rank_of(move.from) + 1);
+    std::cout << (char) ('a' + file_of(move.to));
+    std::cout << (rank_of(move.to) + 1);
 
     switch (move.flag) {
-        case PR_QUEEN:
-            printf("q");
-            break;
-        case PR_ROOK:
-            printf("r");
-            break;
-        case PR_BISHOP:
-            printf("b");
-            break;
-        case PR_KNIGHT:
-            printf("n");
-            break;
         case PC_QUEEN:
-            printf("q");
+        case PR_QUEEN:
+            std::cout << 'q';
             break;
         case PC_ROOK:
-            printf("r");
+        case PR_ROOK:
+            std::cout << 'r';
             break;
         case PC_BISHOP:
-            printf("b");
+        case PR_BISHOP:
+            std::cout << 'b';
             break;
         case PC_KNIGHT:
-            printf("n");
+        case PR_KNIGHT:
+            std::cout << 'n';
+            break;
+        default:
             break;
     }
 }

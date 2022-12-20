@@ -1,6 +1,4 @@
-#include <cctype>
 #include <cstring>
-#include <cstdlib>
 
 #include "bitboard.h"
 #include "util.h"
@@ -422,20 +420,20 @@ uint64_t* get_bitboard(char piece) {
         case 'k':
             return &board.b_king;
         default:
-            printf("bat thing happened: '%d'\n", piece);
-            return NULL;
+            std::cout << "Bad thing happened: " << piece << '\n';
+            return nullptr;
     }
 }
 
 /**
  * Prints the labeled representation of the mailbox board.
  */
-void print_board(void) {
+void print_board() {
     for (int rank = 7; rank >= 0; rank--) {
         for (int file = 0; file <= 7; file++) {
-            printf("%c ", board.mailbox[8 * rank + file]);
+            std::cout << (char) board.mailbox[8 * rank + file] << ' ';
         }
-        printf("\n");
+        std::cout << '\n';
     }
-    printf("\n");
+    std::cout << '\n';
 }

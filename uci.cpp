@@ -5,6 +5,8 @@
 #include "bitboard.h"
 #include "util.h"
 #include "uci.h"
+#include "movegen.h"
+#include "stack.h"
 
 #define BUFLEN 512
 
@@ -24,6 +26,7 @@ std::string replies[] = {"id", "uciok", "readyok", "bestmove", "copyprotection",
 
 bitboard board;
 stack_t *stack = nullptr;
+bool board_initialized = false;
 
 /* Engine should use clientSocket to send reply to GUI */
 SOCKET clientSocket;
@@ -62,6 +65,7 @@ void parse_UCI_string(const char *uci) {
     } else if (buff == "ucinewgame") {
         // TODO: finish implementing ucinewgame command
         /** initialize_zobrist() must occur before board instantiation as board instantiation depends on the hash codes initialized **/
+        board_initialized = false;
         initialize_zobrist();
     } else if (buff == "position") {
         position(args);
@@ -70,6 +74,25 @@ void parse_UCI_string(const char *uci) {
     } else if (buff == "quit") {
         std::cout << "juliette:: bye! i enjoyed playing with you :)" << std::endl;
         exit(0);
+    } else if (buff == "move") {
+        if (board_initialized) {
+            move_t moves[MAX_MOVE_NUM];
+            int n = gen_legal_moves(moves, board.turn);
+            int from = (args[0] - 'a') + 8 * (args[1] - '1');
+            int to = (args[2] - 'a') + 8 * (args[3] - '1');
+            for (int i = 0; i < n; ++i) {
+                move_t m = moves[i];
+                if (m.from == from && m.to == to) {
+                    std::cout << "found move" << std::endl;
+                    push(m);
+                    break;
+                }
+            }
+            // TODO: Fix args value
+            go(args);
+        } else {
+            std::cout << "Board not initialized" << std::endl;
+        }
     }
 }
 
@@ -92,24 +115,26 @@ void position(std::string &arg) {
     } else {
         init_board(arg.c_str());
     }
+    board_initialized = true;
 }
 
 void go(std::string &args) {
     std::vector<std::string> argv = split(args);
     // TODO: Configure function based on provided arguments according to UCI protocol.
-    if (board.mailbox) {
-        // TODO Check it board is set up or not
+    if (!board_initialized) {
+        // TODO: Error handling for uninitialized board
     }
     move_t best_move = search(4);
     sprintf(sendbuf, "%s %c%d%c%d", replies[bestmove].c_str(),
             file_of(best_move.from) + 'a', rank_of(best_move.from) + 1, file_of(best_move.to) + 'a', rank_of(best_move.to) + 1);
+    push(best_move);
     reply();
     showTopLine();
 }
 
 void reply() {
     if (source == 0) {
-        send(clientSocket, sendbuf, BUFLEN, 0);
+        send(clientSocket, sendbuf, strlen(sendbuf), 0);
     } else if (source == 1) {
         std::cout << sendbuf << std::endl;
     }

@@ -1,8 +1,6 @@
 #pragma once
 
-#include <stdio.h>
-#include <stdint.h>
-#include <stdbool.h>
+#include <iostream>
 
 #define WHITE 1
 #define BLACK 0
@@ -187,7 +185,7 @@ int anti_diagonal_of(int square);
 
 int pull_lsb(uint64_t* bb);
 
-int parse_square(char* square);
+int parse_square(const char* square);
 
 int parse_piece(char piece);
 

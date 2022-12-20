@@ -1,4 +1,3 @@
-#include <cstdlib>
 #include <unordered_map>
 
 #include "stack.h"
@@ -25,10 +24,8 @@ void init_stack() {
  */
 void push(move_t move) {
     // Update move stack
-    stack_t *node = (stack_t *) malloc(sizeof(stack_t));
-    if (!node) {
-        exit(-1);
-    }
+    stack_t *node = new stack_t;
+
     node->board = board;
     make_move(move);
     node->next = stack;
@@ -47,9 +44,10 @@ void push(move_t move) {
 /**
  * Unmakes the most recent move and updates the tables.
  */
-void pop(void) {
+void pop() {
     RTEntry &rt_pair = repetition_table.find(board.hash_code)->second;
     --rt_pair.num_seen;
+    /** TODO: Is this check necessary? Experiment with removal of this part*/
     if (!rt_pair.num_seen) {
         repetition_table.erase(board.hash_code);
     }
@@ -57,7 +55,7 @@ void pop(void) {
     stack_t *temp = stack;
     board = stack->board;
     stack = stack->next;
-    free(temp);
+    delete temp;
 }
 
 
@@ -68,6 +66,6 @@ static void _free_stack() {
     while (stack) {
         stack_t *temp = stack;
         stack = stack->next;
-        free(temp);
+        delete temp;
     }
 }

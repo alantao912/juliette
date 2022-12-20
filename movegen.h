@@ -1,7 +1,6 @@
 #ifndef MOVEGEN_H
 #define MOVEGEN_H
 
-#include <stdint.h>
 #include "util.h"
 
 
@@ -18,9 +17,9 @@ extern uint64_t ROOK_ATTACK_SHIFTS[64];
 extern uint64_t BISHOP_ATTACK_SHIFTS[64];
 
 
-void init_bishop_attacks(void);
-void init_rook_attacks(void);
-void _init_rays(void);
+void init_bishop_attacks();
+void init_rook_attacks();
+void _init_rays();
 static uint64_t _init_bishop_attacks_helper(int square, uint64_t subset);
 static uint64_t _init_rook_attacks_helper(int square, uint64_t subset);
 static uint64_t _get_reverse_bb(uint64_t bb);
@@ -46,6 +45,7 @@ uint64_t get_rook_moves(bool color, int square);
 uint64_t get_queen_moves(bool color, int square);
 uint64_t get_king_moves(bool color, int square);
 
+uint64_t get_pawn_attacks_setwise(bool color);
 uint64_t get_knight_mask_setwise(uint64_t knights);
 uint64_t get_bishop_rays_setwise(uint64_t rooks, uint64_t empty);
 uint64_t get_rook_rays_setwise(uint64_t bishops, uint64_t empty);

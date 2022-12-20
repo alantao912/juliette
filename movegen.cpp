@@ -1,7 +1,5 @@
 #include <iostream>
-#include <cstdint>
-#include <cctype>
-#include <cstdlib>
+
 #include "movegen.h"
 #include "util.h"
 #include "bitboard.h"
@@ -532,7 +530,6 @@ int gen_legal_captures(move_t* moves, bool color) {
                     pop();
                     if (invalid) continue;
                 }
-
                 moves[i++] = move;
             }
         }

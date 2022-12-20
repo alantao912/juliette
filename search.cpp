@@ -233,7 +233,7 @@ move_t search(uint16_t depth) {
 
 void showTopLine() {
     std::cout << "Top line: ";
-    for (size_t i = 0; i < top_line.size() - 1; ++i) {
+    for (int i = 0; i < top_line.size() - 1; ++i) {
         move_t move = top_line.at(i);
         print_move(move);
         std::cout << ", ";
