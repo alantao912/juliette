@@ -2,11 +2,12 @@
 // Created by Alan Tao on 9/2/2022.
 //
 
-#include "bitboard.h"
-#include "util.h"
 #include "uci.h"
-#include "movegen.h"
+#include "util.h"
+#include "search.h"
 #include "stack.h"
+#include "movegen.h"
+#include "bitboard.h"
 
 #define BUFLEN 512
 
@@ -21,7 +22,7 @@ std::string replies[] = {"id", "uciok", "readyok", "bestmove", "copyprotection",
 #define bestmove 3
 #define copyprotection 4
 #define registration 5
-#define info 6
+#define uci_info 6
 #define option 7
 
 bitboard board;
@@ -71,9 +72,6 @@ void parse_UCI_string(const char *uci) {
         position(args);
     } else if (buff == "go") {
         go(args);
-    } else if (buff == "quit") {
-        std::cout << "juliette:: bye! i enjoyed playing with you :)" << std::endl;
-        exit(0);
     } else if (buff == "move") {
         if (board_initialized) {
             move_t moves[MAX_MOVE_NUM];
@@ -83,7 +81,6 @@ void parse_UCI_string(const char *uci) {
             for (int i = 0; i < n; ++i) {
                 move_t m = moves[i];
                 if (m.from == from && m.to == to) {
-                    std::cout << "found move" << std::endl;
                     push(m);
                     break;
                 }
@@ -91,8 +88,11 @@ void parse_UCI_string(const char *uci) {
             // TODO: Fix args value
             go(args);
         } else {
-            std::cout << "Board not initialized" << std::endl;
+            /** TODO: Error handling for uninitialized board */
         }
+    } else if (buff == "quit") {
+        std::cout << "juliette:: bye! i enjoyed playing with you :)" << std::endl;
+        exit(0);
     }
 }
 
@@ -124,17 +124,17 @@ void go(std::string &args) {
     if (!board_initialized) {
         // TODO: Error handling for uninitialized board
     }
-    move_t best_move = search(4);
+    info result = search(4);
+
     sprintf(sendbuf, "%s %c%d%c%d", replies[bestmove].c_str(),
-            file_of(best_move.from) + 'a', rank_of(best_move.from) + 1, file_of(best_move.to) + 'a', rank_of(best_move.to) + 1);
-    push(best_move);
+            file_of(result.best_move.from) + 'a', rank_of(result.best_move.from) + 1, file_of(result.best_move.to) + 'a', rank_of(result.best_move.to) + 1);
+    push(result.best_move);
     reply();
-    showTopLine();
 }
 
 void reply() {
     if (source == 0) {
-        send(clientSocket, sendbuf, strlen(sendbuf), 0);
+        send(clientSocket, sendbuf, (int) strlen(sendbuf), 0);
     } else if (source == 1) {
         std::cout << sendbuf << std::endl;
     }

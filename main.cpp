@@ -22,23 +22,7 @@
 extern bitboard board;
 
 void play_game() {
-    init_board(START_POSITION);
-    init_stack();
-    move_t moves[MAX_MOVE_NUM];
-    int n;
-    do {
-        n = gen_legal_moves(moves, board.turn);
-        for (int i = 0; i < n; ++i) {
-            move_t m = moves[i];
-            std::cout << i + 1 << ") ";
-            print_move(m);
-            std::cout << '\n';
-        }
-        n = scanf("%d", &n);
-        make_move(moves[n - 1]);
-        std::cout << '\n';
-    } while (n != 0);
-    // TODO Re-implement vanilla chess gameplay with bitboards
+    // TODO Re-implement vanilla chess gameplay with bitboards.
 }
 
 SOCKET listen(const char *port) {
@@ -116,7 +100,9 @@ SOCKET listen(const char *port) {
 enum input_source { REMOTE, STDIN};
 input_source source;
 
-/* g++ *.cpp *.c -lWS2_32 -o juliette */
+/**
+ * To compile: g++ *.cpp -lWS2_32 -o juliette
+ */
 
 int main(int argc, char *argv[]) {
     std::cout << "juliette:: \"hi, let's play chess!\"" << std::endl;
@@ -146,7 +132,7 @@ int main(int argc, char *argv[]) {
                 std::cout << "juliette:: Internal engine error. Exiting ..." << std::endl;
                 return -1;
             }
-
+            /** TODO Create output socket */
             int iResult;
             do {
                 iResult = recv(clientSocket, recvbuf, BUFLEN, 0);
@@ -160,10 +146,12 @@ int main(int argc, char *argv[]) {
                 }
                 if (iResult == 0) {
                     std::cout << "juliette:: closing connection ..." << std::endl;
-                } else if (iResult == 10054) {
-                    std::cout << "juliette:: client disconnected" << std::endl;
+                    communication_mode = UNDEFINED;
+                } else if (iResult == -1) {
+                    std::cout << "juliette:: lost connection." << std::endl;
+                    communication_mode = UNDEFINED;
                 } else if (iResult < 0) {
-                    std::cout << "juliette:: recv failed with error: " << WSAGetLastError() << std::endl;
+                    std::cout << "juliette:: recv failed with error: " << (int) WSAGetLastError() << std::endl;
                     closesocket(clientSocket);
                     WSACleanup();
                     return -1;
@@ -201,8 +189,6 @@ int main(int argc, char *argv[]) {
                 std::cout << "perft" << std::endl;
             } else if (strcmp(recvbuf, "dev") == 0) {
                 std::cout << "juliette:: switched to development mode." << std::endl;
-                init_board("8/4k3/8/8/8/6P1/5P1P/6K1 w - - ");
-                print_bitboard(compute_king_vulnerabilities(board.w_king, board.w_pawns));
             } else if (strcmp(recvbuf, "perft") == 0) {
                 std::cout << "juliette:: starting performance test..." << std::endl;
                 // TODO: Re-implement performance test

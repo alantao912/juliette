@@ -33,8 +33,7 @@ enum move_flags {
     PC_KNIGHT, // Promotion that is also a capture
     PC_BISHOP,
     PC_ROOK,
-    PC_QUEEN,
-    CHECK
+    PC_QUEEN
 };
 
 /**

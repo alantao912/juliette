@@ -1,7 +1,6 @@
-#include <iostream>
-#include <unordered_map>
 #include <cstring>
 #include <algorithm>
+#include <unordered_map>
 #include "util.h"
 #include "stack.h"
 #include "tables.h"
@@ -225,21 +224,9 @@ void order_moves(move_t moves[], int n) {
     std::sort(moves, moves + n);
 }
 
-move_t search(uint16_t depth) {
+info search(uint16_t depth) {
     top_line.clear();
     int32_t evaluation = negamax(depth, MIN_SCORE, -MIN_SCORE, &top_line);
-    return top_line.front();
-}
-
-void showTopLine() {
-    std::cout << "Top line: ";
-    for (int i = 0; i < top_line.size() - 1; ++i) {
-        move_t move = top_line.at(i);
-        print_move(move);
-        std::cout << ", ";
-    }
-    if (!top_line.empty()) {
-        print_move(top_line.back());
-    }
-    std::cout << '\n';
+    info reply = {.score = (1 - 2 * (board.turn == BLACK)) * evaluation, .best_move = top_line.front()};
+    return reply;
 }
