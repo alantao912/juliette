@@ -28,6 +28,7 @@ int gen_legal_moves(move_t* moves, bool color);
 int gen_legal_captures(move_t* moves, bool color);
 int gen_nonquiescent_moves(move_t *moves, bool color);
 
+int move_SEE(move_t move);
 int SEE(int square);
 move_t find_lva(int square);
 int value(int square);

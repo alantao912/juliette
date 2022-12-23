@@ -220,8 +220,33 @@ int32_t negamax(uint16_t remaining_ply, int32_t alpha, int32_t beta, std::vector
 }
 
 void order_moves(move_t moves[], int n) {
-    /** Places captures before non-captures in accordance to MVV-LVA*/
+    /** Places captures before non-captures in accordance to MVV-LVA */
     std::sort(moves, moves + n);
+    int num_checks = 0;
+    for (int i = 0; i < n; ++i) {
+        if (is_move_check(moves[i])) {
+            move_t check = moves[i];
+            shift_right(moves, num_checks, i);
+            moves[num_checks] = check;
+            ++num_checks;
+        }
+    }
+    int i;
+    for (i = num_checks; i < n; ++i) {
+        if (moves[i].flag == NONE ||
+            (moves[i].flag == CAPTURE && value(moves[i].to) < value(moves[i].from))) {
+            break;
+        }
+    }
+    scored_move_t scored_moves[n - i];
+    for (int j = i; j < n; ++j) {
+        scored_moves[j - i].move = moves[j];
+        scored_moves[j - i].compute_score();
+    }
+    std::sort(scored_moves, scored_moves + n - i);
+    for (int j = i; j < n; ++j) {
+        moves[j] = scored_moves[j - i].move;
+    }
 }
 
 info search(uint16_t depth) {

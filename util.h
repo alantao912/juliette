@@ -24,12 +24,12 @@ enum move_flags {
     NONE, // No special flag
     PASS, // Null move
     CASTLING,
+    EN_PASSANT,
+    CAPTURE,
     PR_KNIGHT,
     PR_BISHOP,
     PR_ROOK,
     PR_QUEEN,
-    CAPTURE,
-    EN_PASSANT,
     PC_KNIGHT, // Promotion that is also a capture
     PC_BISHOP,
     PC_ROOK,
@@ -41,12 +41,21 @@ enum move_flags {
  */
 
 typedef struct move_t {
-    unsigned int from : 6; // square piece is moving from
-    unsigned int to : 6; // square piece is moving to
-    unsigned int flag : 4; // any special characteristic of the move
+    unsigned int from : 6;
+    unsigned int to : 6;
+    unsigned int flag : 4;
 
     bool operator < (const move_t & other) const;
 } move_t;
+
+typedef struct scored_move_t {
+    move_t move;
+    int score;
+
+    bool operator < (const scored_move_t & other) const;
+
+    void compute_score();
+} scored_move_t;
 
 typedef struct bitboard {
     char mailbox[64]; // piece-centric board representation
@@ -165,6 +174,8 @@ extern const int MAX_CAPTURE_NUM;
 
 uint64_t get_ray_between(int square1, int square2);
 uint64_t get_ray_between_inclusive(int square1, int square2);
+
+void shift_right(move_t moves[], int start, int end);
 
 int get_lsb(uint64_t bb);
 

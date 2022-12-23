@@ -377,13 +377,11 @@ bool is_attacked(bool color, int square) {
         return false;
     } else {
         uint64_t square_bb = BB_SQUARES[square];
-
         if (get_queen_moves(BLACK, square) & board.w_queens) return true;
         if (get_rook_moves(BLACK, square) & board.w_rooks) return true;
         if (get_bishop_moves(BLACK, square) & board.w_bishops) return true;
         if (get_knight_moves(BLACK, square) & board.w_knights) return true;
         if ((((square_bb >> 9) & ~BB_FILE_H) | ((square_bb >> 7) & ~BB_FILE_A)) & board.w_pawns) return true;
-
         return false;
     }
 }

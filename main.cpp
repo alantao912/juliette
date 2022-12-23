@@ -132,7 +132,6 @@ int main(int argc, char *argv[]) {
                 std::cout << "juliette:: Internal engine error. Exiting ..." << std::endl;
                 return -1;
             }
-            /** TODO Create output socket */
             int iResult;
             do {
                 iResult = recv(clientSocket, recvbuf, BUFLEN, 0);

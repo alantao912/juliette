@@ -1,10 +1,9 @@
 #include <iostream>
 
-#include "movegen.h"
-#include "util.h"
-#include "bitboard.h"
 #include "stack.h"
 #include "weights.h"
+#include "movegen.h"
+#include "bitboard.h"
 
 
 extern bitboard board;
@@ -547,24 +546,29 @@ int gen_nonquiescent_moves(move_t *moves, bool color) {
             moves[num_checks + num_proms] = moves[num_checks];
             moves[num_checks] = moves[i];
             ++num_checks;
-        } else if (moves[i].flag >= CAPTURE) {
-            /* move_t is a capture */
-            bitboard curr_board = board;
-            int cpv = value(moves[i].to);
-            make_move(moves[i]);
-            if (cpv - SEE(moves[i].to) >= 0) {
-                moves[num_checks + num_proms + num_captures] = moves[i];
-                ++num_captures;
-            }
-            board = curr_board;
         } else if (moves[i].flag >= PR_KNIGHT) {
             /* move_t is a promotion */
             moves[num_checks + num_proms + num_captures] = moves[num_checks + num_proms];
             moves[num_checks + num_proms] = moves[i];
             ++num_proms;
+        } else if ((moves[i].flag == CAPTURE && move_SEE(moves[i]) >= 0) || moves[i].flag == EN_PASSANT) {
+            /**
+             * move_t is a non-losing capture.
+             */
+            moves[num_checks + num_proms + num_captures] = moves[i];
+            ++num_captures;
         }
     }
     return num_checks + num_proms + num_captures;
+}
+
+int move_SEE(move_t move) {
+    bitboard curr_board = board;
+    int score = PAWN_MATERIAL * (move.flag == EN_PASSANT) + value(move.to);
+    make_move(move);
+    score -= SEE(move.to);
+    board = curr_board;
+    return score;
 }
 
 /**
@@ -577,7 +581,7 @@ int SEE(int square) {
     int see = 0;
     move_t lva_move = find_lva(square);
     if (lva_move.flag != PASS) {
-        int cpv = value(board.mailbox[square]);
+        int cpv = value(square);
         make_move(lva_move);
         see = std::max(0, cpv - SEE(square));
     }

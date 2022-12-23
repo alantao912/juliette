@@ -1,5 +1,6 @@
 #include "util.h"
 #include "movegen.h"
+#include "bitboard.h"
 
 const uint64_t BB_SQUARES[64] = {
         1ULL << A1, 1ULL << B1, 1ULL << C1, 1ULL << D1, 1ULL << E1, 1ULL << F1, 1ULL << G1, 1ULL << H1,
@@ -85,11 +86,23 @@ const int MAX_MOVE_NUM = 218;
 const int MAX_CAPTURE_NUM = 74;
 
 bool move_t::operator <(const move_t &other) const {
-    if (flag >= CAPTURE && other.flag >= CAPTURE) {
+    if (flag == CAPTURE && other.flag == CAPTURE) {
         return value(to) > value(other.to) || (value(to) == value(other.to) && value(from) < value(other.from));
     }
     return flag > other.flag;
 };
+
+bool scored_move_t::operator < (const scored_move_t & other) const {
+    return score > other.score;
+}
+
+void scored_move_t::compute_score() {
+    if (move.flag == CASTLING || move.flag == EN_PASSANT) {
+        score = 0;
+    } else {
+        score = move_SEE(move);
+    }
+}
 
 uint64_t get_ray_between(int square1, int square2) {
     return (BB_RAYS[square1][square2] & ((BB_ALL << square1) ^ (BB_ALL << square2))) | BB_SQUARES[square2];
@@ -97,6 +110,12 @@ uint64_t get_ray_between(int square1, int square2) {
 
 uint64_t get_ray_between_inclusive(int square1, int square2) {
     return BB_RAYS[square1][square2];
+}
+
+void shift_right(move_t moves[], int start, int end) {
+    for (int i = end; i > start; --i) {
+        moves[i] = moves[i - 1];
+    }
 }
 
 int get_lsb(uint64_t bb) {
