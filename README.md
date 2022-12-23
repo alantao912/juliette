@@ -12,7 +12,7 @@ Features:
     - Check Extensions
     - Transposition Table
     - Repetition Table
-    - Zobrist Hash based Board Indexing
+    - Incrementlly updated Zobrist Hash board indexing
     - Single Principal Variation List
     - PSQT Tables
     - Guard Heuristic
