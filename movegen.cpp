@@ -658,7 +658,7 @@ int gen_legal_captures_sq(move_t *moves, bool color, uint64_t square) {
     return i;
 }
 
-int gen_nonquiescent_moves(move_t *moves, bool color) {
+int gen_nonquiescent_moves(move_t *moves, bool color, int *n_checks) {
     int n = gen_legal_moves(moves, color);
     int num_checks = 0, num_proms = 0, num_captures = 0;
     for (int i = 0; i < n; ++i) {
@@ -681,6 +681,7 @@ int gen_nonquiescent_moves(move_t *moves, bool color) {
             ++num_captures;
         }
     }
+    *n_checks = num_checks;
     return num_checks + num_proms + num_captures;
 }
 

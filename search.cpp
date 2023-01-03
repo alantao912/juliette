@@ -77,6 +77,20 @@ static inline bool verify_repetition(uint64_t hash) {
     return false;
 }
 
+static inline bool contains_promotions() {
+    uint64_t proms;
+    if (board.turn) {
+        /* Checks if white has any pawn promotions */
+        proms = ((board.w_pawns & BB_RANK_7) << 8) & ~board.occupied;
+        proms |= ((((board.w_pawns << 9) & ~BB_FILE_A) | ((board.w_pawns << 7) & ~BB_FILE_H)) & BB_RANK_8) & board.b_occupied;
+    } else {
+        /* Checks if black has any pawn promotions */
+        proms = ((board.b_pawns & BB_RANK_2) >> 8) & ~board.occupied;
+        proms |= ((((board.b_pawns >> 9) & ~BB_FILE_H) | ((board.b_pawns >> 7) & ~BB_FILE_A)) & BB_RANK_1) & board.w_occupied;
+    }
+    return pop_count(proms) > 0;
+}
+
 /**
  * @brief Extends the search position until a "quiet" position is reached.
  * @param alpha: Minimum score that the maximizing player is assured of.
@@ -88,34 +102,57 @@ int32_t quiescence_search(uint16_t remaining_ply, int32_t alpha, int32_t beta) {
     if (is_drawn()) {
         return DRAW;
     }
+
+    int32_t stand_pat = MIN_SCORE;
+
     move_t moves[MAX_MOVE_NUM];
-    int n;
+    int n, n_checks;
     if (!is_check(board.turn)) {
         /** Generate non-quiet moves, such as checks, promotions, and captures. */
-        if (!remaining_ply || !(n = gen_nonquiescent_moves(moves, board.turn))) {
+        if (!remaining_ply || !(n = gen_nonquiescent_moves(moves, board.turn, &n_checks))) {
             /** Position is quiet, return evaluation. */
             return evaluate();
         }
     } else if ((n = gen_legal_moves(moves, board.turn))) {
         /** Side to move is in check, evasions exist. */
+        /** Effectively, this line disables futility pruning. No futility pruning in check. */
+        n_checks = n;
         goto CHECK_EVASIONS;
     } else {
         /** Side to move is in check, evasions do not exist. Checkmate :( */
         return CHECKMATE(remaining_ply);
     }
+
+    --remaining_ply;
+    stand_pat = evaluate();
+    if (stand_pat >= beta) {
+        return beta;
+    }
+
     {
-        --remaining_ply;
-        int32_t stand_pat = evaluate();
-        if (stand_pat >= beta) {
-            return beta;
+        int big_delta = QUEEN_MATERIAL;
+        if (contains_promotions()) {
+            big_delta += 775;
         }
-        if (stand_pat > alpha) {
-            alpha = stand_pat;
+        /** No move can possibly raise alpha. Prune this node. */
+        if (stand_pat < alpha - big_delta) {
+            /** https://www.chessprogramming.org/Delta_Pruning advises to return alpha.
+             *  However, we must still check moves that give check. */
+             n = n_checks;
         }
     }
+
+    if (stand_pat > alpha) {
+        alpha = stand_pat;
+    }
+
     CHECK_EVASIONS:
     for (ssize_t i = 0; i < n; ++i) {
         move_t candidate_move = moves[i];
+        if (i >= n_checks && value(candidate_move) + stand_pat < alpha - DELTA_MARGIN) {
+            /** Skip evaluating this move */
+            continue;
+        }
         push(candidate_move);
         int32_t score = -quiescence_search(remaining_ply, -beta, -alpha);
         pop();
@@ -311,6 +348,33 @@ int value(int square) {
             return ROOK_MATERIAL;
         case 'Q':
             return QUEEN_MATERIAL;
+        default:
+            return 0;
+    }
+}
+
+int value(move_t move) {
+    switch (move.flag) {
+        case EN_PASSANT:
+            return PAWN_MATERIAL;
+        case CAPTURE:
+            return value(move.to);
+        case PR_KNIGHT:
+            return KNIGHT_MATERIAL;
+        case PR_BISHOP:
+            return BISHOP_MATERIAL;
+        case PR_ROOK:
+            return ROOK_MATERIAL;
+        case PR_QUEEN:
+            return QUEEN_MATERIAL;
+        case PC_KNIGHT:
+            return KNIGHT_MATERIAL + value(move.to);
+        case PC_BISHOP:
+            return BISHOP_MATERIAL + value(move.to);
+        case PC_ROOK:
+            return ROOK_MATERIAL + value(move.to);
+        case PC_QUEEN:
+            return QUEEN_MATERIAL + value(move.to);
         default:
             return 0;
     }

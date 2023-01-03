@@ -25,3 +25,4 @@ int move_SEE(move_t move);
 int SEE(int square);
 move_t find_lva(int square);
 int value(int square);
+int value(move_t move);

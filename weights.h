@@ -35,6 +35,8 @@
 #define CENTRALIZED_KING 2
 #define KING_MOBILITY 1
 
+#define DELTA_MARGIN 200
+
 namespace Weights {
 
     const int32_t board_ctrl_tb[64] = {
