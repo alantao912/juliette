@@ -3,6 +3,7 @@
 #include "evaluation.h"
 
 #include <cmath>
+#include <cstring>
 #include <algorithm>
 
 /** Global board struct */
@@ -94,10 +95,13 @@ int32_t evaluate() {
     rook_activity();
     queen_activity();
     king_safety();
+    king_mobility();
+    passed_pawns();
     return stats.compute_score();
 }
 
 inline void material_score() {
+    /** White Material Score */
     int n = pop_count(board.w_pawns);
     stats.midgame_score += n * PAWN_MATERIAL;
     stats.endgame_score += n * PAWN_MATERIAL_E;
@@ -114,6 +118,7 @@ inline void material_score() {
     stats.midgame_score += n * QUEEN_MATERIAL;
     stats.endgame_score += n * QUEEN_MATERIAL_E;
 
+    /** Black material score */
     n = pop_count(board.b_pawns);
     stats.midgame_score -= n * PAWN_MATERIAL;
     stats.endgame_score -= n * PAWN_MATERIAL_E;
@@ -396,4 +401,27 @@ void king_safety() {
     i = get_lsb(reverse_bb(board.b_king));
     stats.midgame_score -= Weights::mg_king_psqt[i];
     stats.endgame_score -= Weights::eg_king_psqt[i];
+}
+
+void king_mobility() {
+    int w_file = board.w_king_square % 8, w_rank = board.w_king_square / 8;
+
+    w_file = std::min(w_file, 7 - w_file);
+    w_rank = std::min(w_rank, 7 - w_rank);
+    stats.endgame_score += ((w_file * w_file) + (w_rank * w_rank)) * CENTRALIZED_KING;
+
+    int b_file = board.b_king_square % 8, b_rank = board.b_king_square / 8;
+    b_file = std::min(b_file, 7 - b_file);
+    b_rank = std::min(b_rank, 7 - b_rank);
+    stats.endgame_score -= ((b_file * b_file) + (b_rank * b_rank)) * CENTRALIZED_KING;
+
+}
+
+/**
+ * Determines the number of unopposed pawns, or "passed" pawns. Passed pawns on the side of the baord are worth less than passed pawns
+ * toward the middle of the board.
+ */
+
+void passed_pawns() {
+
 }

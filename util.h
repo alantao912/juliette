@@ -171,6 +171,7 @@ extern uint64_t ZOBRIST_VALUES[781];
 extern const move_t NULL_MOVE;
 extern const int MAX_MOVE_NUM;
 extern const int MAX_CAPTURE_NUM;
+extern const int MAX_ATTACK_NUM;
 
 uint64_t get_ray_between(int square1, int square2);
 uint64_t get_ray_between_inclusive(int square1, int square2);
@@ -200,3 +201,7 @@ int parse_square(const char* square);
 int parse_piece(char piece);
 
 void print_move(move_t move);
+
+void ltrim(std::string &string);
+void rtrim(std::string &string);
+void trim(std::string &string);

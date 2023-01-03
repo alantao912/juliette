@@ -22,7 +22,75 @@
 extern bitboard board;
 
 void play_game() {
-    // TODO Re-implement vanilla chess gameplay with bitboards.
+    init_board(START_POSITION);
+    initialize_zobrist();
+    std::string user_input;
+    int depth;
+    do {
+        std::cout << "juliette:: Engine depth? ";
+        try {
+            std::cin >> user_input;
+            trim(user_input);
+            depth = std::stoi(user_input);
+        } catch (const std::invalid_argument &arg) {
+            depth = -1;
+        }
+    } while (depth <= 0);
+
+    do {
+        std::cout << "juliette:: Player Color? (w/b): ";
+        std::cin >> user_input;
+        trim(user_input);
+    } while (user_input != "w" && user_input != "b");
+
+    info reply;
+    if (user_input == "b") {
+        reply = search(depth);
+        make_move(reply.best_move);
+    }
+
+    move_t moves[MAX_MOVE_NUM];
+    int n = gen_legal_moves(moves, board.turn);
+    bool player_turn = true;
+    while (n) {
+        system("cls");
+        print_board();
+        if (player_turn) {
+            int i;
+            for (i = 0; i < n; ++i) {
+                std::cout << (i + 1) << ' ';
+                print_move(moves[i]);
+                std::cout << '\n';
+            }
+
+            do {
+                std::cout << "juliette:: move? ";
+                try {
+                    std::cin >> user_input;
+                    trim(user_input);
+                    i = std::stoi(user_input);
+                } catch (const std::invalid_argument &arg) {
+                    i = -1;
+                }
+            } while (i < 1 || i > n);
+            make_move(moves[i - 1]);
+        } else {
+            reply = search(depth);
+            make_move(reply.best_move);
+        }
+        player_turn = !player_turn;
+        n = gen_legal_moves(moves, board.turn);
+    }
+    if (is_check(board.turn)) {
+        std::cout << "juliette:: Checkmate, ";
+        if (player_turn) {
+            std::cout << "computer wins!\n";
+        } else {
+            std::cout << "player wins!\n";
+        }
+    } else {
+        std::cout << "juliette:: Stalemate, the game is drawn.\n";
+    }
 }
 
 SOCKET listen(const char *port) {
@@ -188,6 +256,9 @@ int main(int argc, char *argv[]) {
                 std::cout << "perft" << std::endl;
             } else if (strcmp(recvbuf, "dev") == 0) {
                 std::cout << "juliette:: switched to development mode." << std::endl;
+                /**
+                 * To be used for development purposes:
+                 */
             } else if (strcmp(recvbuf, "perft") == 0) {
                 std::cout << "juliette:: starting performance test..." << std::endl;
                 // TODO: Re-implement performance test

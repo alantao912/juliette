@@ -26,12 +26,8 @@ static uint64_t _get_reverse_bb(uint64_t bb);
 
 int gen_legal_moves(move_t* moves, bool color);
 int gen_legal_captures(move_t* moves, bool color);
+int gen_legal_captures_sq(move_t *moves, bool color, uint64_t square);
 int gen_nonquiescent_moves(move_t *moves, bool color);
-
-int move_SEE(move_t move);
-int SEE(int square);
-move_t find_lva(int square);
-int value(int square);
 
 int get_flag(char piece, int from, int to);
 

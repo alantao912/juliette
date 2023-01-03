@@ -19,7 +19,6 @@ private:
 
 uint64_t reverse_bb(uint64_t bb);
 
-double compute_progression();
 
 int32_t evaluate();
 
@@ -31,3 +30,5 @@ void bishop_activity();
 void rook_activity();
 void queen_activity();
 void king_safety();
+void king_mobility();
+void passed_pawns();

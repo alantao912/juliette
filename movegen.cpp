@@ -4,6 +4,7 @@
 #include "weights.h"
 #include "movegen.h"
 #include "bitboard.h"
+#include "search.h"
 
 
 extern bitboard board;
@@ -536,6 +537,127 @@ int gen_legal_captures(move_t* moves, bool color) {
     return i;
 }
 
+int gen_legal_captures_sq(move_t *moves, bool color, uint64_t square) {
+    int i = 0;
+
+    uint64_t pieces;
+    uint64_t king_bb;
+    int king_square;
+    uint64_t enemy_pawns_attacks;
+    uint64_t enemy_bb;
+    if (color == WHITE) {
+        pieces = board.w_occupied;
+        king_bb = board.w_king;
+        king_square = board.w_king_square;
+        enemy_pawns_attacks = (((board.b_pawns >> 9) & ~BB_FILE_H) | ((board.b_pawns >> 7) & ~BB_FILE_A))
+                              & board.w_occupied;
+        enemy_bb = board.b_occupied & square;
+    } else {
+        pieces = board.b_occupied;
+        king_bb = board.b_king;
+        king_square = board.b_king_square;
+        enemy_pawns_attacks = (((board.w_pawns << 9) & ~BB_FILE_A) | ((board.w_pawns << 7) & ~BB_FILE_H))
+                              & board.b_occupied;
+        enemy_bb = board.w_occupied & square;
+    }
+
+    uint64_t attackmask = _get_attackmask(!color);
+    uint64_t checkmask = _get_checkmask(color);
+    uint64_t pos_pinned = get_queen_moves(!color, king_square) & pieces;
+
+    // King is in double check, only moves are to king moves away that are captures
+    if (!checkmask) {
+        uint64_t moves_bb = get_king_moves(color, king_square) & ~attackmask & enemy_bb;
+        while (moves_bb) {
+            int to = pull_lsb(&moves_bb);
+            int flag = get_flag('K', king_square, to);
+            move_t move = {(unsigned int) king_square, (unsigned int) to,(unsigned int)  flag};
+            moves[i++] = move;
+        }
+        return i;
+    }
+
+    while (pieces) {
+        int from = pull_lsb(&pieces);
+        char piece = toupper(board.mailbox[from]);
+
+        uint64_t pinmask;
+        uint64_t pinned_bb = BB_SQUARES[from] & pos_pinned;
+        if (pinned_bb) {
+            pinmask = _get_pinmask(color, from);
+        } else {
+            pinmask = BB_ALL;
+        }
+
+        uint64_t moves_bb;
+        switch (piece) {
+            case 'P': {
+                uint64_t pawn_moves = get_pawn_moves(color, from);
+                moves_bb = pawn_moves & checkmask & pinmask & enemy_bb;
+
+                if (board.en_passant_square != INVALID) {
+                    if (pawn_moves & pinmask & BB_SQUARES[board.en_passant_square]) {
+                        // Add possible en passant capture to remove check
+                        // For example en passant is legal here:
+                        // 8/8/8/2k5/3Pp3/8/8/3K4 b - d3 0 1
+                        if (king_bb & enemy_pawns_attacks) {
+                            set_bit(&moves_bb, board.en_passant_square);
+                        }
+                    }
+                }
+                break;
+            }
+            case 'N':
+                moves_bb = get_knight_moves(color, from) & checkmask & pinmask & enemy_bb;
+                break;
+            case 'B':
+                moves_bb = get_bishop_moves(color, from) & checkmask & pinmask & enemy_bb;
+                break;
+            case 'R':
+                moves_bb = get_rook_moves(color, from) & checkmask & pinmask & enemy_bb;
+                break;
+            case 'Q':
+                moves_bb = get_queen_moves(color, from) & checkmask & pinmask & enemy_bb;
+                break;
+            case 'K':
+                moves_bb = get_king_moves(color, from) & ~attackmask & enemy_bb;
+                break;
+        }
+
+        while (moves_bb) {
+            int to = pull_lsb(&moves_bb);
+            if (piece == 'P' && (rank_of(to) == 0 || rank_of(to) == 7)) { // Add all promotion captures
+                if (board.mailbox[to] != '-') {
+                    move_t queen_promotion = {(unsigned int) from, (unsigned int) to, PC_QUEEN};
+                    moves[i++] = queen_promotion;
+                    move_t rook_promotion = {(unsigned int) from, (unsigned int) to, PC_ROOK};
+                    moves[i++] = rook_promotion;
+                    move_t bishop_promotion = {(unsigned int) from, (unsigned int) to, PC_BISHOP};
+                    moves[i++] = bishop_promotion;
+                    move_t knight_promotion = {(unsigned int) from, (unsigned int) to, PC_KNIGHT};
+                    moves[i++] = knight_promotion;
+                }
+            } else {
+                int flag = get_flag(piece, from, to);
+                move_t move = {(unsigned int) from, (unsigned int) to, (unsigned int) flag};
+
+                if (flag == EN_PASSANT) {
+                    // Remove possible en passant capture that leaves king in check
+                    // For example en passant is illegal here:
+                    // 8/8/8/8/k2Pp2Q/8/8/3K4 b - d3 0 1
+                    // k7/1q6/8/3pP3/8/5K2/8/8 w - d6 0 1
+                    push(move);
+                    bool invalid = is_check(color);
+                    pop();
+                    if (invalid) continue;
+                }
+                moves[i++] = move;
+            }
+        }
+    }
+    return i;
+}
+
 int gen_nonquiescent_moves(move_t *moves, bool color) {
     int n = gen_legal_moves(moves, color);
     int num_checks = 0, num_proms = 0, num_captures = 0;
@@ -560,71 +682,6 @@ int gen_nonquiescent_moves(move_t *moves, bool color) {
         }
     }
     return num_checks + num_proms + num_captures;
-}
-
-int move_SEE(move_t move) {
-    bitboard curr_board = board;
-    int score = PAWN_MATERIAL * (move.flag == EN_PASSANT) + value(move.to);
-    make_move(move);
-    score -= SEE(move.to);
-    board = curr_board;
-    return score;
-}
-
-/**
- * Static exchange evaluation:
- * @param move a move that captures an opponent's piece
- * @return returns whether or not the capture does not lose material
- */
-
-int SEE(int square) {
-    int see = 0;
-    move_t lva_move = find_lva(square);
-    if (lva_move.flag != PASS) {
-        int cpv = value(square);
-        make_move(lva_move);
-        see = std::max(0, cpv - SEE(square));
-    }
-    return see;
-}
-
-move_t find_lva(int square) {
-    move_t recaptures[MAX_CAPTURE_NUM];
-    int num_recaptures = gen_legal_captures(recaptures, board.turn);
-
-    int lva_index = -1;
-    for (int i = 0; i < num_recaptures; ++i) {
-        if (recaptures[i].to == square && (lva_index == -1 || value(recaptures[i].from) < value(recaptures[lva_index].from))) {
-            lva_index = i;
-        }
-    }
-    if (lva_index == -1)
-        return NULL_MOVE;
-    return recaptures[lva_index];
-}
-
-/**
- * Returns the value of the piece moved in centipawns.
- * @param move self-explanatory
- * @return the value of the piece moved in centipawns
- */
-
-int value(int square) {
-    char piece = toupper(board.mailbox[square]);
-    switch(piece) {
-        case 'P':
-            return PAWN_MATERIAL;
-        case 'N':
-            return KNIGHT_MATERIAL;
-        case 'B':
-            return BISHOP_MATERIAL;
-        case 'R':
-            return ROOK_MATERIAL;
-        case 'Q':
-            return QUEEN_MATERIAL;
-        default:
-            return 0;
-    }
 }
 
 /**

@@ -5,6 +5,7 @@
 #include "stack.h"
 #include "tables.h"
 #include "search.h"
+#include "weights.h"
 #include "movegen.h"
 #include "bitboard.h"
 #include "evaluation.h"
@@ -83,7 +84,7 @@ static inline bool verify_repetition(uint64_t hash) {
  * @return
  */
 
-int32_t quiescence_search(uint16_t remaining_ply, int32_t alpha, int32_t beta, std::vector<move_t> *considered_line) {
+int32_t quiescence_search(uint16_t remaining_ply, int32_t alpha, int32_t beta) {
     if (is_drawn()) {
         return DRAW;
     }
@@ -113,25 +114,16 @@ int32_t quiescence_search(uint16_t remaining_ply, int32_t alpha, int32_t beta, s
         }
     }
     CHECK_EVASIONS:
-    ssize_t best_move_index = -1;
-    std::vector<move_t> subsequent_lines[n];
     for (ssize_t i = 0; i < n; ++i) {
         move_t candidate_move = moves[i];
         push(candidate_move);
-        subsequent_lines[i].push_back(candidate_move);
-        int32_t score = -quiescence_search(remaining_ply, -beta, -alpha, &(subsequent_lines[i]));
+        int32_t score = -quiescence_search(remaining_ply, -beta, -alpha);
         pop();
         if (score >= beta) {
             return beta;
         }
         if (score > alpha) {
             alpha = score;
-            best_move_index = i;
-        }
-    }
-    if (best_move_index != -1) {
-        for (move_t m: subsequent_lines[best_move_index]) {
-            considered_line->push_back(m);
         }
     }
     return alpha;
@@ -176,7 +168,7 @@ int32_t negamax(uint16_t remaining_ply, int32_t alpha, int32_t beta, std::vector
     }
     if (!remaining_ply) {
         /** Extend the search until the position is quiet */
-        return quiescence_search(qsearch_lim, alpha, beta, considered_line);
+        return quiescence_search(qsearch_lim, alpha, beta);
     }
     int32_t value = MIN_SCORE;
     size_t best_move_index = 0;
@@ -220,8 +212,13 @@ int32_t negamax(uint16_t remaining_ply, int32_t alpha, int32_t beta, std::vector
 }
 
 void order_moves(move_t moves[], int n) {
-    /** Places captures before non-captures in accordance to MVV-LVA */
+    /**
+     * Sorts moves in order of decreasing move.flag enumeration values. Higher move.flag value indicates "more interesting"
+     * moves. Captures are sorted according to MVV-LVA.
+     */
     std::sort(moves, moves + n);
+
+    /** Moves checks to the front */
     int num_checks = 0;
     for (int i = 0; i < n; ++i) {
         if (is_move_check(moves[i])) {
@@ -231,6 +228,7 @@ void order_moves(move_t moves[], int n) {
             ++num_checks;
         }
     }
+    /** Finds index of potentially losing capture (attacker has higher value than victim.)*/
     int i;
     for (i = num_checks; i < n; ++i) {
         if (moves[i].flag == NONE ||
@@ -238,6 +236,8 @@ void order_moves(move_t moves[], int n) {
             break;
         }
     }
+
+    /** Sorts potentially losing captures, and quiet moves according to SEE of the move. */
     scored_move_t scored_moves[n - i];
     for (int j = i; j < n; ++j) {
         scored_moves[j - i].move = moves[j];
@@ -246,6 +246,73 @@ void order_moves(move_t moves[], int n) {
     std::sort(scored_moves, scored_moves + n - i);
     for (int j = i; j < n; ++j) {
         moves[j] = scored_moves[j - i].move;
+    }
+}
+
+int move_SEE(move_t move) {
+    bitboard curr_board = board;
+    int score = PAWN_MATERIAL * (move.flag == EN_PASSANT) + value(move.to);
+    make_move(move);
+    score -= SEE(move.to);
+    board = curr_board;
+    return score;
+}
+
+/**
+ * Static exchange evaluation:
+ * @param move a move that captures an opponent's piece
+ * @return returns whether or not the capture does not lose material
+ */
+
+int SEE(int square) {
+    int see = 0;
+    move_t lva_move = find_lva(square);
+    if (lva_move.flag != PASS) {
+        int cpv = value(square);
+        make_move(lva_move);
+        see = std::max(0, cpv - SEE(square));
+    }
+    return see;
+}
+
+move_t find_lva(int square) {
+    move_t recaptures[MAX_ATTACK_NUM];
+    int num_recaptures = gen_legal_captures_sq(recaptures, board.turn, 1 << square);
+
+    if (!num_recaptures) {
+        /** There does not exist any moves that recapture on the given square */
+        return NULL_MOVE;
+    }
+    int lva_index = 0;
+    for (int i = 1; i < num_recaptures; ++i) {
+        if (value(recaptures[i].from) < value(recaptures[lva_index].from)) {
+            lva_index = i;
+        }
+    }
+    return recaptures[lva_index];
+}
+
+/**
+ * Returns the value of the piece moved in centipawns.
+ * @param move self-explanatory
+ * @return the value of the piece moved in centipawns
+ */
+
+int value(int square) {
+    char piece = toupper(board.mailbox[square]);
+    switch(piece) {
+        case 'P':
+            return PAWN_MATERIAL;
+        case 'N':
+            return KNIGHT_MATERIAL;
+        case 'B':
+            return BISHOP_MATERIAL;
+        case 'R':
+            return ROOK_MATERIAL;
+        case 'Q':
+            return QUEEN_MATERIAL;
+        default:
+            return 0;
     }
 }
 

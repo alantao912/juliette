@@ -15,8 +15,13 @@ static inline bool is_drawn();
 
 static inline bool verify_repetition(uint64_t hash);
 
-int32_t quiescence_search(uint16_t remaining_ply, int32_t alpha, int32_t beta, std::vector<move_t> *considered_line);
+int32_t quiescence_search(uint16_t remaining_ply, int32_t alpha, int32_t beta);
 
 info search(uint16_t depth);
 
 void order_moves(move_t moves[], int n);
+
+int move_SEE(move_t move);
+int SEE(int square);
+move_t find_lva(int square);
+int value(int square);

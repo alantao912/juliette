@@ -1,6 +1,7 @@
+#include <algorithm>
+
 #include "util.h"
-#include "movegen.h"
-#include "bitboard.h"
+#include "search.h"
 
 const uint64_t BB_SQUARES[64] = {
         1ULL << A1, 1ULL << B1, 1ULL << C1, 1ULL << D1, 1ULL << E1, 1ULL << F1, 1ULL << G1, 1ULL << H1,
@@ -81,9 +82,12 @@ extern bitboard board;
 
 const move_t NULL_MOVE = {A1, A1, PASS};
 
-/* Maximum number of legal moves in a given position */
+/** Maximum number of legal moves in a given position */
 const int MAX_MOVE_NUM = 218;
+/** Maximum number of legal captures in a given position */
 const int MAX_CAPTURE_NUM = 74;
+/** Maximum number of attacks on a single square */
+const int MAX_ATTACK_NUM = 16;
 
 bool move_t::operator <(const move_t &other) const {
     if (flag == CAPTURE && other.flag == CAPTURE) {
@@ -237,4 +241,23 @@ void print_move(move_t move) {
         default:
             break;
     }
+}
+
+void ltrim(std::string &s) {
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) {
+        return !std::isspace(ch);
+    }));
+}
+
+// trim from end (in place)
+void rtrim(std::string &s) {
+    s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) {
+        return !std::isspace(ch);
+    }).base(), s.end());
+}
+
+// trim from both ends (in place)
+void trim(std::string &s) {
+    rtrim(s);
+    ltrim(s);
 }
