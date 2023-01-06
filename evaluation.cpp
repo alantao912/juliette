@@ -415,6 +415,8 @@ void king_mobility() {
     b_rank = std::min(b_rank, 7 - b_rank);
     stats.endgame_score -= ((b_file * b_file) + (b_rank * b_rank)) * CENTRALIZED_KING;
 
+    // TODO: Implement opposition detection. Direct opposition, Distant opposition, Diagonal Opposition
+
 }
 
 /**
@@ -423,5 +425,5 @@ void king_mobility() {
  */
 
 void passed_pawns() {
-
+    // TODO: Implement
 }

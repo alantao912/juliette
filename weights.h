@@ -26,7 +26,7 @@
 #define QR_BATTERY  20
 #define QR_BATTERY_E 10
 
-#define QB_BATTERY   30
+#define QB_BATTERY   5
 #define QB_BATTERY_E 20
 
 #define KING_THREAT 35
@@ -125,8 +125,8 @@ namespace Weights {
     const int32_t mg_bishop_psqt[64] = {
             -33,  -3, -14, -21, -13, -12, -39, -21,
             4,  15,  16,   0,   7,  21,  33,   1,
-            0,  15,  15,  15,  14,  27,  18,  10,
-            -6,  13,  13,  26,  34,  12,  10,   4,
+            0,  15,  15,  13,  14,  27,  18,  10,
+            -6,  13,  15,  26,  34,  12,  10,   4,
             -4,   5,  19,  50,  37,  37,   7,  -2,
             -16,  37,  43,  40,  35,  50,  37,  -2,
             -26,  16, -18, -13,  30,  59,  18, -47,

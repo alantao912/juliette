@@ -43,7 +43,7 @@ void play_game() {
         trim(user_input);
     } while (user_input != "w" && user_input != "b");
 
-    info reply;
+    info_t reply;
     if (user_input == "b") {
         reply = search(depth);
         make_move(reply.best_move);

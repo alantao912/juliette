@@ -14,7 +14,7 @@
 std::map<std::string, std::string> options;
 
 const char *id_str = "id name juliette author Alan Tao";
-std::string replies[] = {"id", "uciok", "readyok", "bestmove", "copyprotection", "registration", "info", "option"};
+std::string replies[] = {"id", "uciok", "readyok", "bestmove", "copyprotection", "registration", "info_t", "option"};
 
 #define id 0
 #define uciok 1
@@ -124,7 +124,7 @@ void go(std::string &args) {
     if (!board_initialized) {
         // TODO: Error handling for uninitialized board
     }
-    info result = search(4);
+    info_t result = search(4);
 
     sprintf(sendbuf, "%s %c%d%c%d", replies[bestmove].c_str(),
             file_of(result.best_move.from) + 'a', rank_of(result.best_move.from) + 1, file_of(result.best_move.to) + 'a', rank_of(result.best_move.to) + 1);

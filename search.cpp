@@ -80,11 +80,11 @@ static inline bool verify_repetition(uint64_t hash) {
 static inline bool contains_promotions() {
     uint64_t proms;
     if (board.turn) {
-        /* Checks if white has any pawn promotions */
+        /** Checks if white has any pawn promotions */
         proms = ((board.w_pawns & BB_RANK_7) << 8) & ~board.occupied;
         proms |= ((((board.w_pawns << 9) & ~BB_FILE_A) | ((board.w_pawns << 7) & ~BB_FILE_H)) & BB_RANK_8) & board.b_occupied;
     } else {
-        /* Checks if black has any pawn promotions */
+        /** Checks if black has any pawn promotions */
         proms = ((board.b_pawns & BB_RANK_2) >> 8) & ~board.occupied;
         proms |= ((((board.b_pawns >> 9) & ~BB_FILE_H) | ((board.b_pawns >> 7) & ~BB_FILE_A)) & BB_RANK_1) & board.w_occupied;
     }
@@ -380,9 +380,9 @@ int value(move_t move) {
     }
 }
 
-info search(uint16_t depth) {
+info_t search(uint16_t depth) {
     top_line.clear();
     int32_t evaluation = negamax(depth, MIN_SCORE, -MIN_SCORE, &top_line);
-    info reply = {.score = (1 - 2 * (board.turn == BLACK)) * evaluation, .best_move = top_line.front()};
+    info_t reply = {.score = (1 - 2 * (board.turn == BLACK)) * evaluation, .best_move = top_line.front()};
     return reply;
 }

@@ -14,7 +14,10 @@ struct TTEntry {
     int32_t evaluation;
     uint16_t depth;
 
+    bool is_pv;
+
     TTEntry(int32_t e, uint16_t d, flag_t f) : evaluation(e), depth(d), flag(f) {
+        is_pv = false;
     };
 };
 

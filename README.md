@@ -11,6 +11,8 @@ Features:
     - Bitboard state representation
     - Negamax Implicit Game Tree Traversal
     - Alpha-Beta Pruning
+    - Futility Pruning
+    - Delta Pruning
     - MVV-LVA move ordering
     - Static Exchange Evaluation (SEE)
     - Quiescent Search
