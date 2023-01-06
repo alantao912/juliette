@@ -128,11 +128,15 @@ void move_t::compute_score() {
         case CASTLING:
             score += 100;
             break;
-        case EN_PASSANT:
         case CAPTURE:
+            if (value(from) < value(to)) {
+                score += value(to) - value(from);
+                break;
+            }
         case NONE:
             score += move_SEE(*this);
             break;
+        case EN_PASSANT:
         default:
             break;
     }

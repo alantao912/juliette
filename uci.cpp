@@ -2,6 +2,8 @@
 // Created by Alan Tao on 9/2/2022.
 //
 
+#include <chrono>
+
 #include "uci.h"
 #include "util.h"
 #include "search.h"
@@ -124,7 +126,10 @@ void go(std::string &args) {
     if (!board_initialized) {
         // TODO: Error handling for uninitialized board
     }
+    auto start = std::chrono::steady_clock::now();
     info_t result = search(4);
+    auto end = std::chrono::steady_clock::now();
+    std::cout << "Elapsed Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << '\n';
 
     sprintf(sendbuf, "%s %c%d%c%d", replies[bestmove].c_str(),
             file_of(result.best_move.from) + 'a', rank_of(result.best_move.from) + 1, file_of(result.best_move.to) + 'a', rank_of(result.best_move.to) + 1);
