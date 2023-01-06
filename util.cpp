@@ -2,6 +2,8 @@
 
 #include "util.h"
 #include "search.h"
+#include "bitboard.h"
+#include "weights.h"
 
 const uint64_t BB_SQUARES[64] = {
         1ULL << A1, 1ULL << B1, 1ULL << C1, 1ULL << D1, 1ULL << E1, 1ULL << F1, 1ULL << G1, 1ULL << H1,
@@ -90,21 +92,49 @@ const int MAX_CAPTURE_NUM = 74;
 const int MAX_ATTACK_NUM = 16;
 
 bool move_t::operator <(const move_t &other) const {
-    if (flag == CAPTURE && other.flag == CAPTURE) {
-        return value(to) > value(other.to) || (value(to) == value(other.to) && value(from) < value(other.from));
-    }
-    return flag > other.flag;
+    return score > other.score;
 };
 
-bool scored_move_t::operator < (const scored_move_t & other) const {
-    return score > other.score;
-}
-
-void scored_move_t::compute_score() {
-    if (move.flag == CASTLING || move.flag == EN_PASSANT) {
-        score = 0;
-    } else {
-        score = move_SEE(move);
+void move_t::compute_score() {
+    score = 0;
+    if (is_move_check(*this)) {
+        score += 2000;
+    }
+    switch (flag) {
+        case PC_QUEEN:
+            score += QUEEN_MATERIAL + (uint16_t) value(to);
+            break;
+        case PC_ROOK:
+            score += ROOK_MATERIAL + (uint16_t) value(to);
+            break;
+        case PC_BISHOP:
+            score += BISHOP_MATERIAL + (uint16_t) value(to);
+            break;
+        case PC_KNIGHT:
+            score += KNIGHT_MATERIAL + (int16_t) value(to);
+            break;
+        case PR_QUEEN:
+            score += QUEEN_MATERIAL;
+            break;
+        case PR_ROOK:
+            score += ROOK_MATERIAL;
+            break;
+        case PR_BISHOP:
+            score += BISHOP_MATERIAL;
+            break;
+        case PR_KNIGHT:
+            score += KNIGHT_MATERIAL;
+            break;
+        case CASTLING:
+            score += 100;
+            break;
+        case EN_PASSANT:
+        case CAPTURE:
+        case NONE:
+            score += move_SEE(*this);
+            break;
+        default:
+            break;
     }
 }
 
@@ -114,12 +144,6 @@ uint64_t get_ray_between(int square1, int square2) {
 
 uint64_t get_ray_between_inclusive(int square1, int square2) {
     return BB_RAYS[square1][square2];
-}
-
-void shift_right(move_t moves[], int start, int end) {
-    for (int i = end; i > start; --i) {
-        moves[i] = moves[i - 1];
-    }
 }
 
 int get_lsb(uint64_t bb) {

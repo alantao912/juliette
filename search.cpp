@@ -173,7 +173,7 @@ int32_t quiescence_search(uint16_t remaining_ply, int32_t alpha, int32_t beta) {
  * @param beta: Maximum score that the minimizing player is assured of.
  */
 
-int32_t negamax(uint16_t remaining_ply, int32_t alpha, int32_t beta, std::vector<move_t> *considered_line) {
+static int32_t negamax(uint16_t remaining_ply, int32_t alpha, int32_t beta, std::vector<move_t> *considered_line) {
     const int32_t original_alpha = alpha;
     auto t = transposition_table.find(board.hash_code);
     if (t != transposition_table.end() && t->second.depth >= remaining_ply) {
@@ -214,7 +214,8 @@ int32_t negamax(uint16_t remaining_ply, int32_t alpha, int32_t beta, std::vector
         move_t candidate_move = moves[i];
         push(candidate_move);
         subsequent_lines[i].push_back(candidate_move);
-        int32_t sub_score = -negamax(remaining_ply - 1, -beta, -alpha, &(subsequent_lines[i]));
+        int32_t sub_score = -negamax(remaining_ply - reduction(candidate_move),
+                                     -beta, -alpha, &(subsequent_lines[i]));
         pop();
         if (sub_score > value) {
             value = sub_score;
@@ -248,48 +249,27 @@ int32_t negamax(uint16_t remaining_ply, int32_t alpha, int32_t beta, std::vector
     return value;
 }
 
+uint16_t reduction(move_t move) {
+    const uint16_t RF = 200;
+    return abs(std::min(0, (move.score + RF - 1) / RF));
+}
+
 void order_moves(move_t moves[], int n) {
-    /**
-     * Sorts moves in order of decreasing move.flag enumeration values. Higher move.flag value indicates "more interesting"
-     * moves. Captures are sorted according to MVV-LVA.
-     */
-    std::sort(moves, moves + n);
-
-    /** Moves checks to the front */
-    int num_checks = 0;
+    /*
     for (int i = 0; i < n; ++i) {
-        if (is_move_check(moves[i])) {
-            move_t check = moves[i];
-            shift_right(moves, num_checks, i);
-            moves[num_checks] = check;
-            ++num_checks;
-        }
+        moves[i].compute_score();
     }
-    /** Finds index of potentially losing capture (attacker has higher value than victim.)*/
-    int i;
-    for (i = num_checks; i < n; ++i) {
-        if (moves[i].flag == NONE ||
-            (moves[i].flag == CAPTURE && value(moves[i].to) < value(moves[i].from))) {
-            break;
-        }
-    }
-
-    /** Sorts potentially losing captures, and quiet moves according to SEE of the move. */
-    scored_move_t scored_moves[n - i];
-    for (int j = i; j < n; ++j) {
-        scored_moves[j - i].move = moves[j];
-        scored_moves[j - i].compute_score();
-    }
-    std::sort(scored_moves, scored_moves + n - i);
-    for (int j = i; j < n; ++j) {
-        moves[j] = scored_moves[j - i].move;
-    }
+    std::sort(moves, moves + n);
+     */
 }
 
 int move_SEE(move_t move) {
     bitboard curr_board = board;
     int score = PAWN_MATERIAL * (move.flag == EN_PASSANT) + value(move.to);
     make_move(move);
+    if (move.flag >= PR_KNIGHT && move.flag <= PR_QUEEN) {
+        score += value(move.to);
+    }
     score -= SEE(move.to);
     board = curr_board;
     return score;
@@ -307,14 +287,15 @@ int SEE(int square) {
     if (lva_move.flag != PASS) {
         int cpv = value(square);
         make_move(lva_move);
-        see = std::max(0, cpv - SEE(square));
+        int prom_value = (lva_move.flag >= PC_KNIGHT) * value(lva_move.to);
+        see = std::max(0, prom_value + cpv - SEE(square));
     }
     return see;
 }
 
 move_t find_lva(int square) {
     move_t recaptures[MAX_ATTACK_NUM];
-    int num_recaptures = gen_legal_captures_sq(recaptures, board.turn, 1 << square);
+    int num_recaptures = gen_legal_captures_sq(recaptures, board.turn, 1ULL << square);
 
     if (!num_recaptures) {
         /** There does not exist any moves that recapture on the given square */
@@ -337,7 +318,7 @@ move_t find_lva(int square) {
 
 int value(int square) {
     char piece = toupper(board.mailbox[square]);
-    switch(piece) {
+    switch (piece) {
         case 'P':
             return PAWN_MATERIAL;
         case 'N':

@@ -45,17 +45,12 @@ typedef struct move_t {
     unsigned int to : 6;
     unsigned int flag : 4;
 
+    int16_t score;
+
     bool operator < (const move_t & other) const;
-} move_t;
-
-typedef struct scored_move_t {
-    move_t move;
-    int score;
-
-    bool operator < (const scored_move_t & other) const;
 
     void compute_score();
-} scored_move_t;
+} move_t;
 
 typedef struct bitboard {
     char mailbox[64]; // piece-centric board representation

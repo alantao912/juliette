@@ -17,8 +17,7 @@ static inline bool verify_repetition(uint64_t hash);
 
 int32_t quiescence_search(uint16_t remaining_ply, int32_t alpha, int32_t beta);
 
-info_t search(uint16_t depth);
-
+uint16_t reduction(move_t move);
 void order_moves(move_t moves[], int n);
 
 int move_SEE(move_t move);
@@ -26,3 +25,5 @@ int SEE(int square);
 move_t find_lva(int square);
 int value(int square);
 int value(move_t move);
+
+info_t search(uint16_t depth);

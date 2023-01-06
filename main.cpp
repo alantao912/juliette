@@ -259,6 +259,20 @@ int main(int argc, char *argv[]) {
                 /**
                  * To be used for development purposes:
                  */
+                 init_board("1k2r1n1/pP1p4/6PP/p1R5/2n2P2/8/6N1/1BK3B1 w - - ");
+                 print_board();
+                 std::cout << '\n';
+                 move_t moves[MAX_MOVE_NUM];
+                 int n = gen_legal_moves(moves, board.turn);
+                 order_moves(moves, n);
+
+                 for (int i = 0; i < n; ++i) {
+                     std::cout << (i + 1) << ". ";
+                     print_move(moves[i]);
+                     std::cout << ", " << moves[i].score;
+                     std::cout << '\n';
+                 }
+
             } else if (strcmp(recvbuf, "perft") == 0) {
                 std::cout << "juliette:: starting performance test..." << std::endl;
                 // TODO: Re-implement performance test
