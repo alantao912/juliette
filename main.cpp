@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <chrono>
 #include <cstring>
 #include <iostream>
 #include <wspiapi.h>
@@ -44,8 +45,11 @@ void play_game() {
     } while (user_input != "w" && user_input != "b");
 
     info_t reply;
+    std::chrono::steady_clock::time_point start, end;
     if (user_input == "b") {
+        start = std::chrono::steady_clock::now();
         reply = search(depth);
+        end = std::chrono::steady_clock::now();
         make_move(reply.best_move);
     }
 
@@ -54,6 +58,7 @@ void play_game() {
     bool player_turn = true;
     while (n) {
         system("cls");
+        std::cout << "Elapsed Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << '\n';
         print_board();
         if (player_turn) {
             int i;
@@ -75,7 +80,9 @@ void play_game() {
             } while (i < 1 || i > n);
             make_move(moves[i - 1]);
         } else {
+            start = std::chrono::steady_clock::now();
             reply = search(depth);
+            end = std::chrono::steady_clock::now();
             make_move(reply.best_move);
         }
         player_turn = !player_turn;
