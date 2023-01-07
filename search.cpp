@@ -173,7 +173,7 @@ int32_t quiescence_search(uint16_t remaining_ply, int32_t alpha, int32_t beta) {
  * @param beta: Maximum score that the minimizing player is assured of.
  */
 
-static int32_t negamax(uint16_t remaining_ply, int32_t alpha, int32_t beta, std::vector<move_t> *considered_line) {
+static int32_t negamax(int16_t remaining_ply, int32_t alpha, int32_t beta, std::vector<move_t> *considered_line) {
     const int32_t original_alpha = alpha;
     auto t = transposition_table.find(board.hash_code);
     if (t != transposition_table.end() && t->second.depth >= remaining_ply) {
@@ -214,7 +214,7 @@ static int32_t negamax(uint16_t remaining_ply, int32_t alpha, int32_t beta, std:
         move_t candidate_move = moves[i];
         push(candidate_move);
         subsequent_lines[i].push_back(candidate_move);
-        int32_t sub_score = -negamax(remaining_ply - reduction(candidate_move),
+        int32_t sub_score = -negamax(reduction(candidate_move.score, remaining_ply),
                                      -beta, -alpha, &(subsequent_lines[i]));
         pop();
         if (sub_score > value) {
@@ -249,18 +249,29 @@ static int32_t negamax(uint16_t remaining_ply, int32_t alpha, int32_t beta, std:
     return value;
 }
 
-uint16_t reduction(move_t move) {
-    const uint16_t RF = 200;
-    return abs(std::min(0, (move.score + RF - 1) / RF));
+/**
+ * Implements Late Move Reduction for losing captures.
+ * @param score Rated "goodness" or "interesting-ness" of a particular move.
+ * @param current_ply Current ply remaining to search
+ * @return The new depth to search at.
+ */
+
+int16_t reduction(int16_t score, int16_t current_ply) {
+    const int16_t RF = 200;
+    const uint16_t no_reduction = 2;
+
+    if (current_ply <= no_reduction) {
+        return current_ply - 1;
+    }
+    return std::max(0, current_ply - std::max(1, abs(std::min(0, (score + RF - 1) / RF))));
 }
 
 void order_moves(move_t moves[], int n) {
-    /*
     for (int i = 0; i < n; ++i) {
         moves[i].compute_score();
     }
     std::sort(moves, moves + n);
-     */
+
 }
 
 int move_SEE(move_t move) {
@@ -361,9 +372,13 @@ int value(move_t move) {
     }
 }
 
-info_t search(uint16_t depth) {
+info_t search(int16_t depth) {
     top_line.clear();
     int32_t evaluation = negamax(depth, MIN_SCORE, -MIN_SCORE, &top_line);
     info_t reply = {.score = (1 - 2 * (board.turn == BLACK)) * evaluation, .best_move = top_line.front()};
+    for (auto & i : top_line) {
+        print_move(i);
+        std::cout << ", ";
+    }
     return reply;
 }

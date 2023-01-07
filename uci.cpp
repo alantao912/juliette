@@ -127,7 +127,7 @@ void go(std::string &args) {
         // TODO: Error handling for uninitialized board
     }
     auto start = std::chrono::steady_clock::now();
-    info_t result = search(4);
+    info_t result = search(12);
     auto end = std::chrono::steady_clock::now();
     std::cout << "Elapsed Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << '\n';
 
