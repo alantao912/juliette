@@ -173,7 +173,7 @@ int32_t quiescence_search(uint16_t remaining_ply, int32_t alpha, int32_t beta) {
  * @param beta: Maximum score that the minimizing player is assured of.
  */
 
-int32_t negamax(uint16_t remaining_ply, int32_t alpha, int32_t beta, std::vector<move_t> *considered_line) {
+static int32_t negamax(int16_t remaining_ply, int32_t alpha, int32_t beta, std::vector<move_t> *considered_line) {
     const int32_t original_alpha = alpha;
     auto t = transposition_table.find(board.hash_code);
     if (t != transposition_table.end() && t->second.depth >= remaining_ply) {
@@ -214,7 +214,8 @@ int32_t negamax(uint16_t remaining_ply, int32_t alpha, int32_t beta, std::vector
         move_t candidate_move = moves[i];
         push(candidate_move);
         subsequent_lines[i].push_back(candidate_move);
-        int32_t sub_score = -negamax(remaining_ply - 1, -beta, -alpha, &(subsequent_lines[i]));
+        int32_t sub_score = -negamax(reduction(candidate_move.score, remaining_ply),
+                                     -beta, -alpha, &(subsequent_lines[i]));
         pop();
         if (sub_score > value) {
             value = sub_score;
@@ -248,48 +249,38 @@ int32_t negamax(uint16_t remaining_ply, int32_t alpha, int32_t beta, std::vector
     return value;
 }
 
+/**
+ * Implements Late Move Reduction for losing captures.
+ * @param score Rated "goodness" or "interesting-ness" of a particular move.
+ * @param current_ply Current ply remaining to search
+ * @return The new depth to search at.
+ */
+
+int16_t reduction(int16_t score, int16_t current_ply) {
+    const int16_t RF = 200;
+    const uint16_t no_reduction = 2;
+
+    if (current_ply <= no_reduction) {
+        return current_ply - 1;
+    }
+    return std::max(0, current_ply - std::max(1, abs(std::min(0, (score + RF - 1) / RF))));
+}
+
 void order_moves(move_t moves[], int n) {
-    /**
-     * Sorts moves in order of decreasing move.flag enumeration values. Higher move.flag value indicates "more interesting"
-     * moves. Captures are sorted according to MVV-LVA.
-     */
+    for (int i = 0; i < n; ++i) {
+        moves[i].compute_score();
+    }
     std::sort(moves, moves + n);
 
-    /** Moves checks to the front */
-    int num_checks = 0;
-    for (int i = 0; i < n; ++i) {
-        if (is_move_check(moves[i])) {
-            move_t check = moves[i];
-            shift_right(moves, num_checks, i);
-            moves[num_checks] = check;
-            ++num_checks;
-        }
-    }
-    /** Finds index of potentially losing capture (attacker has higher value than victim.)*/
-    int i;
-    for (i = num_checks; i < n; ++i) {
-        if (moves[i].flag == NONE ||
-            (moves[i].flag == CAPTURE && value(moves[i].to) < value(moves[i].from))) {
-            break;
-        }
-    }
-
-    /** Sorts potentially losing captures, and quiet moves according to SEE of the move. */
-    scored_move_t scored_moves[n - i];
-    for (int j = i; j < n; ++j) {
-        scored_moves[j - i].move = moves[j];
-        scored_moves[j - i].compute_score();
-    }
-    std::sort(scored_moves, scored_moves + n - i);
-    for (int j = i; j < n; ++j) {
-        moves[j] = scored_moves[j - i].move;
-    }
 }
 
 int move_SEE(move_t move) {
     bitboard curr_board = board;
     int score = PAWN_MATERIAL * (move.flag == EN_PASSANT) + value(move.to);
     make_move(move);
+    if (move.flag >= PR_KNIGHT && move.flag <= PR_QUEEN) {
+        score += value(move.to);
+    }
     score -= SEE(move.to);
     board = curr_board;
     return score;
@@ -307,14 +298,15 @@ int SEE(int square) {
     if (lva_move.flag != PASS) {
         int cpv = value(square);
         make_move(lva_move);
-        see = std::max(0, cpv - SEE(square));
+        int prom_value = (lva_move.flag >= PC_KNIGHT) * value(lva_move.to);
+        see = std::max(0, prom_value + cpv - SEE(square));
     }
     return see;
 }
 
 move_t find_lva(int square) {
     move_t recaptures[MAX_ATTACK_NUM];
-    int num_recaptures = gen_legal_captures_sq(recaptures, board.turn, 1 << square);
+    int num_recaptures = gen_legal_captures_sq(recaptures, board.turn, 1ULL << square);
 
     if (!num_recaptures) {
         /** There does not exist any moves that recapture on the given square */
@@ -337,7 +329,7 @@ move_t find_lva(int square) {
 
 int value(int square) {
     char piece = toupper(board.mailbox[square]);
-    switch(piece) {
+    switch (piece) {
         case 'P':
             return PAWN_MATERIAL;
         case 'N':
@@ -380,9 +372,13 @@ int value(move_t move) {
     }
 }
 
-info_t search(uint16_t depth) {
+info_t search(int16_t depth) {
     top_line.clear();
     int32_t evaluation = negamax(depth, MIN_SCORE, -MIN_SCORE, &top_line);
     info_t reply = {.score = (1 - 2 * (board.turn == BLACK)) * evaluation, .best_move = top_line.front()};
+    for (auto & i : top_line) {
+        print_move(i);
+        std::cout << ", ";
+    }
     return reply;
 }

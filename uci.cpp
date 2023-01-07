@@ -127,10 +127,9 @@ void go(std::string &args) {
         // TODO: Error handling for uninitialized board
     }
     auto start = std::chrono::steady_clock::now();
-    info_t result = search(4);
+    info_t result = search(12);
     auto end = std::chrono::steady_clock::now();
-    std::cout << "Elapsed Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms\n";
-
+    std::cout << "Elapsed Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << '\n';
     sprintf(sendbuf, "%s %c%d%c%d", replies[bestmove].c_str(),
             file_of(result.best_move.from) + 'a', rank_of(result.best_move.from) + 1, file_of(result.best_move.to) + 'a', rank_of(result.best_move.to) + 1);
     push(result.best_move);

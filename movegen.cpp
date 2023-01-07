@@ -537,7 +537,7 @@ int gen_legal_captures(move_t* moves, bool color) {
     return i;
 }
 
-int gen_legal_captures_sq(move_t *moves, bool color, uint64_t square) {
+int gen_legal_captures_sq(move_t *moves, bool color, uint64_t attack_square) {
     int i = 0;
 
     uint64_t pieces;
@@ -551,14 +551,14 @@ int gen_legal_captures_sq(move_t *moves, bool color, uint64_t square) {
         king_square = board.w_king_square;
         enemy_pawns_attacks = (((board.b_pawns >> 9) & ~BB_FILE_H) | ((board.b_pawns >> 7) & ~BB_FILE_A))
                               & board.w_occupied;
-        enemy_bb = board.b_occupied & square;
+        enemy_bb = board.b_occupied;
     } else {
         pieces = board.b_occupied;
         king_bb = board.b_king;
         king_square = board.b_king_square;
         enemy_pawns_attacks = (((board.w_pawns << 9) & ~BB_FILE_A) | ((board.w_pawns << 7) & ~BB_FILE_H))
                               & board.b_occupied;
-        enemy_bb = board.w_occupied & square;
+        enemy_bb = board.w_occupied;
     }
 
     uint64_t attackmask = _get_attackmask(!color);
@@ -623,7 +623,7 @@ int gen_legal_captures_sq(move_t *moves, bool color, uint64_t square) {
                 moves_bb = get_king_moves(color, from) & ~attackmask & enemy_bb;
                 break;
         }
-
+        moves_bb &= attack_square;
         while (moves_bb) {
             int to = pull_lsb(&moves_bb);
             if (piece == 'P' && (rank_of(to) == 0 || rank_of(to) == 7)) { // Add all promotion captures
