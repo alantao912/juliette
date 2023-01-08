@@ -87,7 +87,7 @@ void parse_UCI_string(const char *uci) {
                     break;
                 }
             }
-            // TODO: Fix args value
+            // TODO: Fix args move_value
             go(args);
         } else {
             /** TODO: Error handling for uninitialized board */

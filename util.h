@@ -87,7 +87,7 @@ typedef struct bitboard {
     int halfmove_clock; // number of halfmoves since the last capture or pawn advance
     int fullmove_number; // number of cycles of a white move and a black move
 
-    uint64_t hash_code; // hash_code hash value for the current position
+    uint64_t hash_code; // hash_code hash move_value for the current position
 } bitboard;
 
 /**
@@ -97,6 +97,8 @@ typedef struct bitboard {
 typedef struct stack_t {
     bitboard board;
     struct stack_t *next;
+
+    move_t prev_mv;
 } stack_t;
 
 extern const uint64_t BB_KNIGHT_ATTACKS[64];
@@ -167,6 +169,7 @@ extern const move_t NULL_MOVE;
 extern const int MAX_MOVE_NUM;
 extern const int MAX_CAPTURE_NUM;
 extern const int MAX_ATTACK_NUM;
+extern const int CHECK_SCORE;
 
 uint64_t get_ray_between(int square1, int square2);
 uint64_t get_ray_between_inclusive(int square1, int square2);

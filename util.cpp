@@ -90,6 +90,8 @@ const int MAX_MOVE_NUM = 218;
 const int MAX_CAPTURE_NUM = 74;
 /** Maximum number of attacks on a single square */
 const int MAX_ATTACK_NUM = 16;
+/** Score added to a move's "interestingness" if it gives check. */
+const int CHECK_SCORE = 20000;
 
 bool move_t::operator <(const move_t &other) const {
     return score > other.score;
@@ -98,20 +100,20 @@ bool move_t::operator <(const move_t &other) const {
 void move_t::compute_score() {
     score = 0;
     if (is_move_check(*this)) {
-        score += 2000;
+        score += CHECK_SCORE;
     }
     switch (flag) {
         case PC_QUEEN:
-            score += QUEEN_MATERIAL + (uint16_t) value(to);
+            score += QUEEN_MATERIAL + (int16_t) piece_value(to);
             break;
         case PC_ROOK:
-            score += ROOK_MATERIAL + (uint16_t) value(to);
+            score += ROOK_MATERIAL + (int16_t) piece_value(to);
             break;
         case PC_BISHOP:
-            score += BISHOP_MATERIAL + (uint16_t) value(to);
+            score += BISHOP_MATERIAL + (int16_t) piece_value(to);
             break;
         case PC_KNIGHT:
-            score += KNIGHT_MATERIAL + (int16_t) value(to);
+            score += KNIGHT_MATERIAL + (int16_t) piece_value(to);
             break;
         case PR_QUEEN:
             score += QUEEN_MATERIAL;
@@ -129,8 +131,8 @@ void move_t::compute_score() {
             score += 100;
             break;
         case CAPTURE:
-            if (value(from) < value(to)) {
-                score += value(to) - value(from);
+            if (piece_value(from) < piece_value(to)) {
+                score += piece_value(to) - piece_value(from);
                 break;
             }
         case NONE:

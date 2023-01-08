@@ -14,7 +14,7 @@
  * Quiescent search max ply count.
  */
 
-const uint16_t qsearch_lim = 4;
+const int16_t qsearch_lim = 4;
 
 /**
  * Contempt factor indicates respect for opponent.
@@ -33,7 +33,6 @@ std::unordered_map<uint64_t, RTEntry> repetition_table;
 
 extern bitboard board;
 extern stack_t *stack;
-std::vector<move_t> top_line;
 
 static inline bool is_drawn() {
     auto iterator = repetition_table.find(board.hash_code);
@@ -77,18 +76,29 @@ static inline bool verify_repetition(uint64_t hash) {
     return false;
 }
 
+/**
+ * Determines whether to enable futility pruning.
+ * @param cm Candidate move
+ * @param depth Depth remaining until horizon
+ * @return Returns whether depth == 1, candidate move is not a check, and previous move was not a check (we are moving out of check)
+ */
+
+static inline bool use_fprune(move_t cm, int16_t depth) {
+    return depth == 1 && cm.score < CHECK_SCORE && stack->prev_mv.score < CHECK_SCORE;
+}
+
 static inline bool contains_promotions() {
-    uint64_t proms;
+    uint64_t prom_squares;
     if (board.turn) {
         /** Checks if white has any pawn promotions */
-        proms = ((board.w_pawns & BB_RANK_7) << 8) & ~board.occupied;
-        proms |= ((((board.w_pawns << 9) & ~BB_FILE_A) | ((board.w_pawns << 7) & ~BB_FILE_H)) & BB_RANK_8) & board.b_occupied;
+        prom_squares = ((board.w_pawns & BB_RANK_7) << 8) & ~board.occupied;
+        prom_squares |= ((((board.w_pawns << 9) & ~BB_FILE_A) | ((board.w_pawns << 7) & ~BB_FILE_H)) & BB_RANK_8) & board.b_occupied;
     } else {
         /** Checks if black has any pawn promotions */
-        proms = ((board.b_pawns & BB_RANK_2) >> 8) & ~board.occupied;
-        proms |= ((((board.b_pawns >> 9) & ~BB_FILE_H) | ((board.b_pawns >> 7) & ~BB_FILE_A)) & BB_RANK_1) & board.w_occupied;
+        prom_squares = ((board.b_pawns & BB_RANK_2) >> 8) & ~board.occupied;
+        prom_squares |= ((((board.b_pawns >> 9) & ~BB_FILE_H) | ((board.b_pawns >> 7) & ~BB_FILE_A)) & BB_RANK_1) & board.w_occupied;
     }
-    return pop_count(proms) > 0;
+    return pop_count(prom_squares) > 0;
 }
 
 /**
@@ -98,7 +108,7 @@ static inline bool contains_promotions() {
  * @return
  */
 
-int32_t quiescence_search(uint16_t remaining_ply, int32_t alpha, int32_t beta) {
+int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) {
     if (is_drawn()) {
         return DRAW;
     }
@@ -109,7 +119,7 @@ int32_t quiescence_search(uint16_t remaining_ply, int32_t alpha, int32_t beta) {
     int n, n_checks;
     if (!is_check(board.turn)) {
         /** Generate non-quiet moves, such as checks, promotions, and captures. */
-        if (!remaining_ply || !(n = gen_nonquiescent_moves(moves, board.turn, &n_checks))) {
+        if (!depth || !(n = gen_nonquiescent_moves(moves, board.turn, &n_checks))) {
             /** Position is quiet, return evaluation. */
             return evaluate();
         }
@@ -120,10 +130,10 @@ int32_t quiescence_search(uint16_t remaining_ply, int32_t alpha, int32_t beta) {
         goto CHECK_EVASIONS;
     } else {
         /** Side to move is in check, evasions do not exist. Checkmate :( */
-        return CHECKMATE(remaining_ply);
+        return CHECKMATE(depth);
     }
 
-    --remaining_ply;
+    --depth;
     stand_pat = evaluate();
     if (stand_pat >= beta) {
         return beta;
@@ -149,12 +159,12 @@ int32_t quiescence_search(uint16_t remaining_ply, int32_t alpha, int32_t beta) {
     CHECK_EVASIONS:
     for (ssize_t i = 0; i < n; ++i) {
         move_t candidate_move = moves[i];
-        if (i >= n_checks && value(candidate_move) + stand_pat < alpha - DELTA_MARGIN) {
+        if (i >= n_checks && move_value(candidate_move) + stand_pat < alpha - DELTA_MARGIN) {
             /** Skip evaluating this move */
             continue;
         }
         push(candidate_move);
-        int32_t score = -quiescence_search(remaining_ply, -beta, -alpha);
+        int32_t score = -qsearch(depth, -beta, -alpha);
         pop();
         if (score >= beta) {
             return beta;
@@ -167,16 +177,16 @@ int32_t quiescence_search(uint16_t remaining_ply, int32_t alpha, int32_t beta) {
 }
 
 /**
- * @brief Returns an integer value, representing the evaluation of the specified turn.
+ * @brief Returns an integer move_value, representing the evaluation of the specified turn.
  *
  * @param alpha: Minimum score that the maximizing player is assured of.
  * @param beta: Maximum score that the minimizing player is assured of.
  */
 
-static int32_t negamax(int16_t remaining_ply, int32_t alpha, int32_t beta, std::vector<move_t> *considered_line) {
+static int32_t negamax(int16_t depth, int32_t alpha, int32_t beta, std::vector<move_t> &mv_hst) {
     const int32_t original_alpha = alpha;
-    auto t = transposition_table.find(board.hash_code);
-    if (t != transposition_table.end() && t->second.depth >= remaining_ply) {
+    std::unordered_map<uint64_t, TTEntry>::iterator t = transposition_table.find(board.hash_code);
+    if (t != transposition_table.end() && t->second.depth >= depth) {
         const TTEntry &tt_entry = t->second;
         switch (tt_entry.flag) {
             case EXACT:
@@ -195,7 +205,7 @@ static int32_t negamax(int16_t remaining_ply, int32_t alpha, int32_t beta, std::
     if (!n) {
         if (is_check(board.turn)) {
             /** King is in check, and there are no legal moves. Checkmate */
-            return CHECKMATE(remaining_ply);
+            return CHECKMATE(depth);
         }
         /** No legal moves, yet king is not in check. This is a stalemate, and the game is drawn. */
         return DRAW;
@@ -203,54 +213,57 @@ static int32_t negamax(int16_t remaining_ply, int32_t alpha, int32_t beta, std::
     if (is_drawn()) {
         return DRAW;
     }
-    if (!remaining_ply) {
+    if (!depth) {
         /** Extend the search until the position is quiet */
-        return quiescence_search(qsearch_lim, alpha, beta);
+        return qsearch(qsearch_lim, alpha, beta);
     }
-    int32_t value = MIN_SCORE;
-    size_t best_move_index = 0;
-    std::vector<move_t> subsequent_lines[n];
+    int32_t score = MIN_SCORE;
+    size_t pv_index = 0;
+    std::vector<move_t> variations[n];
     for (size_t i = 0; i < n; ++i) {
-        move_t candidate_move = moves[i];
-        push(candidate_move);
-        subsequent_lines[i].push_back(candidate_move);
-        int32_t sub_score = -negamax(reduction(candidate_move.score, remaining_ply),
-                                     -beta, -alpha, &(subsequent_lines[i]));
-        pop();
-        if (sub_score > value) {
-            value = sub_score;
-            best_move_index = i;
+        move_t mv = moves[i];
+        if (use_fprune(mv, depth) && score + move_value(mv) < alpha - DELTA_MARGIN) {
+            /** Futility pruning */
+            continue;
         }
-        if (value > alpha) {
-            alpha = value;
+        push(mv);
+        variations[i].push_back(mv);
+        int32_t sub_score = -negamax(reduction(mv.score, depth),-beta, -alpha, variations[i]);
+        pop();
+        if (sub_score > score) {
+            score = sub_score;
+            pv_index = i;
+        }
+        if (score > alpha) {
+            alpha = score;
         }
         if (alpha >= beta) {
             goto PRUNE;
         }
     }
     /** Propogates up the principal variation */
-    for (move_t m : subsequent_lines[best_move_index]) {
-        considered_line->push_back(m);
+    for (move_t m : variations[pv_index]) {
+        mv_hst.push_back(m);
     }
     PRUNE:
     /** Updates the transposition table with the appropriate values */
     TTEntry tt_entry(0, 0, EXACT);
-    if (value <= original_alpha) {
+    if (score <= original_alpha) {
         tt_entry.flag = UPPER;
-    } else if (value >= beta) {
+    } else if (score >= beta) {
         tt_entry.flag = LOWER;
     }
-    tt_entry.depth = remaining_ply;
+    tt_entry.depth = depth;
     if (t != transposition_table.end()) {
         t->second = tt_entry;
     } else {
         transposition_table.insert(std::pair<uint64_t, TTEntry>(board.hash_code, tt_entry));
     }
-    return value;
+    return score;
 }
 
 /**
- * Implements Late Move Reduction for losing captures.
+ * Implements Late Move Reduction for moves with negative SEE.
  * @param score Rated "goodness" or "interesting-ness" of a particular move.
  * @param current_ply Current ply remaining to search
  * @return The new depth to search at.
@@ -260,10 +273,12 @@ int16_t reduction(int16_t score, int16_t current_ply) {
     const int16_t RF = 200;
     const uint16_t no_reduction = 2;
 
+    /** TODO: Update reduction formula as new features are added*/
+
     if (current_ply <= no_reduction) {
         return current_ply - 1;
     }
-    return std::max(0, current_ply - std::max(1, abs(std::min(0, (score + RF - 1) / RF))));
+    return std::max((int16_t) 0, (int16_t) (current_ply - std::max(1, abs(std::min(0, (score + RF - 1) / RF)))));
 }
 
 void order_moves(move_t moves[], int n) {
@@ -276,10 +291,10 @@ void order_moves(move_t moves[], int n) {
 
 int move_SEE(move_t move) {
     bitboard curr_board = board;
-    int score = PAWN_MATERIAL * (move.flag == EN_PASSANT) + value(move.to);
+    int score = PAWN_MATERIAL * (move.flag == EN_PASSANT) + piece_value(move.to);
     make_move(move);
     if (move.flag >= PR_KNIGHT && move.flag <= PR_QUEEN) {
-        score += value(move.to);
+        score += piece_value(move.to);
     }
     score -= SEE(move.to);
     board = curr_board;
@@ -296,9 +311,9 @@ int SEE(int square) {
     int see = 0;
     move_t lva_move = find_lva(square);
     if (lva_move.flag != PASS) {
-        int cpv = value(square);
+        int cpv = piece_value(square);
         make_move(lva_move);
-        int prom_value = (lva_move.flag >= PC_KNIGHT) * value(lva_move.to);
+        int prom_value = (lva_move.flag >= PC_KNIGHT) * piece_value(lva_move.to);
         see = std::max(0, prom_value + cpv - SEE(square));
     }
     return see;
@@ -314,7 +329,7 @@ move_t find_lva(int square) {
     }
     int lva_index = 0;
     for (int i = 1; i < num_recaptures; ++i) {
-        if (value(recaptures[i].from) < value(recaptures[lva_index].from)) {
+        if (piece_value(recaptures[i].from) < piece_value(recaptures[lva_index].from)) {
             lva_index = i;
         }
     }
@@ -322,13 +337,13 @@ move_t find_lva(int square) {
 }
 
 /**
- * Returns the value of the piece moved in centipawns.
+ * Returns the move_value of the piece moved in centipawns.
  * @param move self-explanatory
- * @return the value of the piece moved in centipawns
+ * @return the move_value of the piece moved in centipawns
  */
 
-int value(int square) {
-    char piece = toupper(board.mailbox[square]);
+int piece_value(int square) {
+    char piece = (char) toupper(board.mailbox[square]);
     switch (piece) {
         case 'P':
             return PAWN_MATERIAL;
@@ -345,12 +360,12 @@ int value(int square) {
     }
 }
 
-int value(move_t move) {
+int move_value(move_t move) {
     switch (move.flag) {
         case EN_PASSANT:
             return PAWN_MATERIAL;
         case CAPTURE:
-            return value(move.to);
+            return piece_value(move.to);
         case PR_KNIGHT:
             return KNIGHT_MATERIAL;
         case PR_BISHOP:
@@ -360,25 +375,22 @@ int value(move_t move) {
         case PR_QUEEN:
             return QUEEN_MATERIAL;
         case PC_KNIGHT:
-            return KNIGHT_MATERIAL + value(move.to);
+            return KNIGHT_MATERIAL + piece_value(move.to);
         case PC_BISHOP:
-            return BISHOP_MATERIAL + value(move.to);
+            return BISHOP_MATERIAL + piece_value(move.to);
         case PC_ROOK:
-            return ROOK_MATERIAL + value(move.to);
+            return ROOK_MATERIAL + piece_value(move.to);
         case PC_QUEEN:
-            return QUEEN_MATERIAL + value(move.to);
+            return QUEEN_MATERIAL + piece_value(move.to);
         default:
             return 0;
     }
 }
 
 info_t search(int16_t depth) {
+    std::vector<move_t> top_line;
     top_line.clear();
-    int32_t evaluation = negamax(depth, MIN_SCORE, -MIN_SCORE, &top_line);
+    int32_t evaluation = negamax(depth, MIN_SCORE, -MIN_SCORE, top_line);
     info_t reply = {.score = (1 - 2 * (board.turn == BLACK)) * evaluation, .best_move = top_line.front()};
-    for (auto & i : top_line) {
-        print_move(i);
-        std::cout << ", ";
-    }
     return reply;
 }

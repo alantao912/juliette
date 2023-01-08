@@ -29,6 +29,7 @@ void push(move_t move) {
     node->board = board;
     make_move(move);
     node->next = stack;
+    node->prev_mv = move;
     stack = node;
 
     auto rt_pair = repetition_table.find(board.hash_code);

@@ -33,7 +33,6 @@
 #define KING_THREAT_E 15
 
 #define CENTRALIZED_KING 2
-#define KING_MOBILITY 1
 
 #define DELTA_MARGIN 200
 
