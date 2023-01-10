@@ -232,7 +232,7 @@ static uint64_t _init_rook_attacks_helper(int square, uint64_t subset) {
  * @return the reverse of the bitboard. Flips the perspective of the board
  * @author github.com/nkarve
  */
-static uint64_t _get_reverse_bb(uint64_t bb) {
+uint64_t _get_reverse_bb(uint64_t bb) {
     bb = (bb & 0x5555555555555555) << 1 | (bb >> 1) & 0x5555555555555555;
     bb = (bb & 0x3333333333333333) << 2 | (bb >> 2) & 0x3333333333333333;
     bb = (bb & 0x0f0f0f0f0f0f0f0f) << 4 | (bb >> 4) & 0x0f0f0f0f0f0f0f0f;

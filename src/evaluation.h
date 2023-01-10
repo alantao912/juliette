@@ -17,8 +17,6 @@ private:
     uint64_t compute_king_vulnerabilities(uint64_t king, uint64_t pawns);
 } eval_stats;
 
-uint64_t reverse_bb(uint64_t bb);
-
 
 int32_t evaluate();
 

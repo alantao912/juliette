@@ -23,7 +23,7 @@ const int16_t qsearch_lim = 4;
  */
 const int32_t contempt = 0;
 
-#define MIN_SCORE (INT32_MIN + 100)
+#define MIN_SCORE (INT32_MIN + 1000)
 #define CHECKMATE(depth) ((MIN_SCORE + 1) + (UINT16_MAX - depth))
 #define DRAW (int32_t) contempt;
 
@@ -108,9 +108,9 @@ static inline bool contains_promotions() {
  * @return
  */
 
-int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) {
+int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) { // NOLINT
     if (is_drawn()) {
-        return DRAW;
+        return DRAW; // NOLINT
     }
 
     int32_t stand_pat = MIN_SCORE;
@@ -183,9 +183,9 @@ int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) {
  * @param beta: Maximum score that the minimizing player is assured of.
  */
 
-static int32_t negamax(int16_t depth, int32_t alpha, int32_t beta, std::vector<move_t> &mv_hst) {
+static int32_t negamax(int16_t depth, int32_t alpha, int32_t beta, std::vector<move_t> &mv_hst) { // NOLINT
     const int32_t original_alpha = alpha;
-    std::unordered_map<uint64_t, TTEntry>::iterator t = transposition_table.find(board.hash_code);
+    std::unordered_map<uint64_t, TTEntry>::iterator t = transposition_table.find(board.hash_code); // NOLINT
     if (t != transposition_table.end() && t->second.depth >= depth) {
         const TTEntry &tt_entry = t->second;
         switch (tt_entry.flag) {
@@ -208,10 +208,10 @@ static int32_t negamax(int16_t depth, int32_t alpha, int32_t beta, std::vector<m
             return CHECKMATE(depth);
         }
         /** No legal moves, yet king is not in check. This is a stalemate, and the game is drawn. */
-        return DRAW;
+        return DRAW; // NOLINT
     }
     if (is_drawn()) {
-        return DRAW;
+        return DRAW; // NOLINT
     }
     if (!depth) {
         /** Extend the search until the position is quiet */
@@ -222,10 +222,11 @@ static int32_t negamax(int16_t depth, int32_t alpha, int32_t beta, std::vector<m
     std::vector<move_t> variations[n];
     for (size_t i = 0; i < n; ++i) {
         move_t mv = moves[i];
+
         if (use_fprune(mv, depth) && score + move_value(mv) < alpha - DELTA_MARGIN) {
-            /** Futility pruning */
             continue;
         }
+
         push(mv);
         variations[i].push_back(mv);
         int32_t sub_score = -negamax(reduction(mv.score, depth),-beta, -alpha, variations[i]);
@@ -270,13 +271,11 @@ static int32_t negamax(int16_t depth, int32_t alpha, int32_t beta, std::vector<m
  */
 
 int16_t reduction(int16_t score, int16_t current_ply) {
-    const int16_t RF = 200;
-    const uint16_t no_reduction = 2;
-
+    const int16_t RF = 200, no_reduction = 2;
     /** TODO: Update reduction formula as new features are added*/
 
     if (current_ply <= no_reduction) {
-        return current_ply - 1;
+        return current_ply - 1; // NOLINT
     }
     return std::max((int16_t) 0, (int16_t) (current_ply - std::max(1, abs(std::min(0, (score + RF - 1) / RF)))));
 }
@@ -307,7 +306,7 @@ int move_SEE(move_t move) {
  * @return returns whether or not the capture does not lose material
  */
 
-int SEE(int square) {
+int SEE(int square) { // NOLINT
     int see = 0;
     move_t lva_move = find_lva(square);
     if (lva_move.flag != PASS) {

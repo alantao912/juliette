@@ -22,7 +22,7 @@ void init_rook_attacks();
 void _init_rays();
 static uint64_t _init_bishop_attacks_helper(int square, uint64_t subset);
 static uint64_t _init_rook_attacks_helper(int square, uint64_t subset);
-static uint64_t _get_reverse_bb(uint64_t bb);
+uint64_t _get_reverse_bb(uint64_t bb);
 
 int gen_legal_moves(move_t* moves, bool color);
 int gen_legal_captures(move_t* moves, bool color);

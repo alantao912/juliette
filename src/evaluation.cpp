@@ -77,14 +77,6 @@ double eval_stats::compute_progression() {
     return ((double) phase) / Weights::TOTAL_PHASE;
 }
 
-inline uint64_t reverse_bb(uint64_t bb) {
-    bb = (bb & 0x5555555555555555) << 1 | (bb >> 1) & 0x5555555555555555;
-    bb = (bb & 0x3333333333333333) << 2 | (bb >> 2) & 0x3333333333333333;
-    bb = (bb & 0x0f0f0f0f0f0f0f0f) << 4 | (bb >> 4) & 0x0f0f0f0f0f0f0f0f;
-    bb = (bb & 0x00ff00ff00ff00ff) << 8 | (bb >> 8) & 0x00ff00ff00ff00ff;
-    return (bb << 48) | ((bb & 0xffff0000) << 16) | ((bb >> 16) & 0xffff0000) | (bb >> 48);
-}
-
 int32_t evaluate() {
     stats.reset();
     material_score();
@@ -162,7 +154,7 @@ inline void pawn_structure() {
     n = pop_count(get_pawn_attacks_setwise(BLACK) & board.b_pawns);
     stats.midgame_score -= n * CONNECTED_PAWN_BONUS;
     stats.endgame_score -= n * CONNECTED_PAWN_BONUS_E;
-    pawns = reverse_bb(board.b_pawns);
+    pawns = _get_reverse_bb(board.b_pawns);
     while (pawns) {
         int i = pull_lsb(&pawns);
         stats.midgame_score -= Weights::mg_pawn_psqt[i];
@@ -222,7 +214,7 @@ inline void knight_activity() {
     }
     stats.midgame_score += knights_ctrl / 3;
 
-    knights = reverse_bb(board.b_knights);
+    knights = _get_reverse_bb(board.b_knights);
     while (knights) {
         int i = pull_lsb(&knights);
         stats.midgame_score -= Weights::mg_knight_psqt[i];
@@ -273,7 +265,7 @@ inline void bishop_activity() {
         bishop_ctrl += Weights::board_ctrl_tb[i];
     }
     stats.midgame_score -= bishop_ctrl / 3;
-    bishops = reverse_bb(board.b_bishops);
+    bishops = _get_reverse_bb(board.b_bishops);
     while (bishops) {
         int i = pull_lsb(&bishops);
         stats.midgame_score -= Weights::mg_bishop_psqt[i];
@@ -321,7 +313,7 @@ inline void rook_activity() {
         rook_ctrl += Weights::board_ctrl_tb[i];
     }
     stats.midgame_score -= rook_ctrl / 5;
-    data = reverse_bb(board.b_rooks);
+    data = _get_reverse_bb(board.b_rooks);
     while (data) {
         int i = pull_lsb(&data);
         stats.midgame_score -= Weights::mg_rook_psqt[i];
@@ -384,7 +376,7 @@ inline void queen_activity() {
         queen_ctrl += Weights::board_ctrl_tb[i];
     }
     stats.midgame_score -= queen_ctrl / 9;
-    data = reverse_bb(board.b_queens);
+    data = _get_reverse_bb(board.b_queens);
     while (data) {
         int i = pull_lsb(&data);
         stats.midgame_score -= Weights::mg_queen_psqt[i];
@@ -398,7 +390,7 @@ void king_safety() {
     stats.endgame_score += Weights::eg_king_psqt[i];
 
 
-    i = get_lsb(reverse_bb(board.b_king));
+    i = get_lsb(_get_reverse_bb(board.b_king));
     stats.midgame_score -= Weights::mg_king_psqt[i];
     stats.endgame_score -= Weights::eg_king_psqt[i];
 }
