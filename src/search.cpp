@@ -84,7 +84,8 @@ static inline bool verify_repetition(uint64_t hash) {
  */
 
 static inline bool use_fprune(move_t cm, int16_t depth) {
-    return depth == 1 && cm.score < CHECK_SCORE && stack->prev_mv.score < CHECK_SCORE;
+    // return depth == -1 && cm.score < CHECK_SCORE && stack->prev_mv.score < CHECK_SCORE;
+    return false;
 }
 
 static inline bool contains_promotions() {
@@ -390,6 +391,14 @@ info_t search(int16_t depth) {
     std::vector<move_t> top_line;
     top_line.clear();
     int32_t evaluation = negamax(depth, MIN_SCORE, -MIN_SCORE, top_line);
-    info_t reply = {.score = (1 - 2 * (board.turn == BLACK)) * evaluation, .best_move = top_line.front()};
+    info_t reply = {.score = (1 - 2 * (board.turn == BLACK)) * evaluation, .best_move = NULL_MOVE};
+    if (!top_line.empty()) {
+        /** Not stalemate or checkmate */
+        reply.best_move = top_line.front();
+    } else if (abs(reply.score) == contempt) {
+        /** Stalemate */
+        reply.best_move.from = H8;
+        reply.best_move.to = H8;
+    }
     return reply;
 }

@@ -8,7 +8,6 @@
 #include <ws2tcpip.h>
 
 #include "uci.h"
-#include "coach.h"
 #include "stack.h"
 #include "movegen.h"
 #include "bitboard.h"
@@ -180,11 +179,11 @@ input_source source;
  */
 
 int main(int argc, char *argv[]) {
-    std::cout << "juliette:: \"hi, let's play chess!\"" << std::endl;
     init_bishop_attacks();
     init_rook_attacks();
     _init_rays();
     if (argc == 1) {
+        std::cout << "juliette:: \"hi, let's play chess!\"" << std::endl;
         /* If no options are provided */
         play_game();
         return 0;
@@ -195,6 +194,7 @@ int main(int argc, char *argv[]) {
     comm_mode communication_mode = UNDEFINED;
 
     if (strcmp(argv[1], "remote") == 0) {
+        std::cout << "juliette:: \"hi, let's play chess!\"" << std::endl;
         source = REMOTE;
         /* Engine is set to remote mode. Sending and receiving commands using sockets */
         while (true) {
@@ -243,6 +243,7 @@ int main(int argc, char *argv[]) {
             WSACleanup();
         }
     } else if (strcmp(argv[1], "cli") == 0) {
+        std::cout << "juliette:: \"hi, let's play chess!\"" << std::endl;
         /* Engine is set to CLI mode. Sending and receiving commands through stdout and stdin respectively. */
         source = STDIN;
         do {
@@ -287,10 +288,45 @@ int main(int argc, char *argv[]) {
                 std::cout << R"(juliette:: communication format not set, type "uci" to specify UCI communication protocol or type "comm" to see a list of communication protocol.)" << std::endl;
             }
         } while (strlen(recvbuf));
-    } else if (strcmp(argv[1], "coach") == 0) {
-        coach trainer(argv[2]);
+    } else if (strcmp(argv[1], "tune") == 0) {
+        init_board(START_POSITION);
 
-        trainer.save(argv[2]);
+        const char *move_seq = argv[2];
+        const std::size_t len = strlen(move_seq);
+        std::size_t i = 0;
+
+        move_t moves[MAX_MOVE_NUM];
+
+        while (i < len) {
+            const char src_file = move_seq[i] - 'a';
+            const char src_rank = move_seq[i + 1] - '1';
+
+            const char dest_file = move_seq[i + 2] - 'a';
+            const char dest_rank = move_seq[i + 3] - '1';
+
+            int n = gen_legal_moves(moves, board.turn);
+            int j;
+            for (j = 0; j < n; ++j) {
+                if (8 * src_rank + src_file == moves[j].from &&
+                8 * dest_rank + dest_file == moves[j].to) {
+                    make_move(moves[j]);
+                    break;
+                }
+            }
+            if (j == n) {
+                std::cout << (int) src_file << (int) src_rank << (int) dest_file << (int) dest_rank << std::flush;
+                return 0;
+            }
+            i += 4;
+        }
+        info_t reply = search(4);
+        if (reply.best_move.from == A1 && reply.best_move.to == A1) {
+            std::cout << "loss" << std::flush;
+        } else if (reply.best_move.from == H8 && reply.best_move.to == H8) {
+            std::cout << "draw" << std::flush;
+        } else {
+            print_move(reply.best_move);
+        }
     }
     return 0;
 }
