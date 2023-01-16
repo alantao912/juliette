@@ -141,7 +141,7 @@ int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) { // NOLINT
     }
 
     {
-        int big_delta = QUEEN_MATERIAL;
+        int big_delta = Weights::queen_material;
         if (contains_promotions()) {
             big_delta += 775;
         }
@@ -291,7 +291,7 @@ void order_moves(move_t moves[], int n) {
 
 int move_SEE(move_t move) {
     bitboard curr_board = board;
-    int score = PAWN_MATERIAL * (move.flag == EN_PASSANT) + piece_value(move.to);
+    int score = Weights::pawn_material * (move.flag == EN_PASSANT) + piece_value(move.to);
     make_move(move);
     if (move.flag >= PR_KNIGHT && move.flag <= PR_QUEEN) {
         score += piece_value(move.to);
@@ -301,13 +301,15 @@ int move_SEE(move_t move) {
     return score;
 }
 
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "misc-no-recursion"
 /**
  * Static exchange evaluation:
  * @param move a move that captures an opponent's piece
  * @return returns whether or not the capture does not lose material
  */
 
-int SEE(int square) { // NOLINT
+int SEE(int square) {
     int see = 0;
     move_t lva_move = find_lva(square);
     if (lva_move.flag != PASS) {
@@ -318,6 +320,7 @@ int SEE(int square) { // NOLINT
     }
     return see;
 }
+#pragma clang diagnostic pop
 
 move_t find_lva(int square) {
     move_t recaptures[MAX_ATTACK_NUM];
@@ -342,19 +345,19 @@ move_t find_lva(int square) {
  * @return the move_value of the piece moved in centipawns
  */
 
-int piece_value(int square) {
+inline int piece_value(int square) {
     char piece = (char) toupper(board.mailbox[square]);
     switch (piece) {
         case 'P':
-            return PAWN_MATERIAL;
+            return Weights::pawn_material;
         case 'N':
-            return KNIGHT_MATERIAL;
+            return Weights::knight_material;
         case 'B':
-            return BISHOP_MATERIAL;
+            return Weights::bishop_material;
         case 'R':
-            return ROOK_MATERIAL;
+            return Weights::rook_material;
         case 'Q':
-            return QUEEN_MATERIAL;
+            return Weights::queen_material;
         default:
             return 0;
     }
@@ -363,25 +366,25 @@ int piece_value(int square) {
 int move_value(move_t move) {
     switch (move.flag) {
         case EN_PASSANT:
-            return PAWN_MATERIAL;
+            return Weights::pawn_material;
         case CAPTURE:
             return piece_value(move.to);
         case PR_KNIGHT:
-            return KNIGHT_MATERIAL;
+            return Weights::knight_material;
         case PR_BISHOP:
-            return BISHOP_MATERIAL;
+            return Weights::bishop_material;
         case PR_ROOK:
-            return ROOK_MATERIAL;
+            return Weights::rook_material;
         case PR_QUEEN:
-            return QUEEN_MATERIAL;
+            return Weights::queen_material;
         case PC_KNIGHT:
-            return KNIGHT_MATERIAL + piece_value(move.to);
+            return Weights::knight_material + piece_value(move.to);
         case PC_BISHOP:
-            return BISHOP_MATERIAL + piece_value(move.to);
+            return Weights::bishop_material + piece_value(move.to);
         case PC_ROOK:
-            return ROOK_MATERIAL + piece_value(move.to);
+            return Weights::rook_material + piece_value(move.to);
         case PC_QUEEN:
-            return QUEEN_MATERIAL + piece_value(move.to);
+            return Weights::queen_material + piece_value(move.to);
         default:
             return 0;
     }

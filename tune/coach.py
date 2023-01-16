@@ -14,7 +14,7 @@ class Coach:
         i = 1
         print(str(i) + ". " + move)
         self.move_seq = move
-        while move != 'draw' and move != 'loss':
+        while move != 'draw ' and move != 'loss ':
             if p1_turn:
                 move = self.p1.send_move(self.move_seq)
             else:
@@ -23,7 +23,7 @@ class Coach:
             print(str(i) + ". " + move)
             p1_turn = not p1_turn
             self.move_seq += move
-        if move == 'draw':
+        if move == 'draw ':
             print('draw')
         elif p1_turn:
             print('black won')

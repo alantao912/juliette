@@ -25,7 +25,7 @@ void order_moves(move_t moves[], int n);
 int move_SEE(move_t move);
 int SEE(int square);
 move_t find_lva(int square);
-int piece_value(int square);
+inline int piece_value(int square);
 int move_value(move_t move);
 
 info_t search(int16_t depth);
