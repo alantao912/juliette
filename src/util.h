@@ -166,6 +166,8 @@ extern uint64_t BB_RAYS[64][64];
 extern uint64_t ZOBRIST_VALUES[781];
 
 extern const move_t NULL_MOVE;
+extern const move_t CHECKMATE;
+extern const move_t STALEMATE;
 extern const int MAX_MOVE_NUM;
 extern const int MAX_CAPTURE_NUM;
 extern const int MAX_ATTACK_NUM;

@@ -289,41 +289,64 @@ int main(int argc, char *argv[]) {
             }
         } while (strlen(recvbuf));
     } else if (strcmp(argv[1], "tune") == 0) {
+        initialize_zobrist();
         init_board(START_POSITION);
 
-        const char *move_seq = argv[2];
+        char *move_seq;
+        if (argc < 3) {
+            move_seq = new char;
+            *move_seq = (char) 0;
+        } else {
+            move_seq = argv[2];
+        }
         const std::size_t len = strlen(move_seq);
         std::size_t i = 0;
 
         move_t moves[MAX_MOVE_NUM];
-
+        printf("String Length: %d\n", len);
         while (i < len) {
+            std::cout << "Iteration" << std::endl;
             const char src_file = move_seq[i] - 'a';
             const char src_rank = move_seq[i + 1] - '1';
 
             const char dest_file = move_seq[i + 2] - 'a';
             const char dest_rank = move_seq[i + 3] - '1';
 
+            const char prom = move_seq[i + 4];
+
             int n = gen_legal_moves(moves, board.turn);
             int j;
             for (j = 0; j < n; ++j) {
-                if (8 * src_rank + src_file == moves[j].from &&
-                8 * dest_rank + dest_file == moves[j].to) {
-                    make_move(moves[j]);
-                    break;
+                if (8 * src_rank + src_file == moves[j].from && 8 * dest_rank + dest_file == moves[j].to) {
+                    if (prom == ' ') {
+                        make_move(moves[j]);
+                        break;
+                    } else if (prom == 'q' && (moves[j].flag == PC_QUEEN || moves[j].flag == PR_QUEEN)) {
+                        make_move(moves[j]);
+                        break;
+                    } else if (prom == 'r'&& (moves[j].flag == PC_ROOK || moves[j].flag == PR_ROOK)) {
+                        make_move(moves[j]);
+                        break;
+                    } else if (prom == 'b' && (moves[j].flag == PC_BISHOP || moves[j].flag == PR_BISHOP)) {
+                        make_move(moves[j]);
+                        break;
+                    } else if (prom == 'n' && (moves[j].flag == PC_KNIGHT || moves[j].flag == PR_KNIGHT)) {
+                        make_move(moves[j]);
+                        break;
+                    }
                 }
             }
             if (j == n) {
                 std::cout << (int) src_file << (int) src_rank << (int) dest_file << (int) dest_rank << std::flush;
                 return 0;
             }
-            i += 4;
+            i += 5;
         }
         info_t reply = search(4);
         if (reply.best_move.from == A1 && reply.best_move.to == A1) {
-            std::cout << "loss" << std::flush;
+            std::cout << "loss " << std::flush;
         } else if (reply.best_move.from == H8 && reply.best_move.to == H8) {
-            std::cout << "draw" << std::flush;
+            std::cout << "draw " << std::flush;
         } else {
             print_move(reply.best_move);
         }

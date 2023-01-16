@@ -84,8 +84,8 @@ static inline bool verify_repetition(uint64_t hash) {
  */
 
 static inline bool use_fprune(move_t cm, int16_t depth) {
-    // return depth == -1 && cm.score < CHECK_SCORE && stack->prev_mv.score < CHECK_SCORE;
     return false;
+    return depth == 1 && cm.score < CHECK_SCORE && stack->prev_mv.score < CHECK_SCORE;
 }
 
 static inline bool contains_promotions() {
@@ -243,7 +243,7 @@ static int32_t negamax(int16_t depth, int32_t alpha, int32_t beta, std::vector<m
             goto PRUNE;
         }
     }
-    /** Propogates up the principal variation */
+    /** Propagates up the principal variation */
     for (move_t m : variations[pv_index]) {
         mv_hst.push_back(m);
     }
@@ -397,8 +397,10 @@ info_t search(int16_t depth) {
         reply.best_move = top_line.front();
     } else if (abs(reply.score) == contempt) {
         /** Stalemate */
-        reply.best_move.from = H8;
-        reply.best_move.to = H8;
+        reply.best_move = STALEMATE;
+    } else {
+        /** Checkmate */
+        reply.best_move = CHECKMATE;
     }
     return reply;
 }

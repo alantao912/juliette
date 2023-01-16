@@ -2,41 +2,41 @@
 
 #include <cstdint>
 
-#define QUEEN_MATERIAL 975
-#define ROOK_MATERIAL 500
-#define BISHOP_MATERIAL 325
-#define KNIGHT_MATERIAL 300
-#define PAWN_MATERIAL 100
-
-#define QUEEN_MATERIAL_E 950
-#define ROOK_MATERIAL_E 550
-#define BISHOP_MATERIAL_E 325
-#define KNIGHT_MATERIAL_E 275
-#define PAWN_MATERIAL_E 115
-
-#define CONNECTED_PAWN_BONUS 2
-#define CONNECTED_PAWN_BONUS_E 3
-
-#define DOUBLED_PAWN_PENALTY 20
-#define DOUBLED_PAWN_PENALTY_E 20
-
-#define CONNECTED_ROOK_BONUS 20
-#define CONNECTED_ROOK_BONUS_E 40
-
-#define QR_BATTERY  20
-#define QR_BATTERY_E 10
-
-#define QB_BATTERY   5
-#define QB_BATTERY_E 20
-
-#define KING_THREAT 35
-#define KING_THREAT_E 15
-
-#define CENTRALIZED_KING 2
-
 #define DELTA_MARGIN 200
 
 namespace Weights {
+
+    const int32_t queen_material  = 975;
+    const int32_t rook_material   = 500;
+    const int32_t bishop_material = 325;
+    const int32_t knight_material = 300;
+    const int32_t pawn_material   = 100;
+
+    const int32_t queen_material_eg  = 950;
+    const int32_t rook_material_eg   = 550;
+    const int32_t bishop_material_eg = 325;
+    const int32_t knight_material_eg = 275;
+    const int32_t pawn_material_eg   = 115;
+
+    const int32_t connected_pawns    = 2;
+    const int32_t connected_pawns_eg = 3;
+
+    const int32_t doubled_pawn_penalty   = 20;
+    const int32_t doubled_pawn_penalty_eg = 20;
+
+    const int32_t connected_rook_bonus    = 20;
+    const int32_t connected_rook_bonus_eg = 20;
+
+    const int32_t qr_battery    = 20;
+    const int32_t qr_battery_eg = 10;
+
+    const int32_t qb_battery = 5;
+    const int32_t qb_battery_eg = 7;
+
+    const int32_t king_threat = 35;
+    const int32_t king_threat_eg = 15;
+
+    const int32_t centralized_king = 2;
 
     const int32_t board_ctrl_tb[64] = {
         1, 1, 1, 2, 2, 1, 1, 1,

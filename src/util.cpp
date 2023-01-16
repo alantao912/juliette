@@ -83,6 +83,8 @@ uint64_t ZOBRIST_VALUES[781];
 extern bitboard board;
 
 const move_t NULL_MOVE = {A1, A1, PASS};
+const move_t CHECKMATE = NULL_MOVE;
+const move_t STALEMATE = {H8, H8, PASS};
 
 /** Maximum number of legal moves in a given position */
 const int MAX_MOVE_NUM = 218;
@@ -269,6 +271,7 @@ void print_move(move_t move) {
             std::cout << 'n';
             break;
         default:
+            std::cout << ' ';
             break;
     }
 }
