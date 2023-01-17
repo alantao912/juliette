@@ -95,43 +95,43 @@ int32_t evaluate() {
 inline void material_score() {
     /** White Material Score */
     int n = pop_count(board.w_pawns);
-    stats.midgame_score += n * Weights::pawn_material;
-    stats.endgame_score += n * Weights::pawn_material_eg;
+    stats.midgame_score += n * Weights::PAWN_MATERIAL;
+    stats.endgame_score += n * Weights::PAWN_MATERIAL_EG;
     n = pop_count(board.w_knights);
-    stats.midgame_score += n * Weights::knight_material;
-    stats.endgame_score += n * Weights::knight_material_eg;
+    stats.midgame_score += n * Weights::KNIGHT_MATERIAL;
+    stats.endgame_score += n * Weights::KNIGHT_MATERIAL_EG;
     n = pop_count(board.w_bishops);
-    stats.midgame_score += n * Weights::bishop_material;
-    stats.endgame_score += n * Weights::bishop_material_eg;
+    stats.midgame_score += n * Weights::BISHOP_MATERIAL;
+    stats.endgame_score += n * Weights::BISHOP_MATERIAL_EG;
     n = pop_count(board.w_rooks);
-    stats.midgame_score += n * Weights::rook_material;
-    stats.endgame_score += n * Weights::rook_material_eg;
+    stats.midgame_score += n * Weights::ROOK_MATERIAL;
+    stats.endgame_score += n * Weights::ROOK_MATERIAL_EG;
     n = pop_count(board.w_queens);
-    stats.midgame_score += n * Weights::queen_material;
-    stats.endgame_score += n * Weights::queen_material_eg;
+    stats.midgame_score += n * Weights::QUEEN_MATERIAL;
+    stats.endgame_score += n * Weights::QUEEN_MATERIAL_EG;
 
     /** Black material score */
     n = pop_count(board.b_pawns);
-    stats.midgame_score -= n * Weights::pawn_material;
-    stats.endgame_score -= n * Weights::pawn_material_eg;
+    stats.midgame_score -= n * Weights::PAWN_MATERIAL;
+    stats.endgame_score -= n * Weights::PAWN_MATERIAL_EG;
     n = pop_count(board.b_knights);
-    stats.midgame_score -= n * Weights::knight_material;
-    stats.endgame_score -= n * Weights::knight_material_eg;
+    stats.midgame_score -= n * Weights::KNIGHT_MATERIAL;
+    stats.endgame_score -= n * Weights::KNIGHT_MATERIAL_EG;
     n = pop_count(board.b_bishops);
-    stats.midgame_score -= n * Weights::bishop_material;
-    stats.endgame_score -= n * Weights::bishop_material_eg;
+    stats.midgame_score -= n * Weights::BISHOP_MATERIAL;
+    stats.endgame_score -= n * Weights::BISHOP_MATERIAL_EG;
     n = pop_count(board.b_rooks);
-    stats.midgame_score -= n * Weights::rook_material;
-    stats.endgame_score -= n * Weights::rook_material_eg;
+    stats.midgame_score -= n * Weights::ROOK_MATERIAL;
+    stats.endgame_score -= n * Weights::ROOK_MATERIAL_EG;
     n = pop_count(board.b_queens);
-    stats.midgame_score -= n * Weights::queen_material;
-    stats.endgame_score -= n * Weights::queen_material_eg;
+    stats.midgame_score -= n * Weights::QUEEN_MATERIAL;
+    stats.endgame_score -= n * Weights::QUEEN_MATERIAL_EG;
 }
 
 inline void pawn_structure() {
     int n = pop_count(get_pawn_attacks_setwise(WHITE) & board.w_pawns);
-    stats.midgame_score += n * Weights::connected_pawns;
-    stats.endgame_score += n * Weights::connected_pawns_eg;
+    stats.midgame_score += n * Weights::CONNECTED_PAWNS;
+    stats.endgame_score += n * Weights::CONNECTED_PAWNS_EG;
     uint64_t pawns = board.w_pawns;
     while (pawns) {
         int i = pull_lsb(&pawns);
@@ -141,8 +141,8 @@ inline void pawn_structure() {
     pawns = get_pawn_attacks_setwise(WHITE);
 
     n = pop_count(pawns & stats.b_king_vulnerabilities);
-    stats.midgame_score += n * Weights::king_threat;
-    stats.endgame_score += n * Weights::king_threat_eg;
+    stats.midgame_score += n * Weights::KING_THREAT;
+    stats.endgame_score += n * Weights::KING_THREAT_EG;
 
     int32_t pawn_ctrl = 0;
     while (pawns) {
@@ -152,8 +152,8 @@ inline void pawn_structure() {
     stats.midgame_score += pawn_ctrl;
 
     n = pop_count(get_pawn_attacks_setwise(BLACK) & board.b_pawns);
-    stats.midgame_score -= n * Weights::connected_pawns;
-    stats.endgame_score -= n * Weights::connected_pawns_eg;
+    stats.midgame_score -= n * Weights::CONNECTED_PAWNS;
+    stats.endgame_score -= n * Weights::CONNECTED_PAWNS_EG;
     pawns = _get_reverse_bb(board.b_pawns);
     while (pawns) {
         int i = pull_lsb(&pawns);
@@ -163,8 +163,8 @@ inline void pawn_structure() {
     pawns = get_pawn_attacks_setwise(BLACK);
 
     n = pop_count(pawns & stats.w_king_vulnerabilities);
-    stats.midgame_score -= n * Weights::king_threat;
-    stats.endgame_score -= n * Weights::king_threat_eg;
+    stats.midgame_score -= n * Weights::KING_THREAT;
+    stats.endgame_score -= n * Weights::KING_THREAT_EG;
 
     pawn_ctrl = 0;
     while (pawns) {
@@ -179,16 +179,16 @@ inline void doubled_pawns() {
     for (int i = 0; i < 8; ++i) {
         /** Calculates the number of pawns of pawns in a file - 1 and penalizes accordingly */
         int n = std::max(pop_count(board.w_pawns & mask) - 1, 0);
-        stats.midgame_score -= n * Weights::doubled_pawn_penalty;
-        stats.endgame_score -= n * Weights::doubled_pawn_penalty_eg;
+        stats.midgame_score -= n * Weights::DOUBLED_PAWN_PENALTY;
+        stats.endgame_score -= n * Weights::DOUBLED_PAWN_PENALTY_EG;
         /** Shifts bitmask one file right */
         mask <<= 1;
     }
     mask = BB_FILE_A;
     for (int i = 0; i < 8; ++i) {
         int n = std::max((pop_count(board.b_pawns & mask) - 1), 0);
-        stats.midgame_score += n * Weights::doubled_pawn_penalty;
-        stats.endgame_score += n * Weights::doubled_pawn_penalty_eg;
+        stats.midgame_score += n * Weights::DOUBLED_PAWN_PENALTY;
+        stats.endgame_score += n * Weights::DOUBLED_PAWN_PENALTY_EG;
         mask <<= 1;
     }
 }
@@ -204,8 +204,8 @@ inline void knight_activity() {
     knights = get_knight_mask_setwise(board.w_knights);
 
     int n = pop_count(knights & stats.b_king_vulnerabilities);
-    stats.midgame_score += n * Weights::king_threat;
-    stats.endgame_score += n * Weights::king_threat_eg;
+    stats.midgame_score += n * Weights::KING_THREAT;
+    stats.endgame_score += n * Weights::KING_THREAT_EG;
 
     int32_t knights_ctrl = 0;
     while (knights) {
@@ -223,8 +223,8 @@ inline void knight_activity() {
     knights = get_knight_mask_setwise(board.b_knights);
 
     n = pop_count(knights & stats.w_king_vulnerabilities);
-    stats.midgame_score -= n * Weights::king_threat;
-    stats.endgame_score -= n * Weights::king_threat_eg;
+    stats.midgame_score -= n * Weights::KING_THREAT;
+    stats.endgame_score -= n * Weights::KING_THREAT_EG;
 
     knights_ctrl = 0;
     while (knights) {
@@ -238,8 +238,8 @@ inline void bishop_activity() {
     uint64_t data = get_bishop_rays_setwise(board.w_bishops, ~board.occupied);
 
     int n = pop_count(data & stats.b_king_vulnerabilities);
-    stats.midgame_score += n * Weights::king_threat;
-    stats.endgame_score += n * Weights::king_threat_eg;
+    stats.midgame_score += n * Weights::KING_THREAT;
+    stats.endgame_score += n * Weights::KING_THREAT_EG;
 
     int32_t bishop_ctrl = 0;
     while (data) {
@@ -256,8 +256,8 @@ inline void bishop_activity() {
     data = get_bishop_rays_setwise(board.b_bishops, ~board.occupied);
 
     n = pop_count(data & stats.w_king_vulnerabilities);
-    stats.midgame_score -= n * Weights::king_threat;
-    stats.endgame_score -= n * Weights::king_threat_eg;
+    stats.midgame_score -= n * Weights::KING_THREAT;
+    stats.endgame_score -= n * Weights::KING_THREAT_EG;
 
     bishop_ctrl = 0;
     while (data) {
@@ -277,12 +277,12 @@ inline void rook_activity() {
     uint64_t data = get_rook_rays_setwise(board.w_rooks, ~(board.occupied ^ board.w_rooks));
     /** Detection of connected rooks */
     int n = std::max((pop_count(data & board.w_rooks) - 1), 0);
-    stats.midgame_score += n * Weights::connected_rook_bonus;
-    stats.endgame_score += n * Weights::connected_rook_bonus_eg;
+    stats.midgame_score += n * Weights::CONNECTED_ROOK_BONUS;
+    stats.endgame_score += n * Weights::CONNECTED_ROOK_BONUS_EG;
 
     n = pop_count(data & stats.b_king_vulnerabilities);
-    stats.midgame_score += n * Weights::king_threat;
-    stats.endgame_score += n * Weights::king_threat_eg;
+    stats.midgame_score += n * Weights::KING_THREAT;
+    stats.endgame_score += n * Weights::KING_THREAT_EG;
 
     /** Evaluates board-control by rooks using the guard-heuristic.*/
     int32_t rook_ctrl = 0;
@@ -300,12 +300,12 @@ inline void rook_activity() {
     /** The following repeats the same evaluation for black*/
     data = get_rook_rays_setwise(board.b_rooks, ~(board.occupied ^ board.b_rooks));
     n = std::max(pop_count(data & board.b_rooks) - 1, 0);
-    stats.midgame_score -= n * Weights::connected_rook_bonus;
-    stats.endgame_score -= n * Weights::connected_rook_bonus_eg;
+    stats.midgame_score -= n * Weights::CONNECTED_ROOK_BONUS;
+    stats.endgame_score -= n * Weights::CONNECTED_ROOK_BONUS_EG;
 
     n = pop_count(data & stats.w_king_vulnerabilities);
-    stats.midgame_score -= n * Weights::king_threat;
-    stats.endgame_score -= n * Weights::king_threat_eg;
+    stats.midgame_score -= n * Weights::KING_THREAT;
+    stats.endgame_score -= n * Weights::KING_THREAT_EG;
 
     rook_ctrl = 0;
     while (data) {
@@ -329,17 +329,17 @@ inline void queen_activity() {
 
     /** Detects Queen-Rook batteries. */
     int n = std::max(pop_count(data & board.w_rooks) - 1, 0);
-    stats.midgame_score += n * Weights::qr_battery;
-    stats.endgame_score += n * Weights::qr_battery_eg;
+    stats.midgame_score += n * Weights::QR_BATTERY;
+    stats.endgame_score += n * Weights::QR_BATTERY_EG;
 
     /** Detects Queen-Bishop batteries. */
     n = std::max(pop_count(data & board.w_bishops) - 1, 0);
-    stats.midgame_score += n * Weights::qb_battery;
-    stats.endgame_score += n * Weights::qb_battery_eg;
+    stats.midgame_score += n * Weights::QB_BATTERY;
+    stats.endgame_score += n * Weights::QB_BATTERY_EG;
 
     n = pop_count(data & stats.b_king_vulnerabilities);
-    stats.midgame_score += n * Weights::king_threat;
-    stats.endgame_score += n * Weights::king_threat_eg;
+    stats.midgame_score += n * Weights::KING_THREAT;
+    stats.endgame_score += n * Weights::KING_THREAT_EG;
 
     /** Evaluates board-control by queens using the guard-heuristic.*/
     int32_t queen_ctrl = 0;
@@ -359,16 +359,16 @@ inline void queen_activity() {
     /** Following code duplicates the above functionality for black */
     data = get_queen_rays_setwise(board.b_queens, (~board.occupied ^ board.b_queens ^ board.b_rooks ^ board.b_bishops));
     n = std::max(pop_count(data & board.b_rooks) - 1, 0);
-    stats.midgame_score -= n * Weights::qr_battery;
-    stats.endgame_score -= n * Weights::qr_battery_eg;
+    stats.midgame_score -= n * Weights::QR_BATTERY;
+    stats.endgame_score -= n * Weights::QR_BATTERY_EG;
 
     n = std::max(pop_count(data & board.b_bishops) - 1, 0);
-    stats.midgame_score -= n * Weights::qb_battery;
-    stats.endgame_score -= n * Weights::qb_battery_eg;
+    stats.midgame_score -= n * Weights::QB_BATTERY;
+    stats.endgame_score -= n * Weights::QB_BATTERY_EG;
 
     n = pop_count(data & stats.w_king_vulnerabilities);
-    stats.midgame_score -= n * Weights::king_threat;
-    stats.endgame_score -= n * Weights::king_threat_eg;
+    stats.midgame_score -= n * Weights::KING_THREAT;
+    stats.endgame_score -= n * Weights::KING_THREAT_EG;
 
     queen_ctrl = 0;
     while (data) {
@@ -400,12 +400,12 @@ void king_mobility() {
 
     w_file = std::min(w_file, 7 - w_file);
     w_rank = std::min(w_rank, 7 - w_rank);
-    stats.endgame_score += ((w_file * w_file) + (w_rank * w_rank)) * Weights::centralized_king;
+    stats.endgame_score += ((w_file * w_file) + (w_rank * w_rank)) * Weights::CENTRALIZED_KING;
 
     int b_file = board.b_king_square % 8, b_rank = board.b_king_square / 8;
     b_file = std::min(b_file, 7 - b_file);
     b_rank = std::min(b_rank, 7 - b_rank);
-    stats.endgame_score -= ((b_file * b_file) + (b_rank * b_rank)) * Weights::centralized_king;
+    stats.endgame_score -= ((b_file * b_file) + (b_rank * b_rank)) * Weights::CENTRALIZED_KING;
 
     // TODO: Implement opposition detection. Direct opposition, Distant opposition, Diagonal Opposition
 

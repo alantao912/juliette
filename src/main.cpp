@@ -303,9 +303,7 @@ int main(int argc, char *argv[]) {
         std::size_t i = 0;
 
         move_t moves[MAX_MOVE_NUM];
-        printf("String Length: %d\n", len);
         while (i < len) {
-            std::cout << "Iteration" << std::endl;
             const char src_file = move_seq[i] - 'a';
             const char src_rank = move_seq[i + 1] - '1';
 

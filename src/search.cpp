@@ -24,7 +24,7 @@ const int16_t qsearch_lim = 4;
 const int32_t contempt = 0;
 
 #define MIN_SCORE (INT32_MIN + 1000)
-#define CHECKMATE(depth) ((MIN_SCORE + 1) + (UINT16_MAX - depth))
+#define CHECKMATE(depth) (MIN_SCORE + INT16_MAX - depth)
 #define DRAW (int32_t) contempt;
 
 
@@ -141,7 +141,7 @@ int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) { // NOLINT
     }
 
     {
-        int big_delta = Weights::queen_material;
+        int big_delta = Weights::QUEEN_MATERIAL;
         if (contains_promotions()) {
             big_delta += 775;
         }
@@ -177,6 +177,8 @@ int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) { // NOLINT
     return alpha;
 }
 
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "misc-no-recursion"
 /**
  * @brief Returns an integer move_value, representing the evaluation of the specified turn.
  *
@@ -184,9 +186,9 @@ int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) { // NOLINT
  * @param beta: Maximum score that the minimizing player is assured of.
  */
 
-static int32_t negamax(int16_t depth, int32_t alpha, int32_t beta, std::vector<move_t> &mv_hst) { // NOLINT
+static int32_t negamax(int16_t depth, int32_t alpha, int32_t beta, std::vector<move_t> &mv_hst) {
     const int32_t original_alpha = alpha;
-    std::unordered_map<uint64_t, TTEntry>::iterator t = transposition_table.find(board.hash_code); // NOLINT
+    std::unordered_map<uint64_t, TTEntry>::iterator t = transposition_table.find(board.hash_code); //NO-LINT
     if (t != transposition_table.end() && t->second.depth >= depth) {
         const TTEntry &tt_entry = t->second;
         switch (tt_entry.flag) {
@@ -263,6 +265,7 @@ static int32_t negamax(int16_t depth, int32_t alpha, int32_t beta, std::vector<m
     }
     return score;
 }
+#pragma clang diagnostic pop
 
 /**
  * Implements Late Move Reduction for moves with negative SEE.
@@ -286,12 +289,11 @@ void order_moves(move_t moves[], int n) {
         moves[i].compute_score();
     }
     std::sort(moves, moves + n);
-
 }
 
 int move_SEE(move_t move) {
     bitboard curr_board = board;
-    int score = Weights::pawn_material * (move.flag == EN_PASSANT) + piece_value(move.to);
+    int score = Weights::PAWN_MATERIAL * (move.flag == EN_PASSANT) + piece_value(move.to);
     make_move(move);
     if (move.flag >= PR_KNIGHT && move.flag <= PR_QUEEN) {
         score += piece_value(move.to);
@@ -345,19 +347,19 @@ move_t find_lva(int square) {
  * @return the move_value of the piece moved in centipawns
  */
 
-inline int piece_value(int square) {
+int piece_value(int square) {
     char piece = (char) toupper(board.mailbox[square]);
     switch (piece) {
         case 'P':
-            return Weights::pawn_material;
+            return Weights::PAWN_MATERIAL;
         case 'N':
-            return Weights::knight_material;
+            return Weights::KNIGHT_MATERIAL;
         case 'B':
-            return Weights::bishop_material;
+            return Weights::BISHOP_MATERIAL;
         case 'R':
-            return Weights::rook_material;
+            return Weights::ROOK_MATERIAL;
         case 'Q':
-            return Weights::queen_material;
+            return Weights::QUEEN_MATERIAL;
         default:
             return 0;
     }
@@ -366,25 +368,25 @@ inline int piece_value(int square) {
 int move_value(move_t move) {
     switch (move.flag) {
         case EN_PASSANT:
-            return Weights::pawn_material;
+            return Weights::PAWN_MATERIAL;
         case CAPTURE:
             return piece_value(move.to);
         case PR_KNIGHT:
-            return Weights::knight_material;
+            return Weights::KNIGHT_MATERIAL;
         case PR_BISHOP:
-            return Weights::bishop_material;
+            return Weights::BISHOP_MATERIAL;
         case PR_ROOK:
-            return Weights::rook_material;
+            return Weights::ROOK_MATERIAL;
         case PR_QUEEN:
-            return Weights::queen_material;
+            return Weights::QUEEN_MATERIAL;
         case PC_KNIGHT:
-            return Weights::knight_material + piece_value(move.to);
+            return Weights::KNIGHT_MATERIAL + piece_value(move.to);
         case PC_BISHOP:
-            return Weights::bishop_material + piece_value(move.to);
+            return Weights::BISHOP_MATERIAL + piece_value(move.to);
         case PC_ROOK:
-            return Weights::rook_material + piece_value(move.to);
+            return Weights::ROOK_MATERIAL + piece_value(move.to);
         case PC_QUEEN:
-            return Weights::queen_material + piece_value(move.to);
+            return Weights::QUEEN_MATERIAL + piece_value(move.to);
         default:
             return 0;
     }

@@ -93,7 +93,7 @@ const int MAX_CAPTURE_NUM = 74;
 /** Maximum number of attacks on a single square */
 const int MAX_ATTACK_NUM = 16;
 /** Score added to a move's "interestingness" if it gives check. */
-const int CHECK_SCORE = 20000;
+const int CHECK_SCORE = 10000;
 
 bool move_t::operator <(const move_t &other) const {
     return score > other.score;
@@ -106,31 +106,31 @@ void move_t::compute_score() {
     }
     switch (flag) {
         case PC_QUEEN:
-            score += QUEEN_MATERIAL + (int16_t) piece_value(to);
+            score += Weights::QUEEN_MATERIAL + (int16_t) piece_value(to);
             break;
         case PC_ROOK:
-            score += ROOK_MATERIAL + (int16_t) piece_value(to);
+            score += Weights::ROOK_MATERIAL + (int16_t) piece_value(to);
             break;
         case PC_BISHOP:
-            score += BISHOP_MATERIAL + (int16_t) piece_value(to);
+            score += Weights::BISHOP_MATERIAL + (int16_t) piece_value(to);
             break;
         case PC_KNIGHT:
-            score += KNIGHT_MATERIAL + (int16_t) piece_value(to);
+            score += Weights::KNIGHT_MATERIAL + (int16_t) piece_value(to);
             break;
         case PR_QUEEN:
-            score += QUEEN_MATERIAL;
+            score += Weights::QUEEN_MATERIAL;
             break;
         case PR_ROOK:
-            score += ROOK_MATERIAL;
+            score += Weights::ROOK_MATERIAL;
             break;
         case PR_BISHOP:
-            score += BISHOP_MATERIAL;
+            score += Weights::BISHOP_MATERIAL;
             break;
         case PR_KNIGHT:
-            score += KNIGHT_MATERIAL;
+            score += Weights::KNIGHT_MATERIAL;
             break;
         case CASTLING:
-            score += 100;
+            score += 400;
             break;
         case CAPTURE:
             if (piece_value(from) < piece_value(to)) {
