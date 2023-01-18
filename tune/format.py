@@ -43,7 +43,7 @@ def evaluate(expr: str) -> int:
         return int(expr)
 
 
-def generate_template(path: str) -> str:
+def generate_psqt_template(path: str) -> str:
     template = open_src(path)
     tokens: List[str] = re.split(' |,', template)
     i: int = 1
@@ -88,8 +88,8 @@ def fill_displacements(fmt: str, delim_symb: str, vector: List[int]):
 
 
 if __name__ == '__main__':
-    template = generate_template('data\\weights0.h')
-    template = fill_displacements(template, '%d', [1, 2, 3])
-    write_to('psqt_template.txt', template)
+    # template = generate_psqt_template('data\\weights0.h')
+    # template = fill_displacements(template, '%d', [1, 2, 3])
+    # write_to('psqt_template.txt', template)
 
 # IDE Likes New Line at EOF
