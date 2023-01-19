@@ -33,8 +33,8 @@ namespace Weights {
     const int32_t QB_BATTERY = 5;
     const int32_t QB_BATTERY_EG = 7;
 
-    const int32_t KING_THREAT = 35;
-    const int32_t KING_THREAT_EG = 15;
+    const int32_t KING_THREAT = 16;
+    const int32_t KING_THREAT_EG = 7;
 
     const int32_t CENTRALIZED_KING = 2;
 
@@ -125,7 +125,7 @@ namespace Weights {
             -33, -3, -14, -21, -13, -12, -39, -21,
             4, 15, 16, 0, 7, 21, 33, 1,
             0, 15, 15, 13, 14, 27, 18, 10,
-            -6, 13, 15, 26, 34, 12, 10, 4,
+            -6, 13, 15, 26, 34, 17, 10, 4,
             -4, 5, 19, 50, 37, 37, 7, -2,
             -16, 37, 43, 40, 35, 50, 37, -2,
             -26, 16, -18, -13, 30, 59, 18, -47,

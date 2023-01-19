@@ -53,8 +53,10 @@ const uint64_t BB_DIAGONAL_12 = 0x804020100000000;
 const uint64_t BB_DIAGONAL_13 = 0x402010000000000;
 const uint64_t BB_DIAGONAL_14 = 0x201000000000000;
 const uint64_t BB_DIAGONAL_15 = 0x100000000000000;
-const uint64_t BB_DIAGONALS[15] = {BB_DIAGONAL_1, BB_DIAGONAL_2, BB_DIAGONAL_3, BB_DIAGONAL_4, BB_DIAGONAL_5, BB_DIAGONAL_6,
-                                   BB_DIAGONAL_7, BB_DIAGONAL_8, BB_DIAGONAL_9, BB_DIAGONAL_10, BB_DIAGONAL_11, BB_DIAGONAL_12,
+const uint64_t BB_DIAGONALS[15] = {BB_DIAGONAL_1, BB_DIAGONAL_2, BB_DIAGONAL_3, BB_DIAGONAL_4, BB_DIAGONAL_5,
+                                   BB_DIAGONAL_6,
+                                   BB_DIAGONAL_7, BB_DIAGONAL_8, BB_DIAGONAL_9, BB_DIAGONAL_10, BB_DIAGONAL_11,
+                                   BB_DIAGONAL_12,
                                    BB_DIAGONAL_13, BB_DIAGONAL_14, BB_DIAGONAL_15};
 
 const uint64_t BB_ANTI_DIAGONAL_1 = 0x1; // Numbered from lower left to upper right
@@ -72,8 +74,10 @@ const uint64_t BB_ANTI_DIAGONAL_12 = 0x1020408000000000;
 const uint64_t BB_ANTI_DIAGONAL_13 = 0x2040800000000000;
 const uint64_t BB_ANTI_DIAGONAL_14 = 0x4080000000000000;
 const uint64_t BB_ANTI_DIAGONAL_15 = 0x8000000000000000;
-const uint64_t BB_ANTI_DIAGONALS[15] = {BB_ANTI_DIAGONAL_1, BB_ANTI_DIAGONAL_2, BB_ANTI_DIAGONAL_3, BB_ANTI_DIAGONAL_4, BB_ANTI_DIAGONAL_5, BB_ANTI_DIAGONAL_6,
-                                        BB_ANTI_DIAGONAL_7, BB_ANTI_DIAGONAL_8, BB_ANTI_DIAGONAL_9, BB_ANTI_DIAGONAL_10, BB_ANTI_DIAGONAL_11, BB_ANTI_DIAGONAL_12,
+const uint64_t BB_ANTI_DIAGONALS[15] = {BB_ANTI_DIAGONAL_1, BB_ANTI_DIAGONAL_2, BB_ANTI_DIAGONAL_3, BB_ANTI_DIAGONAL_4,
+                                        BB_ANTI_DIAGONAL_5, BB_ANTI_DIAGONAL_6,
+                                        BB_ANTI_DIAGONAL_7, BB_ANTI_DIAGONAL_8, BB_ANTI_DIAGONAL_9, BB_ANTI_DIAGONAL_10,
+                                        BB_ANTI_DIAGONAL_11, BB_ANTI_DIAGONAL_12,
                                         BB_ANTI_DIAGONAL_13, BB_ANTI_DIAGONAL_14, BB_ANTI_DIAGONAL_15};
 
 uint64_t BB_RAYS[64][64];
@@ -83,7 +87,7 @@ uint64_t ZOBRIST_VALUES[781];
 extern bitboard board;
 
 const move_t NULL_MOVE = {A1, A1, PASS};
-const move_t CHECKMATE = NULL_MOVE;
+const move_t CHECK_MATE = NULL_MOVE;
 const move_t STALEMATE = {H8, H8, PASS};
 
 /** Maximum number of legal moves in a given position */
@@ -95,7 +99,7 @@ const int MAX_ATTACK_NUM = 16;
 /** Score added to a move's "interestingness" if it gives check. */
 const int CHECK_SCORE = 10000;
 
-bool move_t::operator <(const move_t &other) const {
+bool move_t::operator<(const move_t &other) const {
     return score > other.score;
 };
 
@@ -172,7 +176,7 @@ void set_bit(uint64_t *bb, int square) {
  * @param bb the bitboard.
  * @param square
  */
-void clear_bit(uint64_t* bb, int square) {
+void clear_bit(uint64_t *bb, int square) {
     *bb &= ~(1ULL << square);
 }
 
@@ -204,7 +208,7 @@ int anti_diagonal_of(int square) {
     return rank_of(square) + file_of(square);
 }
 
-int pull_lsb(uint64_t* bb) {
+int pull_lsb(uint64_t *bb) {
     int square = get_lsb(*bb);
     *bb &= *bb - 1;
     return square;
@@ -248,7 +252,7 @@ int parse_piece(char piece) {
 }
 
 void print_move(move_t move) {
-    std::cout << (char) ( 'a' + file_of(move.from));
+    std::cout << (char) ('a' + file_of(move.from));
     std::cout << (rank_of(move.from) + 1);
     std::cout << (char) ('a' + file_of(move.to));
     std::cout << (rank_of(move.to) + 1);

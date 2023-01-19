@@ -1,6 +1,39 @@
+import time
+
 from engine import engine_factory
 from engine import source_dir
 from format import *
+
+
+def load_game(index: int) -> str:
+    os.chdir(tune_dir)
+    tests = open('test_suite', 'r')
+    for i in range(index):
+        tests.readline()
+    return tests.readline()
+
+
+def parse_game(game_str: str) -> (str, str):
+    o_brace: int = game_str.index('[') + 1
+    c_brace: int = game_str.index('] ')
+    return game_str[o_brace:c_brace:1] + ' ', game_str[c_brace + len('] '):]
+
+
+def init_game_log(opening: str) -> str:
+    move_num: int = 1
+    log = ""
+
+    for move in opening.split():
+        log += str(move_num) + '. ' + move + '\n'
+        move_num += 1
+    return log
+
+
+def save_game_log(game_log: str, opening: str) -> None:
+    file_buff = "Opening: " + opening + '\n'
+    file_buff += game_log.replace('\n', '\n\t')
+    title = "Game - " + str(time.time())
+    write_to('games\\' + title, file_buff)
 
 
 class Coach:
@@ -23,6 +56,8 @@ class Coach:
         os.chdir(tune_dir + '\\data')
         files = os.listdir()
         for file in files:
+            if '.exe' in file:
+                continue
             version = int(file.replace(self.prefix, '', 1).replace(self.suffix, '', 1))
             max_version = max(max_version, version)
         return max_version
@@ -82,10 +117,49 @@ class Coach:
 
     """
         :Description: Generates a test 
+        
+        :return: Change in elo from 1000 of p1 against p0. Assuming both p1 and p0 are 1000 rated to start off.
     """
 
     def test(self) -> int:
         self.p1 = engine_factory()
+        test_num: int = 0
+
+        # p0 moves first, is white.
+        p0_wins: int = 0
+        p1_wins: int = 0
+        draws: int = 0
+        game_str: str = load_game(test_num)
+        while len(game_str) != 0:
+            self.move_seq, opening_name = parse_game(game_str)
+            print('Opening: ' + opening_name)
+            game_log, outcome = self.__play()
+            save_game_log(game_log, opening_name)
+            if outcome == 1:
+                p0_wins += 1
+            elif outcome == -1:
+                p1_wins += 1
+            else:
+                draws += 1
+            print(opening_name + " " + str(outcome))
+            self.move_seq = parse_game(game_str)[0]
+
+            # Switch sides
+            self.p0, self.p1 = self.p1, self.p0
+            game_log, outcome = self.__play()
+            save_game_log(game_log, opening_name)
+            if outcome == 1:
+                p1_wins += 1
+            elif outcome == -1:
+                p0_wins += 1
+            else:
+                draws += 1
+            print(opening_name + " " + str(outcome))
+            test_num += 1
+            game_str = load_game(test_num)
+
+        tot_games: int = p0_wins + p1_wins + draws
+        return int(400 * (p1_wins - p0_wins) / float(tot_games))
 
     def generate_vector(self) -> List[int]:
         v: List[int] = []
@@ -117,12 +191,13 @@ class Coach:
 
     def __play(self) -> (str, int):
         p1_turn = True
-        game_log = ""
+        game_log = init_game_log(self.move_seq)
         move = self.p0.send_move(self.move_seq)
-        i = 1
+        i = game_log.count('\n')
         game_log += str(i) + ". " + move + '\n'
         self.move_seq += move
         while move != 'draw ' and move != 'loss ':
+            print('making move: ' + str(i))
             if p1_turn:
                 move = self.p1.send_move(self.move_seq)
             else:
@@ -144,12 +219,15 @@ class Coach:
         self.move_seq = None
         return game_log, outcome
 
-    def play(self):
+    def play(self) -> str:
         if self.p0 is not None and self.p1 is not None:
-            self.__play()
+            return self.__play()[0]
         else:
             print("Could not simulate game as either p0 or p1 is None")
+            return ''
 
 
 if __name__ == '__main__':
     c = Coach()
+    c.p0 = engine_factory()
+    print("Elo: " + str(c.test()))

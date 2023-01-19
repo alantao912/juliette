@@ -3,9 +3,11 @@
 //
 
 #include <chrono>
+#include <unordered_map>
 
 #include "uci.h"
 #include "util.h"
+#include "tables.h"
 #include "search.h"
 #include "stack.h"
 #include "movegen.h"
@@ -36,6 +38,9 @@ SOCKET clientSocket;
 char sendbuf[BUFLEN];
 
 extern int source;
+
+// DELETE ME:
+extern std::unordered_map<uint64_t, RTEntry> repetition_table;
 
 void initialize_UCI(SOCKET cs) {
     clientSocket = cs;
@@ -80,15 +85,25 @@ void parse_UCI_string(const char *uci) {
             int n = gen_legal_moves(moves, board.turn);
             int from = (args[0] - 'a') + 8 * (args[1] - '1');
             int to = (args[2] - 'a') + 8 * (args[3] - '1');
-            for (int i = 0; i < n; ++i) {
+            int i;
+            for (i = 0; i < n; ++i) {
                 move_t m = moves[i];
                 if (m.from == from && m.to == to) {
                     push(m);
                     break;
                 }
             }
-            // TODO: Fix args move_value
-            go(args);
+            if (i == n) {
+                std::cout << "Move not found" << std::endl;
+                exit(-1);
+            }
+            auto rt_pair = repetition_table.find(board.hash_code);
+            if (rt_pair != repetition_table.end()) {
+                RTEntry &rt_entry = rt_pair->second;
+                std::cout << "Seen: " << (int) rt_entry.num_seen << std::endl;
+            } else {
+                std::cout << "0" << std::endl;
+            }
         } else {
             /** TODO: Error handling for uninitialized board */
         }
@@ -127,12 +142,12 @@ void go(std::string &args) {
         // TODO: Error handling for uninitialized board
     }
     auto start = std::chrono::steady_clock::now();
-    info_t result = search(4);
+    info_t result = search(2);
     auto end = std::chrono::steady_clock::now();
     std::cout << "Elapsed Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << '\n';
     sprintf(sendbuf, "%s %c%d%c%d", replies[bestmove].c_str(),
-            file_of(result.best_move.from) + 'a', rank_of(result.best_move.from) + 1, file_of(result.best_move.to) + 'a', rank_of(result.best_move.to) + 1);
-    push(result.best_move);
+            file_of(result.best_move.from) + 'a', rank_of(result.best_move.from) + 1,
+            file_of(result.best_move.to) + 'a', rank_of(result.best_move.to) + 1);
     reply();
 }
 

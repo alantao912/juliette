@@ -57,7 +57,8 @@ void play_game() {
     bool player_turn = true;
     while (n) {
         system("cls");
-        std::cout << "Elapsed Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << '\n';
+        std::cout << "Elapsed Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
+                  << '\n';
         print_board();
         if (player_turn) {
             int i;
@@ -108,7 +109,7 @@ SOCKET listen(const char *port) {
 
     struct addrinfo *result = nullptr;
     struct addrinfo hints{};
-    iResult = WSAStartup(MAKEWORD(2,2), &wsaData);
+    iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
     if (iResult != 0) {
         std::cout << "juliette:: WSAStartup() failed with error: " << iResult << std::endl;
         return CONNECTION_FAILED;
@@ -171,7 +172,9 @@ SOCKET listen(const char *port) {
     return clientSocket;
 }
 
-enum input_source { REMOTE, STDIN};
+enum input_source {
+    REMOTE, STDIN
+};
 input_source source;
 
 /**
@@ -190,7 +193,9 @@ int main(int argc, char *argv[]) {
     }
 
     char recvbuf[BUFLEN];
-    enum comm_mode { UNDEFINED, UCI};
+    enum comm_mode {
+        UNDEFINED, UCI
+    };
     comm_mode communication_mode = UNDEFINED;
 
     if (strcmp(argv[1], "remote") == 0) {
@@ -248,7 +253,7 @@ int main(int argc, char *argv[]) {
         source = STDIN;
         do {
             fgets(recvbuf, BUFLEN, stdin);
-            if ((strlen(recvbuf) > 0) && (recvbuf[strlen (recvbuf) - 1] == '\n')) {
+            if ((strlen(recvbuf) > 0) && (recvbuf[strlen(recvbuf) - 1] == '\n')) {
                 recvbuf[strlen(recvbuf) - 1] = '\0';
             }
             if (communication_mode == UCI) {
@@ -267,25 +272,19 @@ int main(int argc, char *argv[]) {
                 /**
                  * To be used for development purposes:
                  */
-                 init_board("1k2r1n1/pP1p4/6PP/p1R5/2n2P2/8/6N1/1BK3B1 w - - ");
-                 print_board();
-                 std::cout << '\n';
-                 move_t moves[MAX_MOVE_NUM];
-                 int n = gen_legal_moves(moves, board.turn);
-                 order_moves(moves, n);
+                initialize_zobrist();
+                init_board(START_POSITION);
 
-                 for (int i = 0; i < n; ++i) {
-                     std::cout << (i + 1) << ". ";
-                     print_move(moves[i]);
-                     std::cout << ", " << moves[i].score;
-                     std::cout << '\n';
-                 }
+                move_t moves[MAX_MOVE_NUM];
+                int n = gen_legal_moves(moves, board.turn);
 
             } else if (strcmp(recvbuf, "perft") == 0) {
                 std::cout << "juliette:: starting performance test..." << std::endl;
                 // TODO: Re-implement performance test
             } else if (strlen(recvbuf)) {
-                std::cout << R"(juliette:: communication format not set, type "uci" to specify UCI communication protocol or type "comm" to see a list of communication protocol.)" << std::endl;
+                std::cout
+                        << R"(juliette:: communication format not set, type "uci" to specify UCI communication protocol or type "comm" to see a list of communication protocol.)"
+                        << std::endl;
             }
         } while (strlen(recvbuf));
     } else if (strcmp(argv[1], "tune") == 0) {
@@ -317,19 +316,19 @@ int main(int argc, char *argv[]) {
             for (j = 0; j < n; ++j) {
                 if (8 * src_rank + src_file == moves[j].from && 8 * dest_rank + dest_file == moves[j].to) {
                     if (prom == ' ') {
-                        make_move(moves[j]);
+                        push(moves[j]);
                         break;
                     } else if (prom == 'q' && (moves[j].flag == PC_QUEEN || moves[j].flag == PR_QUEEN)) {
-                        make_move(moves[j]);
+                        push(moves[j]);
                         break;
-                    } else if (prom == 'r'&& (moves[j].flag == PC_ROOK || moves[j].flag == PR_ROOK)) {
-                        make_move(moves[j]);
+                    } else if (prom == 'r' && (moves[j].flag == PC_ROOK || moves[j].flag == PR_ROOK)) {
+                        push(moves[j]);
                         break;
                     } else if (prom == 'b' && (moves[j].flag == PC_BISHOP || moves[j].flag == PR_BISHOP)) {
-                        make_move(moves[j]);
+                        push(moves[j]);
                         break;
                     } else if (prom == 'n' && (moves[j].flag == PC_KNIGHT || moves[j].flag == PR_KNIGHT)) {
-                        make_move(moves[j]);
+                        push(moves[j]);
                         break;
                     }
                 }
@@ -340,7 +339,7 @@ int main(int argc, char *argv[]) {
             }
             i += 5;
         }
-        info_t reply = search(4);
+        info_t reply = search(2);
         if (reply.best_move.from == A1 && reply.best_move.to == A1) {
             std::cout << "loss " << std::flush;
         } else if (reply.best_move.from == H8 && reply.best_move.to == H8) {

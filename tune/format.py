@@ -87,7 +87,37 @@ def fill_displacements(fmt: str, delim_symb: str, vector: List[int]):
     return fmt
 
 
+def format_test_suite():
+    os.chdir(tune_dir)
+    test_suite: List[str] = open_src('test_suite').split('\n')
+    test_set = dict()
+
+    for test in test_suite:
+        if not test:
+            continue
+        opening_seq = test[test.index('[') + 1:test.index(']'): 1]
+        opening_name = test[test.index(']') + 2:: 1]
+        if (opening_seq not in test_set) or (len(test_set[opening_seq]) < len(opening_name)):
+            test_set[opening_seq] = opening_name
+
+    i: int = 0
+    file_buff = ""
+    for opening_seq in test_set:
+        i += 1
+        file_buff += (str(i) + '. [' + opening_seq + ']' + ' ' + test_set[opening_seq]) + '\n'
+    write_to('test_suite', file_buff)
+
+
+def clear_games():
+    os.chdir(tune_dir + '\\games')
+    games = os.listdir()
+    for file in games:
+        os.system('del "' + file + '"')
+
+
 if __name__ == '__main__':
+    clear_games()
+    format_test_suite()
     # template = generate_psqt_template('data\\weights0.h')
     # template = fill_displacements(template, '%d', [1, 2, 3])
     # write_to('psqt_template.txt', template)

@@ -39,10 +39,10 @@ static inline bool is_drawn() {
     if (iterator != repetition_table.end()) {
         const RTEntry &rt_entry = iterator->second;
         if (rt_entry.num_seen >= 3) {
-            return verify_repetition(iterator->first);
+            return true;
         }
     }
-    return board.fullmove_number >= 50;
+    return board.halfmove_clock >= 100;
 }
 
 static inline bool verify_repetition(uint64_t hash) {
@@ -93,11 +93,13 @@ static inline bool contains_promotions() {
     if (board.turn) {
         /** Checks if white has any pawn promotions */
         prom_squares = ((board.w_pawns & BB_RANK_7) << 8) & ~board.occupied;
-        prom_squares |= ((((board.w_pawns << 9) & ~BB_FILE_A) | ((board.w_pawns << 7) & ~BB_FILE_H)) & BB_RANK_8) & board.b_occupied;
+        prom_squares |= ((((board.w_pawns << 9) & ~BB_FILE_A) | ((board.w_pawns << 7) & ~BB_FILE_H)) & BB_RANK_8) &
+                        board.b_occupied;
     } else {
         /** Checks if black has any pawn promotions */
         prom_squares = ((board.b_pawns & BB_RANK_2) >> 8) & ~board.occupied;
-        prom_squares |= ((((board.b_pawns >> 9) & ~BB_FILE_H) | ((board.b_pawns >> 7) & ~BB_FILE_A)) & BB_RANK_1) & board.w_occupied;
+        prom_squares |= ((((board.b_pawns >> 9) & ~BB_FILE_H) | ((board.b_pawns >> 7) & ~BB_FILE_A)) & BB_RANK_1) &
+                        board.w_occupied;
     }
     return pop_count(prom_squares) > 0;
 }
@@ -149,7 +151,7 @@ int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) { // NOLINT
         if (stand_pat < alpha - big_delta) {
             /** https://www.chessprogramming.org/Delta_Pruning advises to return alpha.
              *  However, we must still check moves that give check. */
-             n = n_checks;
+            n = n_checks;
         }
     }
 
@@ -179,6 +181,7 @@ int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) { // NOLINT
 
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "misc-no-recursion"
+
 /**
  * @brief Returns an integer move_value, representing the evaluation of the specified turn.
  *
@@ -204,7 +207,6 @@ static int32_t negamax(int16_t depth, int32_t alpha, int32_t beta, std::vector<m
     }
     move_t moves[MAX_MOVE_NUM];
     int n = gen_legal_moves(moves, board.turn);
-    order_moves(moves, n);
     if (!n) {
         if (is_check(board.turn)) {
             /** King is in check, and there are no legal moves. Checkmate */
@@ -220,19 +222,23 @@ static int32_t negamax(int16_t depth, int32_t alpha, int32_t beta, std::vector<m
         /** Extend the search until the position is quiet */
         return qsearch(qsearch_lim, alpha, beta);
     }
+    order_moves(moves, n);
     int32_t score = MIN_SCORE;
     size_t pv_index = 0;
     std::vector<move_t> variations[n];
     for (size_t i = 0; i < n; ++i) {
         move_t mv = moves[i];
-
+        if (depth == 2) {
+            print_move(mv);
+        }
         if (use_fprune(mv, depth) && score + move_value(mv) < alpha - DELTA_MARGIN) {
             continue;
         }
 
         push(mv);
         variations[i].push_back(mv);
-        int32_t sub_score = -negamax(reduction(mv.score, depth),-beta, -alpha, variations[i]);
+        int32_t sub_score = -negamax(reduction(mv.score, depth), -beta, -alpha, variations[i]);
+        if (depth == 2) std::cout << ' ' << sub_score << '\n';
         pop();
         if (sub_score > score) {
             score = sub_score;
@@ -246,7 +252,7 @@ static int32_t negamax(int16_t depth, int32_t alpha, int32_t beta, std::vector<m
         }
     }
     /** Propagates up the principal variation */
-    for (move_t m : variations[pv_index]) {
+    for (move_t m: variations[pv_index]) {
         mv_hst.push_back(m);
     }
     PRUNE:
@@ -265,6 +271,7 @@ static int32_t negamax(int16_t depth, int32_t alpha, int32_t beta, std::vector<m
     }
     return score;
 }
+
 #pragma clang diagnostic pop
 
 /**
@@ -305,6 +312,7 @@ int move_SEE(move_t move) {
 
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "misc-no-recursion"
+
 /**
  * Static exchange evaluation:
  * @param move a move that captures an opponent's piece
@@ -322,6 +330,7 @@ int SEE(int square) {
     }
     return see;
 }
+
 #pragma clang diagnostic pop
 
 move_t find_lva(int square) {
@@ -405,7 +414,7 @@ info_t search(int16_t depth) {
         reply.best_move = STALEMATE;
     } else {
         /** Checkmate */
-        reply.best_move = CHECKMATE;
+        reply.best_move = CHECK_MATE;
     }
     return reply;
 }

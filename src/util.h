@@ -41,13 +41,13 @@ enum move_flags {
  */
 
 typedef struct move_t {
-    unsigned int from : 6;
-    unsigned int to : 6;
-    unsigned int flag : 4;
+    unsigned int from: 6;
+    unsigned int to: 6;
+    unsigned int flag: 4;
 
     int16_t score;
 
-    bool operator < (const move_t & other) const;
+    bool operator<(const move_t &other) const;
 
     void compute_score();
 } move_t;
@@ -166,7 +166,7 @@ extern uint64_t BB_RAYS[64][64];
 extern uint64_t ZOBRIST_VALUES[781];
 
 extern const move_t NULL_MOVE;
-extern const move_t CHECKMATE;
+extern const move_t CHECK_MATE;
 extern const move_t STALEMATE;
 extern const int MAX_MOVE_NUM;
 extern const int MAX_CAPTURE_NUM;
@@ -174,15 +174,16 @@ extern const int MAX_ATTACK_NUM;
 extern const int CHECK_SCORE;
 
 uint64_t get_ray_between(int square1, int square2);
+
 uint64_t get_ray_between_inclusive(int square1, int square2);
 
 void shift_right(move_t moves[], int start, int end);
 
 int get_lsb(uint64_t bb);
 
-void set_bit(uint64_t* bb, int square);
+void set_bit(uint64_t *bb, int square);
 
-void clear_bit(uint64_t* bb, int square);
+void clear_bit(uint64_t *bb, int square);
 
 int pop_count(uint64_t bb);
 
@@ -194,14 +195,16 @@ int diagonal_of(int square);
 
 int anti_diagonal_of(int square);
 
-int pull_lsb(uint64_t* bb);
+int pull_lsb(uint64_t *bb);
 
-int parse_square(const char* square);
+int parse_square(const char *square);
 
 int parse_piece(char piece);
 
 void print_move(move_t move);
 
 void ltrim(std::string &string);
+
 void rtrim(std::string &string);
+
 void trim(std::string &string);
