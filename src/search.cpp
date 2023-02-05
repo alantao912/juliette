@@ -14,7 +14,7 @@
  * Quiescent search max ply count.
  */
 
-const int16_t qsearch_lim = 4;
+const int16_t qsearch_lim = 6;
 
 /**
  * Contempt factor indicates respect for opponent.
@@ -189,14 +189,14 @@ int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) { // NOLINT
  * @param beta: Maximum score that the minimizing player is assured of.
  */
 
-static int32_t negamax(int16_t depth, int32_t alpha, int32_t beta, std::vector<move_t> &mv_hst) {
+static int32_t negamax(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
     const int32_t original_alpha = alpha;
     std::unordered_map<uint64_t, TTEntry>::iterator t = transposition_table.find(board.hash_code); //NO-LINT
     if (t != transposition_table.end() && t->second.depth >= depth) {
         const TTEntry &tt_entry = t->second;
         switch (tt_entry.flag) {
             case EXACT:
-                mv_hst.push_back(tt_entry.best_move);
+                *mv_hst = tt_entry.best_move;
                 return tt_entry.score;
             case LOWER:
                 alpha = std::max(alpha, tt_entry.score);
@@ -226,15 +226,17 @@ static int32_t negamax(int16_t depth, int32_t alpha, int32_t beta, std::vector<m
     order_moves(moves, n);
     int32_t score = MIN_SCORE;
     size_t pv_index = 0;
-    std::vector<move_t> variations[n];
+    move_t variations[depth];
+    memset(variations, 0, depth * sizeof(move_t));
+
     for (size_t i = 0; i < n; ++i) {
         move_t mv = moves[i];
         if (use_fprune(mv, depth) && score + move_value(mv) < alpha - DELTA_MARGIN) {
             continue;
         }
         push(mv);
-        variations[i].push_back(mv);
-        int32_t sub_score = -negamax(reduction(mv.score, depth), -beta, -alpha, variations[i]);
+        variations[0] = mv;
+        int32_t sub_score = -negamax(reduction(mv.score, depth), -beta, -alpha, &variations[1]);
         pop();
         if (sub_score > score) {
             score = sub_score;
@@ -242,16 +244,12 @@ static int32_t negamax(int16_t depth, int32_t alpha, int32_t beta, std::vector<m
         }
         if (score > alpha) {
             alpha = score;
+            memcpy(mv_hst, variations, depth * sizeof(move_t));
         }
         if (alpha >= beta) {
-            goto PRUNE;
+            break;
         }
     }
-    /** Propagates up the principal variation */
-    for (move_t m: variations[pv_index]) {
-        mv_hst.push_back(m);
-    }
-    PRUNE:
     /** Updates the transposition table with the appropriate values */
     TTEntry tt_entry(score, depth, EXACT, moves[pv_index]);
     if (score <= original_alpha) {
@@ -397,13 +395,14 @@ int move_value(move_t move) {
 }
 
 info_t search(int16_t depth) {
-    std::vector<move_t> curr_pv, prev_pv;
-    
+    move_t curr_pv[depth];
+    memset(curr_pv, 0, depth * sizeof(move_t));
+
     int32_t evaluation = negamax(depth, MIN_SCORE, -MIN_SCORE, curr_pv);
     info_t reply = {.score = (1 - 2 * (board.turn == BLACK)) * evaluation, .best_move = NULL_MOVE};
-    if (!curr_pv.empty()) {
+    if (!(curr_pv[0].from == A1 && curr_pv[0].to == A1 && curr_pv[0].flag == NONE)) {
         /** Not stalemate or checkmate */
-        reply.best_move = curr_pv.front();
+        reply.best_move = curr_pv[0];
     } else if (abs(reply.score) == contempt) {
         /** Stalemate */
         reply.best_move = STALEMATE;
