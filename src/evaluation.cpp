@@ -19,7 +19,8 @@ void eval_stats::reset() {
 }
 
 int32_t eval_stats::compute_score() {
-    return (1 - 2 * (board.turn == BLACK)) * (int32_t) std::round(midgame_score * (1 - progression) + endgame_score * progression);
+    return (1 - 2 * (board.turn == BLACK)) *
+           (int32_t) std::round(midgame_score * (1 - progression) + endgame_score * progression);
 }
 
 /**
@@ -31,7 +32,7 @@ int32_t eval_stats::compute_score() {
 
 uint64_t eval_stats::compute_king_vulnerabilities(uint64_t king, uint64_t pawns) {
     /** Highlights the squares around the king */
-    uint64_t king_occ = 0, temp  = (king << 1) & ~BB_FILE_A;
+    uint64_t king_occ = 0, temp = (king << 1) & ~BB_FILE_A;
     temp |= (temp >> 8) | (temp << 8);
     temp &= ~pawns;
     temp |= ((temp << 1) & ~BB_FILE_A);
@@ -297,7 +298,7 @@ inline void rook_activity() {
         stats.midgame_score += Weights::mg_rook_psqt[i];
         stats.endgame_score += Weights::eg_rook_psqt[i];
     }
-    /** The following repeats the same evaluation for black*/
+    /** The following repeats the same score for black*/
     data = get_rook_rays_setwise(board.b_rooks, ~(board.occupied ^ board.b_rooks));
     n = std::max(pop_count(data & board.b_rooks) - 1, 0);
     stats.midgame_score -= n * Weights::CONNECTED_ROOK_BONUS;
@@ -325,7 +326,8 @@ inline void queen_activity() {
     /**
      *  @var uint64_t data Stores a bitboard of all squares hit by any white queen.
      */
-    uint64_t data = get_queen_rays_setwise(board.w_queens, (~board.occupied ^ board.w_queens ^ board.w_rooks ^ board.w_bishops));
+    uint64_t data = get_queen_rays_setwise(board.w_queens,
+                                           (~board.occupied ^ board.w_queens ^ board.w_rooks ^ board.w_bishops));
 
     /** Detects Queen-Rook batteries. */
     int n = std::max(pop_count(data & board.w_rooks) - 1, 0);

@@ -21,7 +21,7 @@ uint64_t rand_bitstring() {
 }
 
 void initialize_zobrist() {
-    for (unsigned long long & i : ZOBRIST_VALUES) {
+    for (unsigned long long &i: ZOBRIST_VALUES) {
         i = rand_bitstring();
     }
 }
@@ -47,7 +47,7 @@ void init_board(const char *fen) {
     board.b_queens = 0;
     board.b_king = 0;
     for (int rank = 7; rank >= 0; --rank) {
-        char* fen_board = strtok_r(token, "/", &token);
+        char *fen_board = strtok_r(token, "/", &token);
         int file = 0;
         const size_t len = strlen(fen_board);
         for (int j = 0; j < len; ++j) {
@@ -59,14 +59,16 @@ void init_board(const char *fen) {
             } else {
                 int square = 8 * rank + file;
                 board.mailbox[square] = piece;
-                uint64_t* bitboard = get_bitboard(piece);
+                uint64_t *bitboard = get_bitboard(piece);
                 set_bit(bitboard, square);
                 ++file;
             }
         }
     }
-    board.w_occupied = board.w_pawns | board.w_knights | board.w_bishops | board.w_rooks | board.w_queens | board.w_king;
-    board.b_occupied = board.b_pawns | board.b_knights | board.b_bishops | board.b_rooks | board.b_queens | board.b_king;
+    board.w_occupied =
+            board.w_pawns | board.w_knights | board.w_bishops | board.w_rooks | board.w_queens | board.w_king;
+    board.b_occupied =
+            board.b_pawns | board.b_knights | board.b_bishops | board.b_rooks | board.b_queens | board.b_king;
     board.occupied = board.w_occupied | board.b_occupied;
 
     // Initalize king squares
@@ -145,7 +147,7 @@ void init_board(const char *fen) {
  * Updates the board with the move.
  * @param move
  */
-void make_move(move_t move) {
+void make_move(const move_t move) {
     int from = move.from;
     int to = move.to;
     int flag = move.flag;
@@ -325,12 +327,14 @@ void make_move(move_t move) {
     }
     if (victim != '-') {
         reset_halfmove = true;
-        uint64_t* victim_bb = get_bitboard(victim);
+        uint64_t *victim_bb = get_bitboard(victim);
         clear_bit(victim_bb, to);
         board.hash_code ^= ZOBRIST_VALUES[64 * parse_piece(victim) + to];
     }
-    board.w_occupied = board.w_pawns | board.w_knights | board.w_bishops | board.w_rooks | board.w_queens | board.w_king;
-    board.b_occupied = board.b_pawns | board.b_knights | board.b_bishops | board.b_rooks | board.b_queens | board.b_king;
+    board.w_occupied =
+            board.w_pawns | board.w_knights | board.w_bishops | board.w_rooks | board.w_queens | board.w_king;
+    board.b_occupied =
+            board.b_pawns | board.b_knights | board.b_bishops | board.b_rooks | board.b_queens | board.b_king;
     board.occupied = board.w_occupied | board.b_occupied;
     if (reset_halfmove) {
         board.halfmove_clock = 0;
@@ -390,7 +394,7 @@ bool is_attacked(bool color, int square) {
  * @param piece
  * @return a pointer to the bitboard of the piece.
  */
-uint64_t* get_bitboard(char piece) {
+uint64_t *get_bitboard(char piece) {
     switch (piece) {
         case 'P':
             return &board.w_pawns;
@@ -440,7 +444,7 @@ void print_bitboard(uint64_t bb) {
     for (int r = 7; r >= 0; --r) {
         for (int c = 0; c < 8; ++c) {
             int j = r * 8 + c;
-            std::cout <<(char) str[j];
+            std::cout << (char) str[j];
         }
         std::cout << '\n';
     }

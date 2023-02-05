@@ -197,7 +197,6 @@ class Coach:
         game_log += str(i) + ". " + move + '\n'
         self.move_seq += move
         while move != 'draw ' and move != 'loss ':
-            print('making move: ' + str(i))
             if p1_turn:
                 move = self.p1.send_move(self.move_seq)
             else:
@@ -229,5 +228,6 @@ class Coach:
 
 if __name__ == '__main__':
     c = Coach()
+    c.clean_data()
     c.p0 = engine_factory()
     print("Elo: " + str(c.test()))

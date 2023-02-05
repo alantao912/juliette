@@ -25,6 +25,7 @@ const int32_t contempt = 0;
 
 #define MIN_SCORE (INT32_MIN + 1000)
 #define CHECKMATE(depth) (MIN_SCORE + INT16_MAX - depth)
+#define QSEARCH_CHECKMATE(depth) (MIN_SCORE + (2 * INT16_MAX) - depth)
 #define DRAW (int32_t) contempt;
 
 
@@ -39,7 +40,7 @@ static inline bool is_drawn() {
     if (iterator != repetition_table.end()) {
         const RTEntry &rt_entry = iterator->second;
         if (rt_entry.num_seen >= 3) {
-            return true;
+            return verify_repetition(board.hash_code);
         }
     }
     return board.halfmove_clock >= 100;
@@ -122,8 +123,8 @@ int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) { // NOLINT
     int n, n_checks;
     if (!is_check(board.turn)) {
         /** Generate non-quiet moves, such as checks, promotions, and captures. */
-        if (!depth || !(n = gen_nonquiescent_moves(moves, board.turn, &n_checks))) {
-            /** Position is quiet, return evaluation. */
+        if (depth < 0 || !(n = gen_nonquiescent_moves(moves, board.turn, &n_checks))) {
+            /** Position is quiet, return score. */
             return evaluate();
         }
     } else if ((n = gen_legal_moves(moves, board.turn))) {
@@ -133,10 +134,9 @@ int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) { // NOLINT
         goto CHECK_EVASIONS;
     } else {
         /** Side to move is in check, evasions do not exist. Checkmate :( */
-        return CHECKMATE(depth);
+        return QSEARCH_CHECKMATE(depth);
     }
 
-    --depth;
     stand_pat = evaluate();
     if (stand_pat >= beta) {
         return beta;
@@ -160,14 +160,14 @@ int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) { // NOLINT
     }
 
     CHECK_EVASIONS:
-    for (ssize_t i = 0; i < n; ++i) {
+    for (size_t i = 0; i < n; ++i) {
         move_t candidate_move = moves[i];
         if (i >= n_checks && move_value(candidate_move) + stand_pat < alpha - DELTA_MARGIN) {
             /** Skip evaluating this move */
             continue;
         }
         push(candidate_move);
-        int32_t score = -qsearch(depth, -beta, -alpha);
+        int32_t score = -qsearch(depth - 1, -beta, -alpha);
         pop();
         if (score >= beta) {
             return beta;
@@ -183,7 +183,7 @@ int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) { // NOLINT
 #pragma ide diagnostic ignored "misc-no-recursion"
 
 /**
- * @brief Returns an integer move_value, representing the evaluation of the specified turn.
+ * @brief Returns an integer move_value, representing the score of the specified turn.
  *
  * @param alpha: Minimum score that the maximizing player is assured of.
  * @param beta: Maximum score that the minimizing player is assured of.
@@ -196,18 +196,23 @@ static int32_t negamax(int16_t depth, int32_t alpha, int32_t beta, std::vector<m
         const TTEntry &tt_entry = t->second;
         switch (tt_entry.flag) {
             case EXACT:
-                return tt_entry.evaluation;
+                mv_hst.push_back(tt_entry.best_move);
+                return tt_entry.score;
             case LOWER:
-                alpha = std::max(alpha, tt_entry.evaluation);
+                alpha = std::max(alpha, tt_entry.score);
                 break;
             case UPPER:
-                beta = std::min(beta, tt_entry.evaluation);
+                beta = std::min(beta, tt_entry.score);
                 break;
         }
     }
+    if (depth == 0) {
+        /** Extend the search until the position is quiet */
+        return qsearch(qsearch_lim, alpha, beta);
+    }
     move_t moves[MAX_MOVE_NUM];
     int n = gen_legal_moves(moves, board.turn);
-    if (!n) {
+    if (n == 0) {
         if (is_check(board.turn)) {
             /** King is in check, and there are no legal moves. Checkmate */
             return CHECKMATE(depth);
@@ -218,27 +223,18 @@ static int32_t negamax(int16_t depth, int32_t alpha, int32_t beta, std::vector<m
     if (is_drawn()) {
         return DRAW; // NOLINT
     }
-    if (!depth) {
-        /** Extend the search until the position is quiet */
-        return qsearch(qsearch_lim, alpha, beta);
-    }
     order_moves(moves, n);
     int32_t score = MIN_SCORE;
     size_t pv_index = 0;
     std::vector<move_t> variations[n];
     for (size_t i = 0; i < n; ++i) {
         move_t mv = moves[i];
-        if (depth == 2) {
-            print_move(mv);
-        }
         if (use_fprune(mv, depth) && score + move_value(mv) < alpha - DELTA_MARGIN) {
             continue;
         }
-
         push(mv);
         variations[i].push_back(mv);
         int32_t sub_score = -negamax(reduction(mv.score, depth), -beta, -alpha, variations[i]);
-        if (depth == 2) std::cout << ' ' << sub_score << '\n';
         pop();
         if (sub_score > score) {
             score = sub_score;
@@ -257,13 +253,12 @@ static int32_t negamax(int16_t depth, int32_t alpha, int32_t beta, std::vector<m
     }
     PRUNE:
     /** Updates the transposition table with the appropriate values */
-    TTEntry tt_entry(0, 0, EXACT);
+    TTEntry tt_entry(score, depth, EXACT, moves[pv_index]);
     if (score <= original_alpha) {
         tt_entry.flag = UPPER;
     } else if (score >= beta) {
         tt_entry.flag = LOWER;
     }
-    tt_entry.depth = depth;
     if (t != transposition_table.end()) {
         t->second = tt_entry;
     } else {
@@ -299,14 +294,13 @@ void order_moves(move_t moves[], int n) {
 }
 
 int move_SEE(move_t move) {
-    bitboard curr_board = board;
     int score = Weights::PAWN_MATERIAL * (move.flag == EN_PASSANT) + piece_value(move.to);
-    make_move(move);
+    push(move);
     if (move.flag >= PR_KNIGHT && move.flag <= PR_QUEEN) {
         score += piece_value(move.to);
     }
     score -= SEE(move.to);
-    board = curr_board;
+    pop();
     return score;
 }
 
@@ -314,7 +308,7 @@ int move_SEE(move_t move) {
 #pragma ide diagnostic ignored "misc-no-recursion"
 
 /**
- * Static exchange evaluation:
+ * Static exchange score:
  * @param move a move that captures an opponent's piece
  * @return returns whether or not the capture does not lose material
  */
@@ -324,9 +318,10 @@ int SEE(int square) {
     move_t lva_move = find_lva(square);
     if (lva_move.flag != PASS) {
         int cpv = piece_value(square);
-        make_move(lva_move);
+        push(lva_move);
         int prom_value = (lva_move.flag >= PC_KNIGHT) * piece_value(lva_move.to);
         see = std::max(0, prom_value + cpv - SEE(square));
+        pop();
     }
     return see;
 }
@@ -402,13 +397,13 @@ int move_value(move_t move) {
 }
 
 info_t search(int16_t depth) {
-    std::vector<move_t> top_line;
-    top_line.clear();
-    int32_t evaluation = negamax(depth, MIN_SCORE, -MIN_SCORE, top_line);
+    std::vector<move_t> curr_pv, prev_pv;
+    
+    int32_t evaluation = negamax(depth, MIN_SCORE, -MIN_SCORE, curr_pv);
     info_t reply = {.score = (1 - 2 * (board.turn == BLACK)) * evaluation, .best_move = NULL_MOVE};
-    if (!top_line.empty()) {
+    if (!curr_pv.empty()) {
         /** Not stalemate or checkmate */
-        reply.best_move = top_line.front();
+        reply.best_move = curr_pv.front();
     } else if (abs(reply.score) == contempt) {
         /** Stalemate */
         reply.best_move = STALEMATE;
