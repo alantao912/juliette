@@ -285,8 +285,19 @@ int16_t reduction(int16_t score, int16_t current_ply) {
 }
 
 void order_moves(move_t moves[], int n) {
+    std::unordered_map<uint64_t, TTEntry>::iterator it = transposition_table.find(board.hash_code);
+    move_t hash_move = NULL_MOVE;
+    if (it != transposition_table.end()) {
+        const TTEntry &tte = it->second;
+        hash_move = tte.best_move;
+    }
+
     for (int i = 0; i < n; ++i) {
-        moves[i].compute_score();
+        if (moves[i] == hash_move) {
+            moves[i].score = static_cast<int16_t> (HM_SCORE);
+        } else {
+            moves[i].compute_score();
+        }
     }
     std::sort(moves, moves + n);
 }

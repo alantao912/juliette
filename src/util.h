@@ -49,6 +49,8 @@ typedef struct move_t {
 
     bool operator<(const move_t &other) const;
 
+    bool operator==(const move_t &other) const;
+
     void compute_score();
 } move_t;
 
@@ -172,6 +174,7 @@ extern const int MAX_MOVE_NUM;
 extern const int MAX_CAPTURE_NUM;
 extern const int MAX_ATTACK_NUM;
 extern const int CHECK_SCORE;
+extern const int HM_SCORE;
 
 uint64_t get_ray_between(int square1, int square2);
 

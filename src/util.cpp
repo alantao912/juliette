@@ -97,11 +97,17 @@ const int MAX_CAPTURE_NUM = 74;
 /** Maximum number of attacks on a single square */
 const int MAX_ATTACK_NUM = 16;
 /** Score added to a move's "interestingness" if it gives check. */
-const int CHECK_SCORE = 10000;
+const int CHECK_SCORE = 3 * Weights::QUEEN_MATERIAL;
+/** Score added to a move if it is the best move retrieved from a transposition table. */
+const int HM_SCORE = 4 * Weights::QUEEN_MATERIAL;
 
 bool move_t::operator<(const move_t &other) const {
     return score > other.score;
 };
+
+bool move_t::operator==(const move_t &other) const {
+    return to == other.to && from == other.from && flag == other.flag;
+}
 
 void move_t::compute_score() {
     score = 0;
@@ -141,10 +147,10 @@ void move_t::compute_score() {
                 score += piece_value(to) - piece_value(from);
                 break;
             }
+        case EN_PASSANT:
         case NONE:
             score += move_SEE(*this);
             break;
-        case EN_PASSANT:
         default:
             break;
     }
