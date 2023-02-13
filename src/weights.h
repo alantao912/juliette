@@ -6,37 +6,37 @@
 
 namespace Weights {
 
-    const int32_t QUEEN_MATERIAL = 975;
-    const int32_t ROOK_MATERIAL = 500;
-    const int32_t BISHOP_MATERIAL = 325;
-    const int32_t KNIGHT_MATERIAL = 300;
-    const int32_t PAWN_MATERIAL = 100;
+    const int16_t QUEEN_MATERIAL = 975;
+    const int16_t ROOK_MATERIAL = 500;
+    const int16_t BISHOP_MATERIAL = 325;
+    const int16_t KNIGHT_MATERIAL = 300;
+    const int16_t PAWN_MATERIAL = 100;
 
-    const int32_t QUEEN_MATERIAL_EG = 950;
-    const int32_t ROOK_MATERIAL_EG = 550;
-    const int32_t BISHOP_MATERIAL_EG = 325;
-    const int32_t KNIGHT_MATERIAL_EG = 275;
-    const int32_t PAWN_MATERIAL_EG = 115;
+    const int16_t QUEEN_MATERIAL_EG = 950;
+    const int16_t ROOK_MATERIAL_EG = 550;
+    const int16_t BISHOP_MATERIAL_EG = 325;
+    const int16_t KNIGHT_MATERIAL_EG = 275;
+    const int16_t PAWN_MATERIAL_EG = 115;
 
-    const int32_t CONNECTED_PAWNS = 2;
-    const int32_t CONNECTED_PAWNS_EG = 3;
+    const int16_t CONNECTED_PAWNS = 2;
+    const int16_t CONNECTED_PAWNS_EG = 3;
 
-    const int32_t DOUBLED_PAWN_PENALTY = 20;
-    const int32_t DOUBLED_PAWN_PENALTY_EG = 20;
+    const int16_t DOUBLED_PAWN_PENALTY = 20;
+    const int16_t DOUBLED_PAWN_PENALTY_EG = 20;
 
-    const int32_t CONNECTED_ROOK_BONUS = 20;
-    const int32_t CONNECTED_ROOK_BONUS_EG = 20;
+    const int16_t CONNECTED_ROOK_BONUS = 20;
+    const int16_t CONNECTED_ROOK_BONUS_EG = 20;
 
-    const int32_t QR_BATTERY = 20;
-    const int32_t QR_BATTERY_EG = 10;
+    const int16_t QR_BATTERY = 20;
+    const int16_t QR_BATTERY_EG = 10;
 
-    const int32_t QB_BATTERY = 5;
-    const int32_t QB_BATTERY_EG = 7;
+    const int16_t QB_BATTERY = 5;
+    const int16_t QB_BATTERY_EG = 7;
 
-    const int32_t KING_THREAT = 16;
-    const int32_t KING_THREAT_EG = 7;
+    const int16_t KING_THREAT = 16;
+    const int16_t KING_THREAT_EG = 7;
 
-    const int32_t CENTRALIZED_KING = 2;
+    const int16_t CENTRALIZED_KING = 2;
 
     const int32_t board_ctrl_tb[64] = {
             1, 1, 1, 2, 2, 1, 1, 1,

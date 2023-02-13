@@ -9,6 +9,7 @@ extern bitboard board;
 extern stack_t *stack;
 
 extern std::unordered_map<uint64_t, RTEntry> repetition_table;
+extern int16_t ply;
 
 /**
  * Initalizes the stack.
@@ -39,6 +40,7 @@ void push(move_t move) {
     } else {
         repetition_table.insert(std::pair<uint64_t, RTEntry>(board.hash_code, RTEntry(1)));
     }
+    ++ply;
 }
 
 
@@ -56,6 +58,7 @@ void pop() {
     stack_t *temp = stack;
     board = stack->board;
     stack = stack->next;
+    --ply;
     delete temp;
 }
 

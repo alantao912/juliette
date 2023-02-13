@@ -47,7 +47,7 @@ void play_game() {
     std::chrono::steady_clock::time_point start, end;
     if (user_input == "b") {
         start = std::chrono::steady_clock::now();
-        reply = search(depth);
+        reply = search((int16_t) depth);
         end = std::chrono::steady_clock::now();
         make_move(reply.best_move);
     }
@@ -81,7 +81,7 @@ void play_game() {
             make_move(moves[i - 1]);
         } else {
             start = std::chrono::steady_clock::now();
-            reply = search(depth);
+            reply = search((int16_t) depth);
             end = std::chrono::steady_clock::now();
             make_move(reply.best_move);
         }
@@ -275,9 +275,8 @@ int main(int argc, char *argv[]) {
                 initialize_zobrist();
                 init_board(START_POSITION);
 
-                move_t moves[MAX_MOVE_NUM];
-                int n = gen_legal_moves(moves, board.turn);
-
+                info_t reply = search(std::chrono::duration<int64_t, std::milli>(5000));
+                print_move(reply.best_move);
             } else if (strcmp(recvbuf, "perft") == 0) {
                 std::cout << "juliette:: starting performance test..." << std::endl;
                 // TODO: Re-implement performance test
@@ -339,7 +338,7 @@ int main(int argc, char *argv[]) {
             }
             i += 5;
         }
-        info_t reply = search(2);
+        info_t reply = search((int16_t) 2);
         if (reply.best_move.from == A1 && reply.best_move.to == A1) {
             std::cout << "loss " << std::flush;
         } else if (reply.best_move.from == H8 && reply.best_move.to == H8) {

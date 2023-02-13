@@ -87,7 +87,7 @@ uint64_t ZOBRIST_VALUES[781];
 extern bitboard board;
 
 const move_t NULL_MOVE = {A1, A1, PASS};
-const move_t CHECK_MATE = NULL_MOVE;
+const move_t CHECKMATE = {A1, A1, PASS};
 const move_t STALEMATE = {H8, H8, PASS};
 
 /** Maximum number of legal moves in a given position */
@@ -97,9 +97,10 @@ const int MAX_CAPTURE_NUM = 74;
 /** Maximum number of attacks on a single square */
 const int MAX_ATTACK_NUM = 16;
 /** Score added to a move's "interestingness" if it gives check. */
-const int CHECK_SCORE = 3 * Weights::QUEEN_MATERIAL;
+const int16_t CHECK_SCORE = 3 * Weights::QUEEN_MATERIAL;
 /** Score added to a move if it is the best move retrieved from a transposition table. */
-const int HM_SCORE = 4 * Weights::QUEEN_MATERIAL;
+const int16_t HM_SCORE = 4 * Weights::QUEEN_MATERIAL;
+const int16_t KM_SCORE = 90;
 
 bool move_t::operator<(const move_t &other) const {
     return score > other.score;
@@ -107,53 +108,6 @@ bool move_t::operator<(const move_t &other) const {
 
 bool move_t::operator==(const move_t &other) const {
     return to == other.to && from == other.from && flag == other.flag;
-}
-
-void move_t::compute_score() {
-    score = 0;
-    if (is_move_check(*this)) {
-        score += CHECK_SCORE;
-    }
-    switch (flag) {
-        case PC_QUEEN:
-            score += Weights::QUEEN_MATERIAL + (int16_t) piece_value(to);
-            break;
-        case PC_ROOK:
-            score += Weights::ROOK_MATERIAL + (int16_t) piece_value(to);
-            break;
-        case PC_BISHOP:
-            score += Weights::BISHOP_MATERIAL + (int16_t) piece_value(to);
-            break;
-        case PC_KNIGHT:
-            score += Weights::KNIGHT_MATERIAL + (int16_t) piece_value(to);
-            break;
-        case PR_QUEEN:
-            score += Weights::QUEEN_MATERIAL;
-            break;
-        case PR_ROOK:
-            score += Weights::ROOK_MATERIAL;
-            break;
-        case PR_BISHOP:
-            score += Weights::BISHOP_MATERIAL;
-            break;
-        case PR_KNIGHT:
-            score += Weights::KNIGHT_MATERIAL;
-            break;
-        case CASTLING:
-            score += 400;
-            break;
-        case CAPTURE:
-            if (piece_value(from) < piece_value(to)) {
-                score += piece_value(to) - piece_value(from);
-                break;
-            }
-        case EN_PASSANT:
-        case NONE:
-            score += move_SEE(*this);
-            break;
-        default:
-            break;
-    }
 }
 
 uint64_t get_ray_between(int square1, int square2) {

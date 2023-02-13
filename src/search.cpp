@@ -1,3 +1,4 @@
+#include <chrono>
 #include <cstring>
 #include <algorithm>
 #include <unordered_map>
@@ -9,6 +10,12 @@
 #include "movegen.h"
 #include "bitboard.h"
 #include "evaluation.h"
+
+#define MIN_SCORE (INT32_MIN + 1000)
+#define MATE_SCORE(depth) (MIN_SCORE + INT16_MAX - depth)
+#define QSEARCH_CHECKMATE(depth) (MIN_SCORE + (2 * INT16_MAX) - depth)
+#define DRAW (int32_t) contempt;
+#define MAX_DEPTH 128
 
 /**
  * Quiescent search max ply count.
@@ -23,19 +30,15 @@ const int16_t qsearch_lim = 6;
  */
 const int32_t contempt = 0;
 
-#define MIN_SCORE (INT32_MIN + 1000)
-#define CHECKMATE(depth) (MIN_SCORE + INT16_MAX - depth)
-#define QSEARCH_CHECKMATE(depth) (MIN_SCORE + (2 * INT16_MAX) - depth)
-#define DRAW (int32_t) contempt;
-
-
 std::unordered_map<uint64_t, TTEntry> transposition_table;
+
 std::unordered_map<uint64_t, RTEntry> repetition_table;
+std::vector<move_t> *killer_mvs = nullptr;
+bitboard board;
+stack_t *stack = nullptr;
+int16_t ply = 0;
 
-extern bitboard board;
-extern stack_t *stack;
-
-static inline bool is_drawn() {
+bool is_drawn() {
     auto iterator = repetition_table.find(board.hash_code);
     if (iterator != repetition_table.end()) {
         const RTEntry &rt_entry = iterator->second;
@@ -46,7 +49,7 @@ static inline bool is_drawn() {
     return board.halfmove_clock >= 100;
 }
 
-static inline bool verify_repetition(uint64_t hash) {
+bool verify_repetition(uint64_t hash) {
     uint8_t num_seen = 0;
     stack_t *iterator = stack;
     while (iterator) {
@@ -84,9 +87,9 @@ static inline bool verify_repetition(uint64_t hash) {
  * @return Returns whether depth == 1, candidate move is not a check, and previous move was not a check (we are moving out of check)
  */
 
-static inline bool use_fprune(move_t cm, int16_t depth) {
+inline bool use_fprune(move_t cm, int16_t depth) {
     return false;
-    return depth == 1 && cm.score < CHECK_SCORE && stack->prev_mv.score < CHECK_SCORE;
+    // return depth == 1 && cm.score < CHECK_SCORE && stack->prev_mv.score < CHECK_SCORE;
 }
 
 static inline bool contains_promotions() {
@@ -114,7 +117,7 @@ static inline bool contains_promotions() {
 
 int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) { // NOLINT
     if (is_drawn()) {
-        return DRAW; // NOLINT
+        return DRAW;
     }
 
     int32_t stand_pat = MIN_SCORE;
@@ -191,7 +194,7 @@ int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) { // NOLINT
 
 static int32_t negamax(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
     const int32_t original_alpha = alpha;
-    std::unordered_map<uint64_t, TTEntry>::iterator t = transposition_table.find(board.hash_code); //NO-LINT
+    std::unordered_map<uint64_t, TTEntry>::iterator t = transposition_table.find(board.hash_code);
     if (t != transposition_table.end() && t->second.depth >= depth) {
         const TTEntry &tt_entry = t->second;
         switch (tt_entry.flag) {
@@ -215,13 +218,13 @@ static int32_t negamax(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hs
     if (n == 0) {
         if (is_check(board.turn)) {
             /** King is in check, and there are no legal moves. Checkmate */
-            return CHECKMATE(depth);
+            return MATE_SCORE(depth);
         }
         /** No legal moves, yet king is not in check. This is a stalemate, and the game is drawn. */
-        return DRAW; // NOLINT
+        return DRAW;
     }
     if (is_drawn()) {
-        return DRAW; // NOLINT
+        return DRAW;
     }
     order_moves(moves, n);
     int32_t score = MIN_SCORE;
@@ -247,6 +250,8 @@ static int32_t negamax(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hs
             memcpy(mv_hst, variations, depth * sizeof(move_t));
         }
         if (alpha >= beta) {
+            /* move_t mv is a "killer move". */
+            insert_killer_move(mv);
             break;
         }
     }
@@ -262,6 +267,7 @@ static int32_t negamax(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hs
     } else {
         transposition_table.insert(std::pair<uint64_t, TTEntry>(board.hash_code, tt_entry));
     }
+    killer_mvs[ply + 1].clear();
     return score;
 }
 
@@ -286,6 +292,8 @@ int16_t reduction(int16_t score, int16_t current_ply) {
 
 void order_moves(move_t moves[], int n) {
     std::unordered_map<uint64_t, TTEntry>::iterator it = transposition_table.find(board.hash_code);
+    const std::vector<move_t> &kmvs = killer_mvs[ply];
+
     move_t hash_move = NULL_MOVE;
     if (it != transposition_table.end()) {
         const TTEntry &tte = it->second;
@@ -295,6 +303,8 @@ void order_moves(move_t moves[], int n) {
     for (int i = 0; i < n; ++i) {
         if (moves[i] == hash_move) {
             moves[i].score = static_cast<int16_t> (HM_SCORE);
+        } else if (std::find(kmvs.begin(), kmvs.end(), moves[i]) != kmvs.end()) {
+            moves[i].score = 90;
         } else {
             moves[i].compute_score();
         }
@@ -302,8 +312,14 @@ void order_moves(move_t moves[], int n) {
     std::sort(moves, moves + n);
 }
 
-int move_SEE(move_t move) {
-    int score = Weights::PAWN_MATERIAL * (move.flag == EN_PASSANT) + piece_value(move.to);
+void insert_killer_move(move_t mv) {
+    if (mv.flag == NONE && mv.score < CHECK_SCORE) {
+        killer_mvs[ply].push_back(mv);
+    }
+}
+
+int16_t move_SEE(move_t move) {
+    int16_t score = Weights::PAWN_MATERIAL * (move.flag == EN_PASSANT) + piece_value(move.to);
     push(move);
     if (move.flag >= PR_KNIGHT && move.flag <= PR_QUEEN) {
         score += piece_value(move.to);
@@ -322,13 +338,13 @@ int move_SEE(move_t move) {
  * @return returns whether or not the capture does not lose material
  */
 
-int SEE(int square) {
-    int see = 0;
+int16_t SEE(int square) {
+    int16_t see = 0;
     move_t lva_move = find_lva(square);
     if (lva_move.flag != PASS) {
-        int cpv = piece_value(square);
+        int16_t cpv = piece_value(square);
         push(lva_move);
-        int prom_value = (lva_move.flag >= PC_KNIGHT) * piece_value(lva_move.to);
+        int16_t prom_value = (lva_move.flag >= PC_KNIGHT) * piece_value(lva_move.to);
         see = std::max(0, prom_value + cpv - SEE(square));
         pop();
     }
@@ -360,7 +376,7 @@ move_t find_lva(int square) {
  * @return the move_value of the piece moved in centipawns
  */
 
-int piece_value(int square) {
+int16_t piece_value(int square) {
     char piece = (char) toupper(board.mailbox[square]);
     switch (piece) {
         case 'P':
@@ -378,7 +394,7 @@ int piece_value(int square) {
     }
 }
 
-int move_value(move_t move) {
+int16_t move_value(move_t move) {
     switch (move.flag) {
         case EN_PASSANT:
             return Weights::PAWN_MATERIAL;
@@ -405,21 +421,108 @@ int move_value(move_t move) {
     }
 }
 
-info_t search(int16_t depth) {
-    move_t curr_pv[depth];
-    memset(curr_pv, 0, depth * sizeof(move_t));
+void move_t::compute_score() {
+    score = 0;
+    if (is_move_check(*this)) {
+        score += CHECK_SCORE;
+    }
+    switch (flag) {
+        case PC_QUEEN:
+            score += Weights::QUEEN_MATERIAL + piece_value(to);
+            break;
+        case PC_ROOK:
+            score += Weights::ROOK_MATERIAL + piece_value(to);
+            break;
+        case PC_BISHOP:
+            score += Weights::BISHOP_MATERIAL + piece_value(to);
+            break;
+        case PC_KNIGHT:
+            score += Weights::KNIGHT_MATERIAL + piece_value(to);
+            break;
+        case PR_QUEEN:
+            score += Weights::QUEEN_MATERIAL;
+            break;
+        case PR_ROOK:
+            score += Weights::ROOK_MATERIAL;
+            break;
+        case PR_BISHOP:
+            score += Weights::BISHOP_MATERIAL;
+            break;
+        case PR_KNIGHT:
+            score += Weights::KNIGHT_MATERIAL;
+            break;
+        case CASTLING:
+            score += 80;
+            break;
+        case CAPTURE:
+            if (piece_value(from) < piece_value(to)) {
+                score += piece_value(to) - piece_value(from);
+                break;
+            }
+        case EN_PASSANT:
+        case NONE:
+            score += move_SEE(*this);
+            break;
+        default:
+            break;
+    }
+}
 
-    int32_t evaluation = negamax(depth, MIN_SCORE, -MIN_SCORE, curr_pv);
+info_t generate_reply(int32_t evaluation, move_t best_move) {
     info_t reply = {.score = (1 - 2 * (board.turn == BLACK)) * evaluation, .best_move = NULL_MOVE};
-    if (!(curr_pv[0].from == A1 && curr_pv[0].to == A1 && curr_pv[0].flag == NONE)) {
+    if (!(best_move.from == A1 && best_move.to == A1 && best_move.flag == NONE)) {
         /** Not stalemate or checkmate */
-        reply.best_move = curr_pv[0];
+        reply.best_move = best_move;
     } else if (abs(reply.score) == contempt) {
         /** Stalemate */
         reply.best_move = STALEMATE;
     } else {
         /** Checkmate */
-        reply.best_move = CHECK_MATE;
+        reply.best_move = CHECKMATE;
     }
     return reply;
+}
+
+info_t search(int16_t depth) {
+    move_t pv[depth];
+    pv[0] = NULL_MOVE;
+    std::vector<move_t> kmv[depth];
+    killer_mvs = kmv;
+
+    int32_t evaluation;
+    for (int16_t i = 1; i <= depth; ++i) {
+        evaluation = negamax(i, MIN_SCORE, -MIN_SCORE, pv);
+    }
+    killer_mvs = nullptr;
+    return generate_reply(evaluation, pv[0]);
+}
+
+info_t search(std::chrono::duration<int64_t, std::milli> time_ms) {
+    move_t pv[MAX_DEPTH];
+    pv[0] = NULL_MOVE;
+
+    int kmv_len = 8;
+    killer_mvs = new std::vector<move_t>[kmv_len];
+    int32_t evaluation;
+
+    std::chrono::time_point<std::chrono::steady_clock> start = std::chrono::steady_clock::now();
+    for (int16_t i = 1; time_ms.count() > 0; ++i) {
+        evaluation = negamax(i, MIN_SCORE, -MIN_SCORE, pv);
+
+        /** Update time */
+        std::chrono::time_point<std::chrono::steady_clock> now = std::chrono::steady_clock::now();
+        time_ms -= std::chrono::duration_cast<std::chrono::milliseconds>(now - start);
+        start = now;
+
+        if (i > kmv_len) {
+            std::vector<move_t> *buff = new std::vector<move_t>[2 * kmv_len];
+            for (size_t j = 0; j < kmv_len; ++j) {
+                buff[j] = killer_mvs[j];
+            }
+            delete[] killer_mvs;
+            killer_mvs = buff;
+        }
+    }
+    delete[] killer_mvs;
+    return generate_reply(evaluation, pv[0]);
 }
