@@ -234,44 +234,49 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
 
     push(moves[0]);
     variations[0] = moves[0];
-    int32_t score = -pvs(depth - 1, -beta, -alpha, &variations[1]);
+    int32_t best_score = -pvs(depth - 1, -beta, -alpha, &variations[1]);
     pop();
 
-    if (score > alpha) {
-        alpha = score;
+    if (best_score > alpha) {
+        if (best_score >= beta) {
+            goto END;
+        }
+        alpha = best_score;
         memcpy(mv_hst, variations, depth * sizeof(move_t));
-    }
-    if (alpha >= beta) {
-        n = 0;
     }
 
     for (size_t i = 1; i < n; ++i) {
         move_t mv = moves[i];
-        if (use_fprune(mv, depth) && score + move_value(mv) < alpha - DELTA_MARGIN) {
+        if (use_fprune(mv, depth) && best_score + move_value(mv) < alpha - DELTA_MARGIN) {
             continue;
         }
         push(mv);
         variations[0] = mv;
-        score = -pvs(reduction(mv.score, depth), -alpha - 1, -alpha, &variations[1]);
+        int32_t score = -pvs(reduction(mv.score, depth), -alpha - 1, -alpha, &variations[1]);
         if (alpha < score && score < beta) {
             score = -pvs(reduction(mv.score, depth), -beta, -score, &variations[1]);
+            if (score > alpha) {
+                alpha = score;
+            }
         }
         pop();
-        if (score > alpha) {
-            alpha = score;
+        if (score > best_score) {
+            best_score = score;
+            if (score >= beta) {
+                /* move_t mv is a "killer move". */
+                insert_killer_move(mv);
+                break;
+            }
+            pv_index = i;
             memcpy(mv_hst, variations, depth * sizeof(move_t));
         }
-        if (alpha >= beta) {
-            /* move_t mv is a "killer move". */
-            insert_killer_move(mv);
-            break;
-        }
     }
+    END:
     /** Updates the transposition table with the appropriate values */
-    TTEntry tt_entry(score, depth, EXACT, moves[pv_index]);
-    if (score <= original_alpha) {
+    TTEntry tt_entry(best_score, depth, EXACT, moves[pv_index]);
+    if (best_score <= original_alpha) {
         tt_entry.flag = UPPER;
-    } else if (score >= beta) {
+    } else if (best_score >= beta) {
         tt_entry.flag = LOWER;
     }
     if (t != transposition_table.end()) {
@@ -280,7 +285,7 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
         transposition_table.insert(std::pair<uint64_t, TTEntry>(board.hash_code, tt_entry));
     }
     killer_mvs[ply + 1].clear();
-    return alpha;
+    return best_score;
 }
 
 #pragma clang diagnostic pop
