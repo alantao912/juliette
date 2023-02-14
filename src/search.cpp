@@ -13,7 +13,6 @@
 
 #define MIN_SCORE (INT32_MIN + 1000)
 #define MATE_SCORE(depth) (MIN_SCORE + INT16_MAX - depth)
-#define QSEARCH_CHECKMATE(depth) (MIN_SCORE + (2 * INT16_MAX) - depth)
 #define DRAW (int32_t) contempt;
 #define MAX_DEPTH 128
 
@@ -37,6 +36,7 @@ std::vector<move_t> *killer_mvs = nullptr;
 bitboard board;
 stack_t *stack = nullptr;
 int16_t ply = 0;
+int16_t init_depth;
 
 bool is_drawn() {
     auto iterator = repetition_table.find(board.hash_code);
@@ -137,7 +137,7 @@ int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) { // NOLINT
         goto CHECK_EVASIONS;
     } else {
         /** Side to move is in check, evasions do not exist. Checkmate :( */
-        return QSEARCH_CHECKMATE(depth);
+        return MATE_SCORE(depth + init_depth);
     }
 
     stand_pat = evaluate();
@@ -238,11 +238,13 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
     pop();
 
     if (best_score > alpha) {
-        if (best_score >= beta) {
-            goto END;
-        }
         alpha = best_score;
         memcpy(mv_hst, variations, depth * sizeof(move_t));
+    }
+
+    if (alpha >= beta) {
+        insert_killer_move(moves[0]);
+        goto END;
     }
 
     for (size_t i = 1; i < n; ++i) {
@@ -255,20 +257,19 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
         int32_t score = -pvs(reduction(mv.score, depth), -alpha - 1, -alpha, &variations[1]);
         if (alpha < score && score < beta) {
             score = -pvs(reduction(mv.score, depth), -beta, -score, &variations[1]);
-            if (score > alpha) {
-                alpha = score;
-            }
         }
         pop();
         if (score > best_score) {
             best_score = score;
-            if (score >= beta) {
-                /* move_t mv is a "killer move". */
-                insert_killer_move(mv);
-                break;
-            }
             pv_index = i;
+        }
+        if (best_score > alpha) {
+            alpha = score;
             memcpy(mv_hst, variations, depth * sizeof(move_t));
+        }
+        if (alpha >= beta) {
+            insert_killer_move(mv);
+            break;
         }
     }
     END:
@@ -503,6 +504,7 @@ info_t generate_reply(int32_t evaluation, move_t best_move) {
 info_t search(int16_t depth) {
     move_t pv[depth];
     pv[0] = NULL_MOVE;
+    init_depth = depth;
     std::vector<move_t> kmv[depth];
     killer_mvs = kmv;
 
@@ -524,6 +526,7 @@ info_t search(std::chrono::duration<int64_t, std::milli> time_ms) {
 
     std::chrono::time_point<std::chrono::steady_clock> start = std::chrono::steady_clock::now();
     for (int16_t i = 1; time_ms.count() > 0; ++i) {
+        init_depth = i;
         evaluation = pvs(i, MIN_SCORE, -MIN_SCORE, pv);
 
         /** Update time */
@@ -532,6 +535,7 @@ info_t search(std::chrono::duration<int64_t, std::milli> time_ms) {
         start = now;
 
         if (i > kmv_len) {
+            /** Resize killer move array */
             std::vector<move_t> *buff = new std::vector<move_t>[2 * kmv_len];
             for (size_t j = 0; j < kmv_len; ++j) {
                 buff[j] = killer_mvs[j];
