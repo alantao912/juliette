@@ -71,42 +71,12 @@ void parse_UCI_string(const char *uci) {
         strcpy(&sendbuf[len + 1], replies[uciok].c_str());
         reply();
     } else if (buff == "ucinewgame") {
-        // TODO: finish implementing ucinewgame command
-        /** initialize_zobrist() must occur before board instantiation as board instantiation depends on the hash codes initialized **/
         board_initialized = false;
         initialize_zobrist();
     } else if (buff == "position") {
         position(args);
     } else if (buff == "go") {
         go(args);
-    } else if (buff == "move") {
-        if (board_initialized) {
-            move_t moves[MAX_MOVE_NUM];
-            int n = gen_legal_moves(moves, board.turn);
-            int from = (args[0] - 'a') + 8 * (args[1] - '1');
-            int to = (args[2] - 'a') + 8 * (args[3] - '1');
-            int i;
-            for (i = 0; i < n; ++i) {
-                move_t m = moves[i];
-                if (m.from == from && m.to == to) {
-                    push(m);
-                    break;
-                }
-            }
-            if (i == n) {
-                std::cout << "Move not found" << std::endl;
-                exit(-1);
-            }
-            auto rt_pair = repetition_table.find(board.hash_code);
-            if (rt_pair != repetition_table.end()) {
-                RTEntry &rt_entry = rt_pair->second;
-                std::cout << "Seen: " << (int) rt_entry.num_seen << std::endl;
-            } else {
-                std::cout << "0" << std::endl;
-            }
-        } else {
-            /** TODO: Error handling for uninitialized board */
-        }
     } else if (buff == "quit") {
         std::cout << "juliette:: bye! i enjoyed playing with you :)" << std::endl;
         exit(0);

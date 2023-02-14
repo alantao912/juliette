@@ -7,17 +7,19 @@
 Computer program that plays chess. Estimated playing strength: 1600 ELO.
 
 Features:
+
 ```
     - Bitboard state representation
     - Negamax Implicit Game Tree Traversal
+    - Iterative Deepening
     - Alpha-Beta Pruning
     - MVV-LVA move ordering
     - Static Exchange Evaluation (SEE)
+    - Killer-Move Heuristic
     - Late Move Reduction (LMR)
     - Futility Pruning
     - Delta Pruning
     - Quiescent Search
-    - Check Extensions
     - Transposition Table
     - Repetition Table
     - Incrementlly updated Zobrist Hash board indexing
@@ -30,12 +32,14 @@ Features:
 ```
 
 Requirements:
+
 ```
     - C++ compiler 
     - Willingness to lose
 ```
 
-To compile and run, navigate to the directory of the source files and invoke the following two commands:  
+To compile and run, navigate to the directory of the source files and invoke the following two commands:
+
 ```    
     - g++ *.cpp -lWS2_32 -o juliette  
     - juliette.exe cli  
