@@ -192,7 +192,7 @@ int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) { // NOLINT
  * @param beta: Maximum score that the minimizing player is assured of.
  */
 
-static int32_t negamax(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
+static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
     const int32_t original_alpha = alpha;
     std::unordered_map<uint64_t, TTEntry>::iterator t = transposition_table.find(board.hash_code);
     if (t != transposition_table.end() && t->second.depth >= depth) {
@@ -227,24 +227,36 @@ static int32_t negamax(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hs
         return DRAW;
     }
     order_moves(moves, n);
-    int32_t score = MIN_SCORE;
+
     size_t pv_index = 0;
     move_t variations[depth];
     memset(variations, 0, depth * sizeof(move_t));
 
-    for (size_t i = 0; i < n; ++i) {
+    push(moves[0]);
+    variations[0] = moves[0];
+    int32_t score = -pvs(depth - 1, -beta, -alpha, &variations[1]);
+    pop();
+
+    if (score > alpha) {
+        alpha = score;
+        memcpy(mv_hst, variations, depth * sizeof(move_t));
+    }
+    if (alpha >= beta) {
+        n = 0;
+    }
+
+    for (size_t i = 1; i < n; ++i) {
         move_t mv = moves[i];
         if (use_fprune(mv, depth) && score + move_value(mv) < alpha - DELTA_MARGIN) {
             continue;
         }
         push(mv);
         variations[0] = mv;
-        int32_t sub_score = -negamax(reduction(mv.score, depth), -beta, -alpha, &variations[1]);
-        pop();
-        if (sub_score > score) {
-            score = sub_score;
-            pv_index = i;
+        score = -pvs(reduction(mv.score, depth), -alpha - 1, -alpha, &variations[1]);
+        if (alpha < score && score < beta) {
+            score = -pvs(reduction(mv.score, depth), -beta, -score, &variations[1]);
         }
+        pop();
         if (score > alpha) {
             alpha = score;
             memcpy(mv_hst, variations, depth * sizeof(move_t));
@@ -268,7 +280,7 @@ static int32_t negamax(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hs
         transposition_table.insert(std::pair<uint64_t, TTEntry>(board.hash_code, tt_entry));
     }
     killer_mvs[ply + 1].clear();
-    return score;
+    return alpha;
 }
 
 #pragma clang diagnostic pop
@@ -491,7 +503,7 @@ info_t search(int16_t depth) {
 
     int32_t evaluation;
     for (int16_t i = 1; i <= depth; ++i) {
-        evaluation = negamax(i, MIN_SCORE, -MIN_SCORE, pv);
+        evaluation = pvs(i, MIN_SCORE, -MIN_SCORE, pv);
     }
     killer_mvs = nullptr;
     return generate_reply(evaluation, pv[0]);
@@ -507,7 +519,7 @@ info_t search(std::chrono::duration<int64_t, std::milli> time_ms) {
 
     std::chrono::time_point<std::chrono::steady_clock> start = std::chrono::steady_clock::now();
     for (int16_t i = 1; time_ms.count() > 0; ++i) {
-        evaluation = negamax(i, MIN_SCORE, -MIN_SCORE, pv);
+        evaluation = pvs(i, MIN_SCORE, -MIN_SCORE, pv);
 
         /** Update time */
         std::chrono::time_point<std::chrono::steady_clock> now = std::chrono::steady_clock::now();
