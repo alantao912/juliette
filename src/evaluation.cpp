@@ -3,7 +3,6 @@
 #include "evaluation.h"
 
 #include <cmath>
-#include <cstring>
 #include <algorithm>
 
 /** Global board struct */

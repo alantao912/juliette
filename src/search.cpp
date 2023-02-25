@@ -230,7 +230,6 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
 
     size_t pv_index = 0;
     move_t variations[depth];
-    memset(variations, 0, depth * sizeof(move_t));
 
     push(moves[0]);
     variations[0] = moves[0];
@@ -243,7 +242,7 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
     }
 
     if (alpha >= beta) {
-        insert_killer_move(moves[0]);
+        store_cutoff_mv(moves[0]);
         goto END;
     }
 
@@ -254,7 +253,9 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
         }
         push(mv);
         variations[0] = mv;
+        /** Zero-Window Search. Assume good move ordering, and all subsequent moves are worse. */
         int32_t score = -pvs(reduction(mv.score, depth), -alpha - 1, -alpha, &variations[1]);
+        /** If moves[i] turns out to be better, re-search with full window*/
         if (alpha < score && score < beta) {
             score = -pvs(reduction(mv.score, depth), -beta, -score, &variations[1]);
         }
@@ -268,7 +269,7 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
             memcpy(mv_hst, variations, depth * sizeof(move_t));
         }
         if (alpha >= beta) {
-            insert_killer_move(mv);
+            store_cutoff_mv(mv);
             break;
         }
     }
@@ -320,9 +321,9 @@ void order_moves(move_t moves[], int n) {
 
     for (int i = 0; i < n; ++i) {
         if (moves[i] == hash_move) {
-            moves[i].score = static_cast<int16_t> (HM_SCORE);
+            moves[i].score = HM_SCORE;
         } else if (std::find(kmvs.begin(), kmvs.end(), moves[i]) != kmvs.end()) {
-            moves[i].score = 90;
+            moves[i].score = KM_SCORE;
         } else {
             moves[i].compute_score();
         }
@@ -330,7 +331,7 @@ void order_moves(move_t moves[], int n) {
     std::sort(moves, moves + n);
 }
 
-void insert_killer_move(move_t mv) {
+void store_cutoff_mv(move_t mv) {
     if (mv.flag == NONE && mv.score < CHECK_SCORE) {
         killer_mvs[ply].push_back(mv);
     }
@@ -504,6 +505,7 @@ info_t generate_reply(int32_t evaluation, move_t best_move) {
 info_t search(int16_t depth) {
     move_t pv[depth];
     pv[0] = NULL_MOVE;
+    ply = 0;
     init_depth = depth;
     std::vector<move_t> kmv[depth];
     killer_mvs = kmv;
@@ -519,6 +521,7 @@ info_t search(int16_t depth) {
 info_t search(std::chrono::duration<int64_t, std::milli> time_ms) {
     move_t pv[MAX_DEPTH];
     pv[0] = NULL_MOVE;
+    ply = 0;
 
     int kmv_len = 8;
     killer_mvs = new std::vector<move_t>[kmv_len];

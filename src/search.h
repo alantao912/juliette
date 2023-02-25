@@ -22,7 +22,7 @@ static int16_t reduction(int16_t score, int16_t current_ply);
 
 static void order_moves(move_t moves[], int n);
 
-static void insert_killer_move(move_t mv);
+static void store_cutoff_mv(move_t mv);
 
 int16_t move_SEE(move_t move);
 

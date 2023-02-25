@@ -49,7 +49,7 @@ void play_game() {
         start = std::chrono::steady_clock::now();
         reply = search((int16_t) depth);
         end = std::chrono::steady_clock::now();
-        make_move(reply.best_move);
+        push(reply.best_move);
     }
 
     move_t moves[MAX_MOVE_NUM];
@@ -78,12 +78,12 @@ void play_game() {
                     i = -1;
                 }
             } while (i < 1 || i > n);
-            make_move(moves[i - 1]);
+            push(moves[i - 1]);
         } else {
             start = std::chrono::steady_clock::now();
             reply = search((int16_t) depth);
             end = std::chrono::steady_clock::now();
-            make_move(reply.best_move);
+            push(reply.best_move);
         }
         player_turn = !player_turn;
         n = gen_legal_moves(moves, board.turn);
@@ -300,8 +300,10 @@ int main(int argc, char *argv[]) {
         const std::size_t len = strlen(move_seq);
         std::size_t i = 0;
 
-        move_t moves[MAX_MOVE_NUM];
         while (i < len) {
+            move_t moves[MAX_MOVE_NUM];
+            int n = gen_legal_moves(moves, board.turn);
+
             const char src_file = move_seq[i] - 'a';
             const char src_rank = move_seq[i + 1] - '1';
 
@@ -309,43 +311,42 @@ int main(int argc, char *argv[]) {
             const char dest_rank = move_seq[i + 3] - '1';
 
             const char prom = move_seq[i + 4];
-
-            int n = gen_legal_moves(moves, board.turn);
             int j;
             for (j = 0; j < n; ++j) {
-                if (8 * src_rank + src_file == moves[j].from && 8 * dest_rank + dest_file == moves[j].to) {
-                    if (prom == ' ') {
-                        push(moves[j]);
-                        break;
-                    } else if (prom == 'q' && (moves[j].flag == PC_QUEEN || moves[j].flag == PR_QUEEN)) {
-                        push(moves[j]);
-                        break;
-                    } else if (prom == 'r' && (moves[j].flag == PC_ROOK || moves[j].flag == PR_ROOK)) {
-                        push(moves[j]);
-                        break;
-                    } else if (prom == 'b' && (moves[j].flag == PC_BISHOP || moves[j].flag == PR_BISHOP)) {
-                        push(moves[j]);
-                        break;
-                    } else if (prom == 'n' && (moves[j].flag == PC_KNIGHT || moves[j].flag == PR_KNIGHT)) {
-                        push(moves[j]);
-                        break;
-                    }
+                move_t mv = moves[j];
+                if (8 * src_rank + src_file != mv.from || 8 * dest_rank + dest_file != mv.to) {
+                    continue;
+                }
+
+                if (prom == 'q' && (mv.flag == PR_QUEEN || mv.flag == PC_QUEEN)) {
+                    push(mv);
+                    break;
+                } else if (prom == 'r' && (mv.flag == PR_ROOK || mv.flag == PC_ROOK)) {
+                    push(mv);
+                    break;
+                } else if (prom == 'b' && (mv.flag == PR_BISHOP || mv.flag == PC_BISHOP)) {
+                    push(mv);
+                    break;
+                } else if (prom == 'n' && (mv.flag == PR_KNIGHT || mv.flag == PC_KNIGHT)) {
+                    push(mv);
+                    break;
+                } else if (prom == 0 || prom == ' ') {
+                    push(mv);
+                    break;
                 }
             }
             if (j == n) {
-                std::cout << (int) src_file << (int) src_rank << (int) dest_file << (int) dest_rank << std::flush;
+                std::cout << "Move: [";
+                std::cout << (char) (src_file + 'a') << (int) (src_rank + 1) << (char) (dest_file + 'a')
+                          << (int) (dest_rank + 1);
+                std::cout << "] not found. ";
+                std::cout << i << std::endl;
                 return 0;
             }
             i += 5;
         }
         info_t reply = search((int16_t) 2);
-        if (reply.best_move.from == A1 && reply.best_move.to == A1) {
-            std::cout << "loss " << std::flush;
-        } else if (reply.best_move.from == H8 && reply.best_move.to == H8) {
-            std::cout << "draw " << std::flush;
-        } else {
-            print_move(reply.best_move);
-        }
+        print_move(reply.best_move);
     }
     return 0;
 }

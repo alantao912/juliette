@@ -212,6 +212,11 @@ int parse_piece(char piece) {
 }
 
 void print_move(move_t move) {
+    if (move.from == A1 && move.to == A1 && move.flag == PASS) {
+        std::cout << "loss ";
+    } else if (move.from == H8 && move.to == H8 && move.flag == PASS) {
+        std::cout << "draw ";
+    }
     std::cout << (char) ('a' + file_of(move.from));
     std::cout << (rank_of(move.from) + 1);
     std::cout << (char) ('a' + file_of(move.to));

@@ -194,6 +194,7 @@ class Coach:
         game_log = init_game_log(self.move_seq)
         move = self.p0.send_move(self.move_seq)
         i = game_log.count('\n')
+        print(str(i) + ". " + move + '\n')
         game_log += str(i) + ". " + move + '\n'
         self.move_seq += move
         while move != 'draw ' and move != 'loss ':
@@ -202,6 +203,7 @@ class Coach:
             else:
                 move = self.p0.send_move(self.move_seq)
             i += 1
+            print(str(i) + ". " + move)
             game_log += str(i) + ". " + move + '\n'
             p1_turn = not p1_turn
             self.move_seq += move

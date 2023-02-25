@@ -16,6 +16,7 @@ extern int16_t ply;
  */
 void init_stack() {
     _free_stack();
+    stack = nullptr;
 }
 
 
