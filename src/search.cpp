@@ -446,44 +446,15 @@ void move_t::compute_score() {
         score += CHECK_SCORE;
     }
     switch (flag) {
-        case PC_QUEEN:
-            score += Weights::QUEEN_MATERIAL + piece_value(to);
-            break;
-        case PC_ROOK:
-            score += Weights::ROOK_MATERIAL + piece_value(to);
-            break;
-        case PC_BISHOP:
-            score += Weights::BISHOP_MATERIAL + piece_value(to);
-            break;
-        case PC_KNIGHT:
-            score += Weights::KNIGHT_MATERIAL + piece_value(to);
-            break;
-        case PR_QUEEN:
-            score += Weights::QUEEN_MATERIAL;
-            break;
-        case PR_ROOK:
-            score += Weights::ROOK_MATERIAL;
-            break;
-        case PR_BISHOP:
-            score += Weights::BISHOP_MATERIAL;
-            break;
-        case PR_KNIGHT:
-            score += Weights::KNIGHT_MATERIAL;
-            break;
         case CASTLING:
-            score += 80;
             break;
         case CAPTURE:
             if (piece_value(from) < piece_value(to)) {
                 score += piece_value(to) - piece_value(from);
                 break;
             }
-        case EN_PASSANT:
-        case NONE:
-            score += move_SEE(*this);
-            break;
         default:
-            break;
+            score += move_SEE(*this);
     }
 }
 

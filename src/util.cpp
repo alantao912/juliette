@@ -1,8 +1,6 @@
 #include <algorithm>
 
 #include "util.h"
-#include "search.h"
-#include "bitboard.h"
 #include "weights.h"
 
 const uint64_t BB_SQUARES[64] = {
