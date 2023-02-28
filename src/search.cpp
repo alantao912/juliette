@@ -396,17 +396,27 @@ move_t find_lva(int square) {
  */
 
 int16_t piece_value(int square) {
-    char piece = (char) toupper(board.mailbox[square]);
+    piece_t piece = static_cast<piece_t> (board.mailbox[square]);
     switch (piece) {
-        case 'P':
+        case BLACK_PAWN:
             return Weights::PAWN_MATERIAL;
-        case 'N':
+        case BLACK_KNIGHT:
             return Weights::KNIGHT_MATERIAL;
-        case 'B':
+        case BLACK_BISHOP:
             return Weights::BISHOP_MATERIAL;
-        case 'R':
+        case BLACK_ROOK:
             return Weights::ROOK_MATERIAL;
-        case 'Q':
+        case BLACK_QUEEN:
+            return Weights::QUEEN_MATERIAL;
+        case WHITE_PAWN:
+            return Weights::PAWN_MATERIAL;
+        case WHITE_KNIGHT:
+            return Weights::KNIGHT_MATERIAL;
+        case WHITE_BISHOP:
+            return Weights::BISHOP_MATERIAL;
+        case WHITE_ROOK:
+            return Weights::ROOK_MATERIAL;
+        case WHITE_QUEEN:
             return Weights::QUEEN_MATERIAL;
         default:
             return 0;

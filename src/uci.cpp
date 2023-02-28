@@ -9,8 +9,6 @@
 #include "util.h"
 #include "tables.h"
 #include "search.h"
-#include "stack.h"
-#include "movegen.h"
 #include "bitboard.h"
 
 #define BUFLEN 512

@@ -6,6 +6,7 @@
 #include <windows.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <unordered_map>
 
 #include "uci.h"
 #include "stack.h"
@@ -176,6 +177,7 @@ enum input_source {
     REMOTE, STDIN
 };
 input_source source;
+extern std::unordered_map<uint64_t, RTEntry> repetition_table;
 
 /**
  * To compile: g++ *.cpp -lWS2_32 -o juliette
@@ -275,8 +277,29 @@ int main(int argc, char *argv[]) {
                 initialize_zobrist();
                 init_board(START_POSITION);
 
-                info_t reply = search(std::chrono::duration<int64_t, std::milli>(5000));
-                print_move(reply.best_move);
+                while (true) {
+                    move_t moves[MAX_MOVE_NUM];
+                    int n = gen_legal_moves(moves, board.turn);
+
+                    for (int i = 0; i < n; ++i) {
+                        std::cout << i + 1 << ". ";
+                        print_move(moves[i]);
+                        std::cout << '\n';
+                    }
+                    std::string user_input;
+                    std::cin >> user_input;
+                    n = std::stoi(user_input);
+                    push(moves[n - 1]);
+                    std::unordered_map<uint64_t, RTEntry>::iterator it = repetition_table.find(board.hash_code);
+                    std::cout << "Repetition Count: ";
+                    if (it != repetition_table.end()) {
+                        std::cout << it->second.num_seen << '\n';
+                    } else {
+                        std::cout << "0\n";
+                    }
+                }
+                // info_t reply = search(std::chrono::duration<int64_t, std::milli>(5000));
+                // print_move(reply.best_move);
             } else if (strcmp(recvbuf, "perft") == 0) {
                 std::cout << "juliette:: starting performance test..." << std::endl;
                 // TODO: Re-implement performance test

@@ -1,7 +1,6 @@
 #include <cstring>
 
 #include "bitboard.h"
-#include "evaluation.h"
 #include "util.h"
 #include "movegen.h"
 
@@ -32,7 +31,7 @@ void init_board(const char *fen) {
     // Initalize bitboards and mailbox
     char *token = strtok_r(rest, " ", &rest);
     for (int i = A1; i <= H8; ++i) {
-        board.mailbox[i] = '-';
+        board.mailbox[i] = EMPTY;
     }
     board.w_pawns = 0;
     board.w_knights = 0;
@@ -58,8 +57,8 @@ void init_board(const char *fen) {
                 file += piece - '0';
             } else {
                 int square = 8 * rank + file;
-                board.mailbox[square] = piece;
-                uint64_t *bitboard = get_bitboard(piece);
+                board.mailbox[square] = to_enum(piece);
+                uint64_t *bitboard = get_bitboard(to_enum(piece));
                 set_bit(bitboard, square);
                 ++file;
             }
@@ -85,7 +84,7 @@ void init_board(const char *fen) {
     board.w_queenside_castling_rights = false;
     board.b_kingside_castling_rights = false;
     board.b_queenside_castling_rights = false;
-    for (int i = 0; i < strlen(token); i++) {
+    for (int i = 0, j = strlen(token); i < j; i++) {
         char piece = token[i];
         switch (piece) {
             case 'K':
@@ -117,9 +116,9 @@ void init_board(const char *fen) {
 
     board.hash_code = 0;
     for (int square = A1; square <= H8; square++) {
-        char piece = board.mailbox[square];
-        if (piece != '-') {
-            board.hash_code ^= ZOBRIST_VALUES[64 * parse_piece(piece) + square];
+        piece_t piece = board.mailbox[square];
+        if (piece != EMPTY) {
+            board.hash_code ^= ZOBRIST_VALUES[64 * (int) piece + square];
         }
     }
     if (board.turn == BLACK) {
@@ -153,9 +152,8 @@ void make_move(const move_t move) {
     int flag = move.flag;
     bool color = board.turn;
 
-    char attacker = board.mailbox[from];
-    char victim = board.mailbox[to];
-
+    piece_t attacker = board.mailbox[from];
+    piece_t victim = board.mailbox[to];
     if (flag == PASS) {
         board.turn = !color;
         board.hash_code ^= ZOBRIST_VALUES[768];
@@ -170,49 +168,49 @@ void make_move(const move_t move) {
     uint64_t *attacker_bb = get_bitboard(attacker);
     clear_bit(attacker_bb, from);
     set_bit(attacker_bb, to);
-    board.mailbox[from] = '-';
+    board.mailbox[from] = EMPTY;
     board.mailbox[to] = attacker;
-    board.hash_code ^= ZOBRIST_VALUES[64 * parse_piece(attacker) + from];
-    board.hash_code ^= ZOBRIST_VALUES[64 * parse_piece(attacker) + to];
+    board.hash_code ^= ZOBRIST_VALUES[64 * (int) attacker + from];
+    board.hash_code ^= ZOBRIST_VALUES[64 * (int) attacker + to];
 
     switch (attacker) {
-        case 'P':
+        case WHITE_PAWN:
             reset_halfmove = true;
             if (rank_of(to) - rank_of(from) == 2) {
                 board.en_passant_square = to - 8;
                 board.hash_code ^= ZOBRIST_VALUES[773 + file_of(board.en_passant_square)];
             } else if (flag == EN_PASSANT) {
                 clear_bit(&board.b_pawns, to - 8);
-                board.mailbox[to - 8] = '-';
-                board.hash_code ^= ZOBRIST_VALUES[64 * 6 + (to - 8)];
+                board.mailbox[to - 8] = EMPTY;
+                board.hash_code ^= ZOBRIST_VALUES[64 * BLACK_PAWN + (to - 8)];
             } else if (rank_of(to) == 7) { // Promotions
                 clear_bit(&board.w_pawns, to);
-                board.hash_code ^= ZOBRIST_VALUES[64 * 0 + to];
+                board.hash_code ^= ZOBRIST_VALUES[64 * WHITE_PAWN + to];
                 switch (flag) {
                     case PR_QUEEN:
                         set_bit(&board.w_queens, to);
-                        board.mailbox[to] = 'Q';
-                        board.hash_code ^= ZOBRIST_VALUES[64 * 4 + to];
+                        board.mailbox[to] = WHITE_QUEEN;
+                        board.hash_code ^= ZOBRIST_VALUES[64 * WHITE_QUEEN + to];
                         break;
                     case PR_ROOK:
                         set_bit(&board.w_rooks, to);
-                        board.mailbox[to] = 'R';
-                        board.hash_code ^= ZOBRIST_VALUES[64 * 3 + to];
+                        board.mailbox[to] = WHITE_ROOK;
+                        board.hash_code ^= ZOBRIST_VALUES[64 * WHITE_ROOK + to];
                         break;
                     case PR_BISHOP:
                         set_bit(&board.w_bishops, to);
-                        board.mailbox[to] = 'B';
-                        board.hash_code ^= ZOBRIST_VALUES[64 * 2 + to];
+                        board.mailbox[to] = WHITE_BISHOP;
+                        board.hash_code ^= ZOBRIST_VALUES[64 * WHITE_BISHOP + to];
                         break;
                     case PR_KNIGHT:
                         set_bit(&board.w_knights, to);
-                        board.mailbox[to] = 'N';
-                        board.hash_code ^= ZOBRIST_VALUES[64 * 1 + to];
+                        board.mailbox[to] = WHITE_KNIGHT;
+                        board.hash_code ^= ZOBRIST_VALUES[64 * WHITE_KNIGHT + to];
                         break;
                 }
             }
             break;
-        case 'R':
+        case WHITE_ROOK:
             if (from == H1 && board.w_kingside_castling_rights) {
                 board.w_kingside_castling_rights = false;
                 board.hash_code ^= ZOBRIST_VALUES[769];
@@ -221,23 +219,23 @@ void make_move(const move_t move) {
                 board.hash_code ^= ZOBRIST_VALUES[770];
             }
             break;
-        case 'K':
+        case WHITE_KING:
             board.w_king_square = to;
             if (flag == CASTLING) {
                 if (file_of(to) - file_of(from) > 0) { // Kingside
                     clear_bit(&board.w_rooks, H1);
                     set_bit(&board.w_rooks, F1);
-                    board.mailbox[H1] = '-';
-                    board.mailbox[F1] = 'R';
-                    board.hash_code ^= ZOBRIST_VALUES[64 * 3 + H1];
-                    board.hash_code ^= ZOBRIST_VALUES[64 * 3 + F1];
+                    board.mailbox[H1] = EMPTY;
+                    board.mailbox[F1] = WHITE_ROOK;
+                    board.hash_code ^= ZOBRIST_VALUES[64 * WHITE_ROOK + H1];
+                    board.hash_code ^= ZOBRIST_VALUES[64 * WHITE_ROOK + F1];
                 } else { // Queenside
                     clear_bit(&board.w_rooks, A1);
                     set_bit(&board.w_rooks, D1);
-                    board.mailbox[A1] = '-';
-                    board.mailbox[D1] = 'R';
-                    board.hash_code ^= ZOBRIST_VALUES[64 * 3 + A1];
-                    board.hash_code ^= ZOBRIST_VALUES[64 * 3 + D1];
+                    board.mailbox[A1] = EMPTY;
+                    board.mailbox[D1] = WHITE_ROOK;
+                    board.hash_code ^= ZOBRIST_VALUES[64 * WHITE_ROOK + A1];
+                    board.hash_code ^= ZOBRIST_VALUES[64 * WHITE_ROOK + D1];
                 }
             }
 
@@ -250,43 +248,43 @@ void make_move(const move_t move) {
                 board.hash_code ^= ZOBRIST_VALUES[770];
             }
             break;
-        case 'p':
+        case BLACK_PAWN:
             reset_halfmove = true;
             if (rank_of(to) - rank_of(from) == -2) {
                 board.en_passant_square = to + 8;
                 board.hash_code ^= ZOBRIST_VALUES[773 + file_of(board.en_passant_square)];
             } else if (flag == EN_PASSANT) {
                 clear_bit(&board.w_pawns, to + 8);
-                board.mailbox[to + 8] = '-';
-                board.hash_code ^= ZOBRIST_VALUES[64 * 0 + (to + 8)];
+                board.mailbox[to + 8] = EMPTY;
+                board.hash_code ^= ZOBRIST_VALUES[64 * WHITE_PAWN + (to + 8)];
             } else if (rank_of(to) == 0) { // Promotions
                 clear_bit(&board.b_pawns, to);
-                board.hash_code ^= ZOBRIST_VALUES[64 * 6 + to];
+                board.hash_code ^= ZOBRIST_VALUES[64 * BLACK_PAWN + to];
                 switch (flag) {
                     case PR_QUEEN:
                         set_bit(&board.b_queens, to);
-                        board.mailbox[to] = 'q';
-                        board.hash_code ^= ZOBRIST_VALUES[64 * 10 + to];
+                        board.mailbox[to] = BLACK_QUEEN;
+                        board.hash_code ^= ZOBRIST_VALUES[64 * BLACK_QUEEN + to];
                         break;
                     case PR_ROOK:
                         set_bit(&board.b_rooks, to);
-                        board.mailbox[to] = 'r';
-                        board.hash_code ^= ZOBRIST_VALUES[64 * 9 + to];
+                        board.mailbox[to] = BLACK_ROOK;
+                        board.hash_code ^= ZOBRIST_VALUES[64 * BLACK_ROOK + to];
                         break;
                     case PR_BISHOP:
                         set_bit(&board.b_bishops, to);
-                        board.mailbox[to] = 'b';
-                        board.hash_code ^= ZOBRIST_VALUES[64 * 8 + to];
+                        board.mailbox[to] = BLACK_BISHOP;
+                        board.hash_code ^= ZOBRIST_VALUES[64 * BLACK_BISHOP + to];
                         break;
                     case PR_KNIGHT:
                         set_bit(&board.b_knights, to);
-                        board.mailbox[to] = 'n';
-                        board.hash_code ^= ZOBRIST_VALUES[64 * 7 + to];
+                        board.mailbox[to] = BLACK_KNIGHT;
+                        board.hash_code ^= ZOBRIST_VALUES[64 * BLACK_KNIGHT + to];
                         break;
                 }
             }
             break;
-        case 'r':
+        case BLACK_ROOK:
             if (from == H8 && board.b_kingside_castling_rights) {
                 board.b_kingside_castling_rights = false;
                 board.hash_code ^= ZOBRIST_VALUES[771];
@@ -295,23 +293,23 @@ void make_move(const move_t move) {
                 board.hash_code ^= ZOBRIST_VALUES[772];
             }
             break;
-        case 'k':
+        case BLACK_KING:
             board.b_king_square = to;
             if (flag == CASTLING) {
                 if (file_of(to) - file_of(from) > 0) { // Kingside
                     clear_bit(&board.b_rooks, H8);
                     set_bit(&board.b_rooks, F8);
-                    board.mailbox[H8] = '-';
-                    board.mailbox[F8] = 'r';
-                    board.hash_code ^= ZOBRIST_VALUES[64 * 9 + H8];
-                    board.hash_code ^= ZOBRIST_VALUES[64 * 9 + F8];
+                    board.mailbox[H8] = EMPTY;
+                    board.mailbox[F8] = BLACK_ROOK;
+                    board.hash_code ^= ZOBRIST_VALUES[64 * BLACK_ROOK + H8];
+                    board.hash_code ^= ZOBRIST_VALUES[64 * BLACK_ROOK + F8];
                 } else { // Queenside
                     clear_bit(&board.b_rooks, A8);
                     set_bit(&board.b_rooks, D8);
-                    board.mailbox[A8] = '-';
-                    board.mailbox[D8] = 'r';
-                    board.hash_code ^= ZOBRIST_VALUES[64 * 9 + A8];
-                    board.hash_code ^= ZOBRIST_VALUES[64 * 9 + D8];
+                    board.mailbox[A8] = EMPTY;
+                    board.mailbox[D8] = BLACK_ROOK;
+                    board.hash_code ^= ZOBRIST_VALUES[64 * BLACK_ROOK + A8];
+                    board.hash_code ^= ZOBRIST_VALUES[64 * BLACK_ROOK + D8];
                 }
             }
 
@@ -325,11 +323,11 @@ void make_move(const move_t move) {
             }
             break;
     }
-    if (victim != '-') {
+    if (victim != EMPTY) {
         reset_halfmove = true;
         uint64_t *victim_bb = get_bitboard(victim);
         clear_bit(victim_bb, to);
-        board.hash_code ^= ZOBRIST_VALUES[64 * parse_piece(victim) + to];
+        board.hash_code ^= ZOBRIST_VALUES[64 * (int) victim + to];
     }
     board.w_occupied =
             board.w_pawns | board.w_knights | board.w_bishops | board.w_rooks | board.w_queens | board.w_king;
@@ -394,31 +392,31 @@ bool is_attacked(bool color, int square) {
  * @param piece
  * @return a pointer to the bitboard of the piece.
  */
-uint64_t *get_bitboard(char piece) {
+uint64_t *get_bitboard(piece_t piece) {
     switch (piece) {
-        case 'P':
+        case WHITE_PAWN:
             return &board.w_pawns;
-        case 'N':
+        case WHITE_KNIGHT:
             return &board.w_knights;
-        case 'B':
+        case WHITE_BISHOP:
             return &board.w_bishops;
-        case 'R':
+        case WHITE_ROOK:
             return &board.w_rooks;
-        case 'Q':
+        case WHITE_QUEEN:
             return &board.w_queens;
-        case 'K':
+        case WHITE_KING:
             return &board.w_king;
-        case 'p':
+        case BLACK_PAWN:
             return &board.b_pawns;
-        case 'n':
+        case BLACK_KNIGHT:
             return &board.b_knights;
-        case 'b':
+        case BLACK_BISHOP:
             return &board.b_bishops;
-        case 'r':
+        case BLACK_ROOK:
             return &board.b_rooks;
-        case 'q':
+        case BLACK_QUEEN:
             return &board.b_queens;
-        case 'k':
+        case BLACK_KING:
             return &board.b_king;
         default:
             std::cout << "Bad thing happened: " << piece << '\n';
@@ -456,7 +454,7 @@ void print_bitboard(uint64_t bb) {
 void print_board() {
     for (int rank = 7; rank >= 0; rank--) {
         for (int file = 0; file <= 7; file++) {
-            std::cout << (char) board.mailbox[8 * rank + file] << ' ';
+            std::cout << to_char(board.mailbox[8 * rank + file]) << ' ';
         }
         std::cout << '\n';
     }

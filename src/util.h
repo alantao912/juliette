@@ -36,6 +36,12 @@ enum move_flags {
     PC_QUEEN
 };
 
+enum piece_t {
+    BLACK_PAWN, BLACK_KNIGHT, BLACK_BISHOP, BLACK_ROOK, BLACK_QUEEN, BLACK_KING,
+    WHITE_PAWN, WHITE_KNIGHT, WHITE_BISHOP, WHITE_ROOK, WHITE_QUEEN, WHITE_KING,
+    EMPTY, COUNT
+};
+
 /**
  * Representation of a move.
  */
@@ -55,7 +61,7 @@ typedef struct move_t {
 } move_t;
 
 typedef struct bitboard {
-    char mailbox[64]; // piece-centric board representation
+    piece_t mailbox[64]; // piece-centric board representation
 
     uint64_t w_pawns;
     uint64_t w_knights;
@@ -177,6 +183,10 @@ extern const int16_t CHECK_SCORE;
 extern const int16_t HM_SCORE;
 extern const int16_t KM_SCORE;
 
+piece_t to_enum(char p);
+
+char to_char(piece_t p);
+
 uint64_t get_ray_between(int square1, int square2);
 
 uint64_t get_ray_between_inclusive(int square1, int square2);
@@ -200,8 +210,6 @@ int anti_diagonal_of(int square);
 int pull_lsb(uint64_t *bb);
 
 int parse_square(const char *square);
-
-int parse_piece(char piece);
 
 void print_move(move_t move);
 

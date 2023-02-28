@@ -108,6 +108,68 @@ bool move_t::operator==(const move_t &other) const {
     return to == other.to && from == other.from && flag == other.flag;
 }
 
+piece_t to_enum(char p) {
+    switch (p) {
+        case 'P':
+            return WHITE_PAWN;
+        case 'N':
+            return WHITE_KNIGHT;
+        case 'B':
+            return WHITE_BISHOP;
+        case 'R':
+            return WHITE_ROOK;
+        case 'Q':
+            return WHITE_QUEEN;
+        case 'K':
+            return WHITE_KING;
+        case 'p':
+            return BLACK_PAWN;
+        case 'n':
+            return BLACK_KNIGHT;
+        case 'b':
+            return BLACK_BISHOP;
+        case 'r':
+            return BLACK_ROOK;
+        case 'q':
+            return BLACK_QUEEN;
+        case 'k':
+            return BLACK_KING;
+        default:
+            std::cout << "Bad thing happened" << std::endl;
+    }
+    return EMPTY;
+}
+
+char to_char(piece_t p) {
+    switch (p) {
+        case WHITE_PAWN:
+            return 'P';
+        case WHITE_KNIGHT:
+            return 'N';
+        case WHITE_BISHOP:
+            return 'B';
+        case WHITE_ROOK:
+            return 'R';
+        case WHITE_QUEEN:
+            return 'Q';
+        case WHITE_KING:
+            return 'K';
+        case BLACK_PAWN:
+            return 'p';
+        case BLACK_KNIGHT:
+            return 'n';
+        case BLACK_BISHOP:
+            return 'b';
+        case BLACK_ROOK:
+            return 'r';
+        case BLACK_QUEEN:
+            return 'q';
+        case BLACK_KING:
+            return 'k';
+    }
+    return ' ';
+}
+
 uint64_t get_ray_between(int square1, int square2) {
     return (BB_RAYS[square1][square2] & ((BB_ALL << square1) ^ (BB_ALL << square2))) | BB_SQUARES[square2];
 }
@@ -176,37 +238,6 @@ int parse_square(const char *square) {
     int file = square[0] - 'a';
     int rank = square[1] - '0';
     return 8 * (rank - 1) + file;
-}
-
-int parse_piece(char piece) {
-    switch (piece) {
-        case 'P':
-            return 0;
-        case 'N':
-            return 1;
-        case 'B':
-            return 2;
-        case 'R':
-            return 3;
-        case 'Q':
-            return 4;
-        case 'K':
-            return 5;
-        case 'p':
-            return 6;
-        case 'n':
-            return 7;
-        case 'b':
-            return 8;
-        case 'r':
-            return 9;
-        case 'q':
-            return 10;
-        case 'k':
-            return 11;
-        default:
-            return 0; // en passant, index neutral
-    }
 }
 
 void print_move(move_t move) {

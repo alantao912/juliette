@@ -94,7 +94,8 @@ void init_bishop_attacks() {
     for (int square = A1; square <= H8; square++) {
         uint64_t edges = ((BB_RANK_1 | BB_RANK_8) & ~BB_RANKS[rank_of(square)]) |
                          ((BB_FILE_A | BB_FILE_H) & ~BB_FILES[file_of(square)]);
-        BB_BISHOP_ATTACK_MASKS[square] = (BB_DIAGONALS[diagonal_of(square)] ^ BB_ANTI_DIAGONALS[anti_diagonal_of(square)]) & ~edges;
+        BB_BISHOP_ATTACK_MASKS[square] =
+                (BB_DIAGONALS[diagonal_of(square)] ^ BB_ANTI_DIAGONALS[anti_diagonal_of(square)]) & ~edges;
         uint64_t attack_mask = BB_BISHOP_ATTACK_MASKS[square];
 
         int shift = 64 - pop_count(attack_mask);
@@ -191,11 +192,13 @@ static uint64_t _init_bishop_attacks_helper(int square, uint64_t subset) {
     uint64_t anti_diagonal_mask = BB_ANTI_DIAGONALS[anti_diagonal_of(square)];
 
     uint64_t diagonal_attacks = (((diagonal_mask & subset) - square_mask * 2) ^
-                                 _get_reverse_bb(_get_reverse_bb(diagonal_mask & subset) - _get_reverse_bb(square_mask) * 2)) &
+                                 _get_reverse_bb(
+                                         _get_reverse_bb(diagonal_mask & subset) - _get_reverse_bb(square_mask) * 2)) &
                                 diagonal_mask;
 
     uint64_t anti_diagonal_attacks = (((anti_diagonal_mask & subset) - square_mask * 2) ^
-                                      _get_reverse_bb(_get_reverse_bb(anti_diagonal_mask & subset) - _get_reverse_bb(square_mask) * 2)) &
+                                      _get_reverse_bb(_get_reverse_bb(anti_diagonal_mask & subset) -
+                                                      _get_reverse_bb(square_mask) * 2)) &
                                      anti_diagonal_mask;
 
     return diagonal_attacks | anti_diagonal_attacks;
@@ -246,7 +249,7 @@ uint64_t _get_reverse_bb(uint64_t bb) {
  * @param color the side to move.
  * @param return the number of moves.
  */
-int gen_legal_moves(move_t* moves, bool color) {
+int gen_legal_moves(move_t *moves, bool color) {
     int i = 0;
     uint64_t pieces;
     uint64_t king_bb;
@@ -275,7 +278,7 @@ int gen_legal_moves(move_t* moves, bool color) {
         uint64_t moves_bb = get_king_moves(color, king_square) & ~attackmask;
         while (moves_bb) {
             int to = pull_lsb(&moves_bb);
-            int flag = get_flag('K', king_square, to);
+            int flag = get_flag(BLACK_KING, king_square, to);
             if (flag == CASTLING) continue;
             move_t move = {(unsigned int) king_square, (unsigned int) to, (unsigned int) flag};
             moves[i++] = move;
@@ -285,8 +288,7 @@ int gen_legal_moves(move_t* moves, bool color) {
 
     while (pieces) {
         int from = pull_lsb(&pieces);
-        char piece = toupper(board.mailbox[from]);
-
+        piece_t piece = static_cast<piece_t>(board.mailbox[from] % 6);
         uint64_t pinmask;
         uint64_t pinned_bb = BB_SQUARES[from] & pos_pinned;
         if (pinned_bb) {
@@ -297,7 +299,7 @@ int gen_legal_moves(move_t* moves, bool color) {
 
         uint64_t moves_bb;
         switch (piece) {
-            case 'P': {
+            case BLACK_PAWN: {
                 uint64_t pawn_moves = get_pawn_moves(color, from);
                 moves_bb = pawn_moves & checkmask & pinmask;
 
@@ -314,27 +316,30 @@ int gen_legal_moves(move_t* moves, bool color) {
 
                 break;
             }
-            case 'N':
+            case BLACK_KNIGHT:
                 moves_bb = get_knight_moves(color, from) & checkmask & pinmask;
                 break;
-            case 'B':
+            case BLACK_BISHOP:
                 moves_bb = get_bishop_moves(color, from) & checkmask & pinmask;
                 break;
-            case 'R':
+            case BLACK_ROOK:
                 moves_bb = get_rook_moves(color, from) & checkmask & pinmask;
                 break;
-            case 'Q':
+            case BLACK_QUEEN:
                 moves_bb = get_queen_moves(color, from) & checkmask & pinmask;
                 break;
-            case 'K':
+            case BLACK_KING:
                 moves_bb = get_king_moves(color, from) & ~attackmask;
                 break;
+            default:
+                std::cout << "366 movegen\n";
+                exit(-1);
         }
 
         while (moves_bb) {
             int to = pull_lsb(&moves_bb);
-            if (piece == 'P' && (rank_of(to) == 0 || rank_of(to) == 7)) { // Add all promotions
-                if (board.mailbox[to] == '-') {
+            if (piece == BLACK_PAWN && (rank_of(to) == 0 || rank_of(to) == 7)) { // Add all promotions
+                if (board.mailbox[to] == EMPTY) {
                     move_t queen_promotion = {(unsigned int) from, (unsigned int) to, PR_QUEEN};
                     moves[i++] = queen_promotion;
                     move_t rook_promotion = {(unsigned int) from, (unsigned int) to, PR_ROOK};
@@ -348,7 +353,7 @@ int gen_legal_moves(move_t* moves, bool color) {
                     moves[i++] = queen_promotion;
                     move_t rook_promotion = {(unsigned int) from, (unsigned int) to, PC_ROOK};
                     moves[i++] = rook_promotion;
-                    move_t bishop_promotion = {(unsigned int) from, (unsigned int)  to, PC_BISHOP};
+                    move_t bishop_promotion = {(unsigned int) from, (unsigned int) to, PC_BISHOP};
                     moves[i++] = bishop_promotion;
                     move_t knight_promotion = {(unsigned int) from, (unsigned int) to, PC_KNIGHT};
                     moves[i++] = knight_promotion;
@@ -366,8 +371,10 @@ int gen_legal_moves(move_t* moves, bool color) {
                         if (to == G1) { // Kingside
                             if (!board.w_kingside_castling_rights) continue; // Assert king or rook has not moved
                             if (!(board.w_rooks & BB_SQUARES[H1])) continue; // Assert rook is still alive
-                            if (board.occupied & (BB_SQUARES[F1] | BB_SQUARES[G1])) continue; // Assert there are no pieces between the king and rook
-                            if (attackmask & (BB_SQUARES[F1] | BB_SQUARES[G1])) continue; // Assert the squares the king moves through are not attacked
+                            if (board.occupied & (BB_SQUARES[F1] | BB_SQUARES[G1]))
+                                continue; // Assert there are no pieces between the king and rook
+                            if (attackmask & (BB_SQUARES[F1] | BB_SQUARES[G1]))
+                                continue; // Assert the squares the king moves through are not attacked
                         } else if (to == C1) { // Queenside
                             if (!board.w_queenside_castling_rights) continue;
                             if (!(board.w_rooks & BB_SQUARES[A1])) continue;
@@ -416,7 +423,7 @@ int gen_legal_moves(move_t* moves, bool color) {
  * @param color the side to move.
  * @param return the number of captures.
  */
-int gen_legal_captures(move_t* moves, bool color) {
+int gen_legal_captures(move_t *moves, bool color) {
     int i = 0;
 
     uint64_t pieces;
@@ -449,8 +456,8 @@ int gen_legal_captures(move_t* moves, bool color) {
         uint64_t moves_bb = get_king_moves(color, king_square) & ~attackmask & enemy_bb;
         while (moves_bb) {
             int to = pull_lsb(&moves_bb);
-            int flag = get_flag('K', king_square, to);
-            move_t move = {(unsigned int) king_square, (unsigned int) to,(unsigned int)  flag};
+            int flag = get_flag(BLACK_KING, king_square, to);
+            move_t move = {(unsigned int) king_square, (unsigned int) to, (unsigned int) flag};
             moves[i++] = move;
         }
         return i;
@@ -458,8 +465,7 @@ int gen_legal_captures(move_t* moves, bool color) {
 
     while (pieces) {
         int from = pull_lsb(&pieces);
-        char piece = toupper(board.mailbox[from]);
-
+        piece_t piece = static_cast<piece_t> (board.mailbox[from] % 6);
         uint64_t pinmask;
         uint64_t pinned_bb = BB_SQUARES[from] & pos_pinned;
         if (pinned_bb) {
@@ -470,7 +476,7 @@ int gen_legal_captures(move_t* moves, bool color) {
 
         uint64_t moves_bb;
         switch (piece) {
-            case 'P': {
+            case BLACK_PAWN: {
                 uint64_t pawn_moves = get_pawn_moves(color, from);
                 moves_bb = pawn_moves & checkmask & pinmask & enemy_bb;
 
@@ -486,27 +492,29 @@ int gen_legal_captures(move_t* moves, bool color) {
                 }
                 break;
             }
-            case 'N':
+            case BLACK_KNIGHT:
                 moves_bb = get_knight_moves(color, from) & checkmask & pinmask & enemy_bb;
                 break;
-            case 'B':
+            case BLACK_BISHOP:
                 moves_bb = get_bishop_moves(color, from) & checkmask & pinmask & enemy_bb;
                 break;
-            case 'R':
+            case BLACK_ROOK:
                 moves_bb = get_rook_moves(color, from) & checkmask & pinmask & enemy_bb;
                 break;
-            case 'Q':
+            case BLACK_QUEEN:
                 moves_bb = get_queen_moves(color, from) & checkmask & pinmask & enemy_bb;
                 break;
-            case 'K':
+            case BLACK_KING:
                 moves_bb = get_king_moves(color, from) & ~attackmask & enemy_bb;
                 break;
+            default:
+                std::cout << "movegen 512\n";
         }
 
         while (moves_bb) {
             int to = pull_lsb(&moves_bb);
-            if (piece == 'P' && (rank_of(to) == 0 || rank_of(to) == 7)) { // Add all promotion captures
-                if (board.mailbox[to] != '-') {
+            if (piece == BLACK_PAWN && (rank_of(to) == 0 || rank_of(to) == 7)) { // Add all promotion captures
+                if (board.mailbox[to] != EMPTY) {
                     move_t queen_promotion = {(unsigned int) from, (unsigned int) to, PC_QUEEN};
                     moves[i++] = queen_promotion;
                     move_t rook_promotion = {(unsigned int) from, (unsigned int) to, PC_ROOK};
@@ -570,8 +578,8 @@ int gen_legal_captures_sq(move_t *moves, bool color, uint64_t attack_square) {
         uint64_t moves_bb = get_king_moves(color, king_square) & ~attackmask & enemy_bb;
         while (moves_bb) {
             int to = pull_lsb(&moves_bb);
-            int flag = get_flag('K', king_square, to);
-            move_t move = {(unsigned int) king_square, (unsigned int) to,(unsigned int)  flag};
+            int flag = get_flag(BLACK_KING, king_square, to);
+            move_t move = {(unsigned int) king_square, (unsigned int) to, (unsigned int) flag};
             moves[i++] = move;
         }
         return i;
@@ -579,7 +587,7 @@ int gen_legal_captures_sq(move_t *moves, bool color, uint64_t attack_square) {
 
     while (pieces) {
         int from = pull_lsb(&pieces);
-        char piece = toupper(board.mailbox[from]);
+        piece_t piece = static_cast<piece_t> (board.mailbox[from] % 6);
 
         uint64_t pinmask;
         uint64_t pinned_bb = BB_SQUARES[from] & pos_pinned;
@@ -591,7 +599,7 @@ int gen_legal_captures_sq(move_t *moves, bool color, uint64_t attack_square) {
 
         uint64_t moves_bb;
         switch (piece) {
-            case 'P': {
+            case BLACK_PAWN: {
                 uint64_t pawn_moves = get_pawn_moves(color, from);
                 moves_bb = pawn_moves & checkmask & pinmask & enemy_bb;
 
@@ -607,27 +615,29 @@ int gen_legal_captures_sq(move_t *moves, bool color, uint64_t attack_square) {
                 }
                 break;
             }
-            case 'N':
+            case BLACK_KNIGHT:
                 moves_bb = get_knight_moves(color, from) & checkmask & pinmask & enemy_bb;
                 break;
-            case 'B':
+            case BLACK_BISHOP:
                 moves_bb = get_bishop_moves(color, from) & checkmask & pinmask & enemy_bb;
                 break;
-            case 'R':
+            case BLACK_ROOK:
                 moves_bb = get_rook_moves(color, from) & checkmask & pinmask & enemy_bb;
                 break;
-            case 'Q':
+            case BLACK_QUEEN:
                 moves_bb = get_queen_moves(color, from) & checkmask & pinmask & enemy_bb;
                 break;
-            case 'K':
+            case BLACK_KING:
                 moves_bb = get_king_moves(color, from) & ~attackmask & enemy_bb;
                 break;
+            default:
+                std::cout << "movegen 635\n";
         }
         moves_bb &= attack_square;
         while (moves_bb) {
             int to = pull_lsb(&moves_bb);
-            if (piece == 'P' && (rank_of(to) == 0 || rank_of(to) == 7)) { // Add all promotion captures
-                if (board.mailbox[to] != '-') {
+            if (piece == BLACK_PAWN && (rank_of(to) == 0 || rank_of(to) == 7)) { // Add all promotion captures
+                if (board.mailbox[to] != EMPTY) {
                     move_t queen_promotion = {(unsigned int) from, (unsigned int) to, PC_QUEEN};
                     moves[i++] = queen_promotion;
                     move_t rook_promotion = {(unsigned int) from, (unsigned int) to, PC_ROOK};
@@ -692,11 +702,11 @@ int gen_nonquiescent_moves(move_t *moves, bool color, int *n_checks) {
  * @param to the square the piece is moving to
  * @return the appropriate flag for the move, excludes promotions
  */
-int get_flag(char piece, int from, int to) {
+int get_flag(piece_t piece, int from, int to) {
     switch (piece) {
-        case 'P':
+        case BLACK_PAWN:
             if (to == board.en_passant_square) return EN_PASSANT;
-        case 'K':
+        case BLACK_KING:
             if (abs(file_of(from) - file_of(to)) == 2) return CASTLING;
     }
     if (BB_SQUARES[to] & board.occupied) return CAPTURE;
@@ -730,22 +740,22 @@ static uint64_t _get_attackmask(bool color) {
 
     while (pieces) {
         int square = pull_lsb(&pieces);
-        char piece = toupper(board.mailbox[square]);
+        piece_t piece = static_cast<piece_t> (board.mailbox[square] % 6);
         switch (piece) {
-            case 'N':
+            case BLACK_KNIGHT:
                 moves_bb |= BB_KNIGHT_ATTACKS[square];
                 break;
-            case 'B':
+            case BLACK_BISHOP:
                 occupied = board.occupied & BB_BISHOP_ATTACK_MASKS[square];
                 key = (occupied * BISHOP_MAGICS[square]) >> BISHOP_ATTACK_SHIFTS[square];
                 moves_bb |= BB_BISHOP_ATTACKS[square][key];
                 break;
-            case 'R':
+            case BLACK_ROOK:
                 occupied = board.occupied & BB_ROOK_ATTACK_MASKS[square];
                 key = (occupied * ROOK_MAGICS[square]) >> ROOK_ATTACK_SHIFTS[square];
                 moves_bb |= BB_ROOK_ATTACKS[square][key];
                 break;
-            case 'Q':
+            case BLACK_QUEEN:
                 occupied = board.occupied & BB_BISHOP_ATTACK_MASKS[square];
                 key = (occupied * BISHOP_MAGICS[square]) >> BISHOP_ATTACK_SHIFTS[square];
                 moves_bb |= BB_BISHOP_ATTACKS[square][key];
@@ -754,7 +764,7 @@ static uint64_t _get_attackmask(bool color) {
                 key = (occupied * ROOK_MAGICS[square]) >> ROOK_ATTACK_SHIFTS[square];
                 moves_bb |= BB_ROOK_ATTACKS[square][key];
                 break;
-            case 'K':
+            case BLACK_KING:
                 moves_bb |= BB_KING_ATTACKS[square];
                 break;
         }
@@ -1067,8 +1077,8 @@ uint64_t get_queen_rays_setwise(uint64_t queens, uint64_t empty) {
  * @return a ray in the direction, stopping before it hits an occupied piece.
  */
 static uint64_t _get_ray_setwise_south(uint64_t pieces, uint64_t empty) {
-    pieces |= empty & (pieces >>  8);
-    empty &= (empty >>  8);
+    pieces |= empty & (pieces >> 8);
+    empty &= (empty >> 8);
     pieces |= empty & (pieces >> 16);
     empty &= (empty >> 16);
     pieces |= empty & (pieces >> 32);
@@ -1082,8 +1092,8 @@ static uint64_t _get_ray_setwise_south(uint64_t pieces, uint64_t empty) {
  * @return a ray in the direction, stopping before it hits an occupied piece.
  */
 static uint64_t _get_ray_setwise_north(uint64_t pieces, uint64_t empty) {
-    pieces |= empty & (pieces <<  8);
-    empty &= (empty <<  8);
+    pieces |= empty & (pieces << 8);
+    empty &= (empty << 8);
     pieces |= empty & (pieces << 16);
     empty &= (empty << 16);
     pieces |= empty & (pieces << 32);
@@ -1114,8 +1124,8 @@ static uint64_t _get_ray_setwise_east(uint64_t pieces, uint64_t empty) {
  */
 static uint64_t _get_ray_setwise_northeast(uint64_t pieces, uint64_t empty) {
     empty &= ~BB_FILE_A;
-    pieces |= empty & (pieces <<  9);
-    empty &= (empty <<  9);
+    pieces |= empty & (pieces << 9);
+    empty &= (empty << 9);
     pieces |= empty & (pieces << 18);
     empty &= (empty << 18);
     pieces |= empty & (pieces << 36);
@@ -1130,8 +1140,8 @@ static uint64_t _get_ray_setwise_northeast(uint64_t pieces, uint64_t empty) {
  */
 static uint64_t _get_ray_setwise_southeast(uint64_t pieces, uint64_t empty) {
     empty &= ~BB_FILE_A;
-    pieces |= empty & (pieces >>  7);
-    empty &= (empty >>  7);
+    pieces |= empty & (pieces >> 7);
+    empty &= (empty >> 7);
     pieces |= empty & (pieces >> 14);
     empty &= (empty >> 14);
     pieces |= empty & (pieces >> 28);
@@ -1162,8 +1172,8 @@ static uint64_t _get_ray_setwise_west(uint64_t pieces, uint64_t empty) {
  */
 static uint64_t _get_ray_setwise_southwest(uint64_t pieces, uint64_t empty) {
     empty &= ~BB_FILE_H;
-    pieces |= empty & (pieces >>  9);
-    empty &= (empty >>  9);
+    pieces |= empty & (pieces >> 9);
+    empty &= (empty >> 9);
     pieces |= empty & (pieces >> 18);
     empty &= (empty >> 18);
     pieces |= empty & (pieces >> 36);
@@ -1178,8 +1188,8 @@ static uint64_t _get_ray_setwise_southwest(uint64_t pieces, uint64_t empty) {
  */
 static uint64_t _get_ray_setwise_northwest(uint64_t pieces, uint64_t empty) {
     empty &= ~BB_FILE_H;
-    pieces |= empty & (pieces <<  7);
-    empty &= (empty <<  7);
+    pieces |= empty & (pieces << 7);
+    empty &= (empty << 7);
     pieces |= empty & (pieces << 14);
     empty &= (empty << 14);
     pieces |= empty & (pieces << 28);
