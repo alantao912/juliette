@@ -339,12 +339,13 @@ void store_cutoff_mv(move_t mv) {
 
 int16_t move_SEE(move_t move) {
     int16_t score = Weights::PAWN_MATERIAL * (move.flag == EN_PASSANT) + piece_value(move.to);
-    push(move);
+    bitboard temp = board;
+    make_move(move);
     if (move.flag >= PR_KNIGHT && move.flag <= PR_QUEEN) {
         score += piece_value(move.to);
     }
     score -= SEE(move.to);
-    pop();
+    board = temp;
     return score;
 }
 
@@ -362,10 +363,11 @@ int16_t SEE(int square) {
     move_t lva_move = find_lva(square);
     if (lva_move.flag != PASS) {
         int16_t cpv = piece_value(square);
-        push(lva_move);
+        bitboard temp = board;
+        make_move(lva_move);
         int16_t prom_value = (lva_move.flag >= PC_KNIGHT) * piece_value(lva_move.to);
         see = std::max(0, prom_value + cpv - SEE(square));
-        pop();
+        board = temp;
     }
     return see;
 }
