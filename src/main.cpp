@@ -75,6 +75,10 @@ void play_game() {
                     std::cin >> user_input;
                     trim(user_input);
                     i = std::stoi(user_input);
+                    if (i == 0) {
+                        std::cout << "Exiting\n";
+                        exit(0);
+                    }
                 } catch (const std::invalid_argument &arg) {
                     i = -1;
                 }

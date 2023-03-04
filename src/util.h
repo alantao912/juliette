@@ -6,6 +6,7 @@
 #define BLACK 0
 #define INVALID (-1)
 #define START_POSITION "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -"
+#define HTABLE_LEN 784
 
 enum squares {
     A1, B1, C1, D1, E1, F1, G1, H1,
@@ -51,13 +52,7 @@ typedef struct move_t {
     unsigned int to: 6;
     unsigned int flag: 4;
 
-    int16_t score;
-
-    bool operator<(const move_t &other) const;
-
     bool operator==(const move_t &other) const;
-
-    void compute_score();
 } move_t;
 
 typedef struct bitboard {
@@ -179,9 +174,11 @@ extern const move_t STALEMATE;
 extern const int MAX_MOVE_NUM;
 extern const int MAX_CAPTURE_NUM;
 extern const int MAX_ATTACK_NUM;
-extern const int16_t CHECK_SCORE;
-extern const int16_t HM_SCORE;
-extern const int16_t KM_SCORE;
+extern const int32_t CHECK_SCORE;
+extern const int32_t HM_SCORE;
+extern const int32_t KM_SCORE;
+extern const int32_t WIN_EX_SCORE;
+extern const int32_t NEG_EX_SCORE;
 
 piece_t to_enum(char p);
 

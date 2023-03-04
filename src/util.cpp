@@ -95,14 +95,15 @@ const int MAX_CAPTURE_NUM = 74;
 /** Maximum number of attacks on a single square */
 const int MAX_ATTACK_NUM = 16;
 /** Score added to a move's "interestingness" if it gives check. */
-const int16_t CHECK_SCORE = 3 * Weights::QUEEN_MATERIAL;
+const int32_t CHECK_SCORE = 1000000000;
 /** Score added to a move if it is the best move retrieved from a transposition table. */
-const int16_t HM_SCORE = 4 * Weights::QUEEN_MATERIAL;
-const int16_t KM_SCORE = 90;
-
-bool move_t::operator<(const move_t &other) const {
-    return score > other.score;
-};
+const int32_t HM_SCORE = INT32_MAX;
+/** Score added to a move if it is a quiet move that caused a beta-cutoff */
+const int32_t KM_SCORE = 10000000;
+/** Score added to a move if it is a winning exchange. */
+const int32_t WIN_EX_SCORE = 100000000;
+/** Score added to a move if it is a losing exchagne. */
+const int32_t NEG_EX_SCORE = -WIN_EX_SCORE;
 
 bool move_t::operator==(const move_t &other) const {
     return to == other.to && from == other.from && flag == other.flag;
@@ -167,7 +168,7 @@ char to_char(piece_t p) {
         case BLACK_KING:
             return 'k';
     }
-    return ' ';
+    return '-';
 }
 
 uint64_t get_ray_between(int square1, int square2) {

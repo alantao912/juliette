@@ -1,6 +1,5 @@
 #pragma once
 
-#include <unordered_set>
 #include <chrono>
 #include <vector>
 #include <stack>
@@ -18,21 +17,23 @@ static bool verify_repetition(uint64_t hash);
 
 static inline bool use_fprune(move_t cm, int16_t depth);
 
-static int16_t reduction(int16_t score, int16_t current_ply);
+static int16_t reduction(int32_t score, int16_t current_ply);
 
-static void order_moves(move_t moves[], int n);
+static void order_moves(move_t mvs[], int32_t mv_scores[], uint_fast8_t mv_order[], int n);
 
-static void store_cutoff_mv(move_t mv);
+static void store_cutoff_mv(move_t mv, int32_t mv_score);
 
-int16_t move_SEE(move_t move);
+static inline size_t h_table_index(const move_t &mv);
 
-static int16_t SEE(int square);
+int32_t move_SEE(move_t move);
+
+static int32_t SEE(int square);
 
 static move_t find_lva(int square);
 
-static int16_t piece_value(int square);
+static int32_t piece_value(int square);
 
-static int16_t move_value(move_t move);
+static int32_t move_value(move_t move);
 
 static info_t generate_reply(int32_t evaluation, move_t best_move);
 

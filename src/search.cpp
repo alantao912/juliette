@@ -31,12 +31,15 @@ const int32_t contempt = 0;
 
 std::unordered_map<uint64_t, TTEntry> transposition_table;
 
+/** Following fields are thread local */
+// TODO: Wrap thread local fields into struct.
 std::unordered_map<uint64_t, RTEntry> repetition_table;
 std::vector<move_t> *killer_mvs = nullptr;
 bitboard board;
 stack_t *stack = nullptr;
 int16_t ply = 0;
 int16_t init_depth;
+int32_t h_table[HTABLE_LEN];
 
 bool is_drawn() {
     auto iterator = repetition_table.find(board.hash_code);
@@ -213,26 +216,34 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
         /** Extend the search until the position is quiet */
         return qsearch(qsearch_lim, alpha, beta);
     }
-    move_t moves[MAX_MOVE_NUM];
-    int n = gen_legal_moves(moves, board.turn);
+    /** Move generation logic */
+    move_t mvs[MAX_MOVE_NUM];
+    int n = gen_legal_moves(mvs, board.turn);
+
+    /** Check game-lookahead, terminating conditions */
     if (n == 0) {
         if (is_check(board.turn)) {
-            /** King is in check, and there are no legal moves. Checkmate */
+            /** King is in check, and there are no legal mvs. Checkmate */
             return MATE_SCORE(depth);
         }
-        /** No legal moves, yet king is not in check. This is a stalemate, and the game is drawn. */
+        /** No legal mvs, yet king is not in check. This is a stalemate, and the game is drawn. */
         return DRAW;
     }
     if (is_drawn()) {
         return DRAW;
     }
-    order_moves(moves, n);
 
+    /** Move ordering logic */
+    int32_t mv_scores[n];
+    // Permutation array for move ordering. Ex: mv_order[5] = 3, 5th move in the order is at index 3.
+    uint_fast8_t mv_order[n];
+    order_moves(mvs, mv_scores, mv_order, n);
+    /** Begin PVS check first move */
     size_t pv_index = 0;
     move_t variations[depth];
 
-    push(moves[0]);
-    variations[0] = moves[0];
+    push(mvs[mv_order[0]]);
+    variations[0] = mvs[mv_order[0]];
     int32_t best_score = -pvs(depth - 1, -beta, -alpha, &variations[1]);
     pop();
 
@@ -242,40 +253,47 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
     }
 
     if (alpha >= beta) {
-        store_cutoff_mv(moves[0]);
+        store_cutoff_mv(mvs[mv_order[0]], mv_scores[mv_order[0]]);
         goto END;
     }
+    /** End PVS check first move */
 
+    /** PVS check subsequent moves */
     for (size_t i = 1; i < n; ++i) {
-        move_t mv = moves[i];
+        const move_t &mv = mvs[mv_order[i]];
+        const int &mv_score = mv_scores[mv_order[i]];
+        /** Futility pruning */
         if (use_fprune(mv, depth) && best_score + move_value(mv) < alpha - DELTA_MARGIN) {
             continue;
         }
         push(mv);
         variations[0] = mv;
-        /** Zero-Window Search. Assume good move ordering, and all subsequent moves are worse. */
-        int32_t score = -pvs(reduction(mv.score, depth), -alpha - 1, -alpha, &variations[1]);
-        /** If moves[i] turns out to be better, re-search with full window*/
+        /** Zero-Window Search. Assume good move ordering, and all subsequent mvs are worse. */
+        int32_t score = -pvs(reduction(mv_score, depth), -alpha - 1, -alpha, &variations[1]);
+        /** If mvs[i] turns out to be better, re-search with full window*/
         if (alpha < score && score < beta) {
-            score = -pvs(reduction(mv.score, depth), -beta, -score, &variations[1]);
+            score = -pvs(reduction(mv_score, depth), -beta, -score, &variations[1]);
         }
         pop();
         if (score > best_score) {
             best_score = score;
-            pv_index = i;
+            pv_index = mv_order[i];
         }
+        /** Found new PV move */
         if (best_score > alpha) {
             alpha = score;
             memcpy(mv_hst, variations, depth * sizeof(move_t));
         }
+
+        /** Beta-Cutoff */
         if (alpha >= beta) {
-            store_cutoff_mv(mv);
+            store_cutoff_mv(mv, mv_score);
             break;
         }
     }
     END:
     /** Updates the transposition table with the appropriate values */
-    TTEntry tt_entry(best_score, depth, EXACT, moves[pv_index]);
+    TTEntry tt_entry(best_score, depth, EXACT, mvs[pv_index]);
     if (best_score <= original_alpha) {
         tt_entry.flag = UPPER;
     } else if (best_score >= beta) {
@@ -299,17 +317,19 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
  * @return The new depth to search at.
  */
 
-int16_t reduction(int16_t score, int16_t current_ply) {
+int16_t reduction(int32_t score, int16_t current_ply) {
     const int16_t RF = 200, no_reduction = 2;
     /** TODO: Update reduction formula as new features are added*/
 
     if (current_ply <= no_reduction) {
         return current_ply - 1; // NOLINT
     }
+    score += WIN_EX_SCORE; // Normalize the move's score value.
     return std::max((int16_t) 0, (int16_t) (current_ply - std::max(1, abs(std::min(0, (score + RF - 1) / RF)))));
 }
 
-void order_moves(move_t moves[], int n) {
+void order_moves(move_t mvs[], int32_t mv_scores[], uint_fast8_t mv_order[], int n) {
+    auto cmp = [&mv_scores](int i, int j) { return mv_scores[i] > mv_scores[j]; };
     std::unordered_map<uint64_t, TTEntry>::iterator it = transposition_table.find(board.hash_code);
     const std::vector<move_t> &kmvs = killer_mvs[ply];
 
@@ -320,25 +340,60 @@ void order_moves(move_t moves[], int n) {
     }
 
     for (int i = 0; i < n; ++i) {
-        if (moves[i] == hash_move) {
-            moves[i].score = HM_SCORE;
-        } else if (std::find(kmvs.begin(), kmvs.end(), moves[i]) != kmvs.end()) {
-            moves[i].score = KM_SCORE;
-        } else {
-            moves[i].compute_score();
+        mv_order[i] = i;
+        const move_t &mv = mvs[i];
+        int &score = mv_scores[i];
+        if (mv == hash_move) {
+            score = HM_SCORE;
+            continue;
+        } else if (std::find(kmvs.begin(), kmvs.end(), mv) != kmvs.end()) {
+            score = KM_SCORE;
+            continue;
+        }
+
+        score = 0;
+
+        if (is_move_check(mv)) {
+            score += CHECK_SCORE;
+        }
+
+        switch (mv.flag) {
+            case CASTLING:
+                break;
+            case CAPTURE: {
+                int diff = piece_value(mv.to) - piece_value(mv.from);
+                if (diff > 0) {
+                    score += WIN_EX_SCORE + diff;
+                    break;
+                }
+            }
+            default: {
+                /** SEE determines whether or not the move wins or loses material */
+                int32_t SEE = move_SEE(mv);
+                score += (SEE > 0) * WIN_EX_SCORE + (SEE < 0) * NEG_EX_SCORE + SEE;
+                score += h_table[h_table_index(mv)];
+            }
         }
     }
-    std::sort(moves, moves + n);
+    std::sort(mv_order, mv_order + n, cmp);
 }
 
-void store_cutoff_mv(move_t mv) {
-    if (mv.flag == NONE && mv.score < CHECK_SCORE) {
-        killer_mvs[ply].push_back(mv);
+void store_cutoff_mv(move_t mv, int32_t mv_score) {
+    if (mv.flag == NONE) {
+        /** If move is not a check, nor already a killer move since KM_SCORE < CHECK_SCORE.*/
+        if (mv_score < KM_SCORE) {
+            killer_mvs[ply].push_back(mv);
+        }
+        h_table[h_table_index(mv)] += ply * ply;
     }
 }
 
-int16_t move_SEE(move_t move) {
-    int16_t score = Weights::PAWN_MATERIAL * (move.flag == EN_PASSANT) + piece_value(move.to);
+size_t h_table_index(const move_t &mv) {
+    return 64 * int(board.mailbox[mv.from]) + mv.to;
+}
+
+int32_t move_SEE(move_t move) {
+    int32_t score = Weights::PAWN_MATERIAL * (move.flag == EN_PASSANT) + piece_value(move.to);
     bitboard temp = board;
     make_move(move);
     if (move.flag >= PR_KNIGHT && move.flag <= PR_QUEEN) {
@@ -358,14 +413,14 @@ int16_t move_SEE(move_t move) {
  * @return returns whether or not the capture does not lose material
  */
 
-int16_t SEE(int square) {
-    int16_t see = 0;
+int32_t SEE(int square) {
+    int32_t see = 0;
     move_t lva_move = find_lva(square);
     if (lva_move.flag != PASS) {
-        int16_t cpv = piece_value(square);
+        int32_t cpv = piece_value(square);
         bitboard temp = board;
         make_move(lva_move);
-        int16_t prom_value = (lva_move.flag >= PC_KNIGHT) * piece_value(lva_move.to);
+        int32_t prom_value = (lva_move.flag >= PC_KNIGHT) * piece_value(lva_move.to);
         see = std::max(0, prom_value + cpv - SEE(square));
         board = temp;
     }
@@ -397,7 +452,7 @@ move_t find_lva(int square) {
  * @return the move_value of the piece moved in centipawns
  */
 
-int16_t piece_value(int square) {
+int32_t piece_value(int square) {
     piece_t piece = static_cast<piece_t> (board.mailbox[square]);
     switch (piece) {
         case BLACK_PAWN:
@@ -425,7 +480,7 @@ int16_t piece_value(int square) {
     }
 }
 
-int16_t move_value(move_t move) {
+int32_t move_value(move_t move) {
     switch (move.flag) {
         case EN_PASSANT:
             return Weights::PAWN_MATERIAL;
@@ -452,24 +507,6 @@ int16_t move_value(move_t move) {
     }
 }
 
-void move_t::compute_score() {
-    score = 0;
-    if (is_move_check(*this)) {
-        score += CHECK_SCORE;
-    }
-    switch (flag) {
-        case CASTLING:
-            break;
-        case CAPTURE:
-            if (piece_value(from) < piece_value(to)) {
-                score += piece_value(to) - piece_value(from);
-                break;
-            }
-        default:
-            score += move_SEE(*this);
-    }
-}
-
 info_t generate_reply(int32_t evaluation, move_t best_move) {
     info_t reply = {.score = (1 - 2 * (board.turn == BLACK)) * evaluation, .best_move = NULL_MOVE};
     if (!(best_move.from == A1 && best_move.to == A1 && best_move.flag == NONE)) {
@@ -492,6 +529,7 @@ info_t search(int16_t depth) {
     init_depth = depth;
     std::vector<move_t> kmv[depth];
     killer_mvs = kmv;
+    memset(h_table, 0, sizeof(int) * HTABLE_LEN);
 
     int32_t evaluation;
     for (int16_t i = 1; i <= depth; ++i) {
@@ -508,8 +546,9 @@ info_t search(std::chrono::duration<int64_t, std::milli> time_ms) {
 
     int kmv_len = 8;
     killer_mvs = new std::vector<move_t>[kmv_len];
-    int32_t evaluation;
+    memset(h_table, 0, sizeof(int) * HTABLE_LEN);
 
+    int32_t evaluation;
     std::chrono::time_point<std::chrono::steady_clock> start = std::chrono::steady_clock::now();
     for (int16_t i = 1; time_ms.count() > 0; ++i) {
         init_depth = i;
