@@ -320,7 +320,7 @@ int16_t reduction(int32_t score, int16_t current_ply) {
     const int16_t RF = 200, no_reduction = 2;
     /** TODO: Update reduction formula as new features are added*/
 
-    if (current_ply <= no_reduction) {
+    if (current_ply <= no_reduction || score >= 0) {
         return current_ply - 1; // NOLINT
     }
     score += WIN_EX_SCORE; // Normalize the move's score value.
