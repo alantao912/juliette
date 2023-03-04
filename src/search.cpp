@@ -236,14 +236,13 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
     /** Move ordering logic */
     int32_t mv_scores[n];
     // Permutation array for move ordering. Ex: mv_order[5] = 3, 5th move in the order is at index 3.
-    uint_fast8_t mv_order[n];
-    order_moves(mvs, mv_scores, mv_order, n);
+    order_moves(mvs, mv_scores, n);
     /** Begin PVS check first move */
     size_t pv_index = 0;
     move_t variations[depth];
 
-    push(mvs[mv_order[0]]);
-    variations[0] = mvs[mv_order[0]];
+    push(mvs[0]);
+    variations[0] = mvs[0];
     int32_t best_score = -pvs(depth - 1, -beta, -alpha, &variations[1]);
     pop();
 
@@ -253,15 +252,15 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
     }
 
     if (alpha >= beta) {
-        store_cutoff_mv(mvs[mv_order[0]], mv_scores[mv_order[0]]);
+        store_cutoff_mv(mvs[0], mv_scores[0]);
         goto END;
     }
     /** End PVS check first move */
 
     /** PVS check subsequent moves */
     for (size_t i = 1; i < n; ++i) {
-        const move_t &mv = mvs[mv_order[i]];
-        const int &mv_score = mv_scores[mv_order[i]];
+        const move_t &mv = mvs[i];
+        const int &mv_score = mv_scores[i];
         /** Futility pruning */
         if (use_fprune(mv, depth) && best_score + move_value(mv) < alpha - DELTA_MARGIN) {
             continue;
@@ -277,7 +276,7 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
         pop();
         if (score > best_score) {
             best_score = score;
-            pv_index = mv_order[i];
+            pv_index = i;
         }
         /** Found new PV move */
         if (best_score > alpha) {
@@ -328,7 +327,7 @@ int16_t reduction(int32_t score, int16_t current_ply) {
     return std::max((int16_t) 0, (int16_t) (current_ply - std::max(1, abs(std::min(0, (score + RF - 1) / RF)))));
 }
 
-void order_moves(move_t mvs[], int32_t mv_scores[], uint_fast8_t mv_order[], int n) {
+void order_moves(move_t mvs[], int32_t mv_scores[], int n) {
     auto cmp = [&mv_scores](int i, int j) { return mv_scores[i] > mv_scores[j]; };
     std::unordered_map<uint64_t, TTEntry>::iterator it = transposition_table.find(board.hash_code);
     const std::vector<move_t> &kmvs = killer_mvs[ply];
@@ -339,6 +338,7 @@ void order_moves(move_t mvs[], int32_t mv_scores[], uint_fast8_t mv_order[], int
         hash_move = tte.best_move;
     }
 
+    uint_fast8_t mv_order[n];
     for (int i = 0; i < n; ++i) {
         mv_order[i] = i;
         const move_t &mv = mvs[i];
@@ -371,11 +371,18 @@ void order_moves(move_t mvs[], int32_t mv_scores[], uint_fast8_t mv_order[], int
                 /** SEE determines whether or not the move wins or loses material */
                 int32_t SEE = move_SEE(mv);
                 score += (SEE > 0) * WIN_EX_SCORE + (SEE < 0) * NEG_EX_SCORE + SEE;
-                score += h_table[h_table_index(mv)];
+                score += (SEE >= 0) * h_table[h_table_index(mv)];
             }
         }
     }
     std::sort(mv_order, mv_order + n, cmp);
+    move_t temp_buff[n];
+    for (size_t i = 0; i < n; ++i) {
+        temp_buff[i] = mvs[mv_order[i]];
+    }
+    for (size_t i = 0; i < n; ++i) {
+        mvs[i] = temp_buff[i];
+    }
 }
 
 void store_cutoff_mv(move_t mv, int32_t mv_score) {

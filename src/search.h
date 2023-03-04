@@ -19,7 +19,7 @@ static inline bool use_fprune(move_t cm, int16_t depth);
 
 static int16_t reduction(int32_t score, int16_t current_ply);
 
-static void order_moves(move_t mvs[], int32_t mv_scores[], uint_fast8_t mv_order[], int n);
+static void order_moves(move_t mvs[], int32_t mv_scores[], int n);
 
 static void store_cutoff_mv(move_t mv, int32_t mv_score);
 
