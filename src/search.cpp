@@ -234,7 +234,7 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
     }
 
     /** Move ordering logic */
-    int32_t mv_scores[n];
+    int32_t mv_scores[MAX_MOVE_NUM];
     // Permutation array for move ordering. Ex: mv_order[5] = 3, 5th move in the order is at index 3.
     order_moves(mvs, mv_scores, n);
     /** Begin PVS check first move */
@@ -338,7 +338,7 @@ void order_moves(move_t mvs[], int32_t mv_scores[], int n) {
         hash_move = tte.best_move;
     }
 
-    uint_fast8_t mv_order[n];
+    uint_fast8_t mv_order[MAX_MOVE_NUM];
     for (int i = 0; i < n; ++i) {
         mv_order[i] = i;
         const move_t &mv = mvs[i];
@@ -376,7 +376,7 @@ void order_moves(move_t mvs[], int32_t mv_scores[], int n) {
         }
     }
     std::sort(mv_order, mv_order + n, cmp);
-    move_t temp_buff[n];
+    move_t temp_buff[MAX_MOVE_NUM];
     for (size_t i = 0; i < n; ++i) {
         temp_buff[i] = mvs[mv_order[i]];
     }
