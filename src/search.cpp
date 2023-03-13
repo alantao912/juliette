@@ -235,7 +235,6 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
 
     /** Move ordering logic */
     int32_t mv_scores[MAX_MOVE_NUM];
-    // Permutation array for move ordering. Ex: mv_order[5] = 3, 5th move in the order is at index 3.
     order_moves(mvs, mv_scores, n);
     /** Begin PVS check first move */
     size_t pv_index = 0;
