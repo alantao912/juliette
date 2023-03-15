@@ -2,18 +2,19 @@
 // Created by Alan Tao on 9/2/2022.
 //
 
+#include <algorithm>
 #include <chrono>
 #include <unordered_map>
 
+#include "bitboard.h"
+#include "stack.h"
+#include "tables.h"
 #include "uci.h"
 #include "util.h"
-#include "tables.h"
-#include "search.h"
-#include "bitboard.h"
 
 #define BUFLEN 512
 
-std::map<std::string, std::string> options;
+std::map<UCI::option_t, std::string> options;
 
 const char *id_str = "id name juliette author Alan Tao";
 std::string replies[] = {"id", "uciok", "readyok", "bestmove", "copyprotection", "registration", "info_t", "option"};
@@ -28,101 +29,155 @@ std::string replies[] = {"id", "uciok", "readyok", "bestmove", "copyprotection",
 #define option 7
 
 extern bitboard board;
-extern stack_t *stack;
 bool board_initialized = false;
 
-/* Engine should use clientSocket to send reply to GUI */
-SOCKET clientSocket;
 char sendbuf[BUFLEN];
 
-extern int source;
-
-// DELETE ME:
-extern std::unordered_map<uint64_t, RTEntry> repetition_table;
-
-void initialize_UCI(SOCKET cs) {
-    clientSocket = cs;
-    options.insert(std::pair<std::string, std::string>("OwnBook", "off"));
-    options.insert(std::pair<std::string, std::string>("debug", "off"));
+void UCI::info_t::format_data(bool verbose) {
+    if (verbose) {
+        snprintf(sendbuf, BUFLEN, "elapsed time: (%lld)ms\n%s:  %c%d%c%d\nevaluation: %d",
+                 elapsed_time.count(), replies[bestmove].c_str(), char(file_of(best_move.from) + 'a'),
+                 int(rank_of(best_move.from) + 1), char(file_of(best_move.to) + 'a'),
+                 int(rank_of(best_move.to) + 1), score);
+    } else {
+        snprintf(sendbuf, BUFLEN, "%s: %c%d%c%d\n", replies[bestmove].c_str(),
+                 char(file_of(best_move.from) + 'a'), int(rank_of(best_move.from) + 1),
+                 char(file_of(best_move.to) + 'a'), int(rank_of(best_move.to) + 1));
+    }
 }
 
-void parse_UCI_string(const char *uci) {
-    std::string uci_string(uci), buff;
-    size_t i = 0;
+void UCI::initialize_UCI() {
+    options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::own_book, "off"));
+    options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::debug, "off"));
+    options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::thread_cnt, "1"));
+    options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::contempt, "0"));
+}
 
-    while (i < uci_string.length() && uci_string.at(i) != ' ') {
-        buff.push_back(uci_string.at(i));
-        ++i;
-    }
-    /* Skips all spaces */
-    while (i < uci_string.length() && uci_string.at(i) == ' ') {
-        ++i;
-    }
-    std::string args;
-    while (i < uci_string.length()) {
-        args.push_back(uci_string.at(i++));
-    }
-    if (buff == "uci") {
+void UCI::parse_UCI_string(const char *uci) {
+    std::string uci_string(uci);
+    std::vector<std::string> tokens = split(uci_string);
+
+    const std::string cmd = tokens[0];
+    tokens.erase(tokens.begin(), tokens.begin() + 1);
+
+    if (cmd == "uci") {
         size_t len = strlen(id_str);
         memcpy(sendbuf, id_str, len); // NOLINT(bugprone-not-null-terminated-result)
         sendbuf[len] = '\n';
         strcpy(&sendbuf[len + 1], replies[uciok].c_str());
-        reply();
-    } else if (buff == "ucinewgame") {
+        UCI::reply();
+    } else if (cmd == "ucinewgame") {
         board_initialized = false;
         initialize_zobrist();
-    } else if (buff == "position") {
-        position(args);
-    } else if (buff == "go") {
-        go(args);
-    } else if (buff == "quit") {
+    } else if (cmd == "position") {
+        UCI::position(tokens);
+    } else if (cmd == "go") {
+        UCI::go(tokens);
+    } else if (cmd == "setoption") {
+        UCI::set_option(tokens);
+    } else if (cmd == "quit") {
         std::cout << "juliette:: bye! i enjoyed playing with you :)" << std::endl;
         exit(0);
     }
 }
 
-std::vector<std::string> split(std::string &input) {
-    std::vector<std::string> args;
-    std::string tok;
-    size_t p;
-
-    while ((p = input.find(' ')) != std::string::npos) {
-        tok = input.substr(0, p);
-        args.push_back(tok);
-        input.erase(0, p + 1);
-    }
-    return args;
-}
-
-void position(std::string &arg) {
-    if (arg == "startpos") {
+void UCI::position(const std::vector<std::string> &args) {
+    size_t moves_index;
+    if (args[0] == "startpos") {
+        /** Position will be initialized from the starting position */
         init_board(START_POSITION);
+        moves_index = 1;
+    } else if (args.size() < 6) {
+        snprintf(sendbuf, BUFLEN, "juliette:: Malformed FEN string");
+        UCI::reply();
+        return;
     } else {
-        init_board(arg.c_str());
+        /** Recombine FEN that was split apart earlier */
+        std::string fen;
+        for (size_t i = 0; i < 4; ++i) {
+            fen += args[i];
+            fen += ' ';
+        }
+        init_board(fen.c_str());
+        try {
+            board.halfmove_clock = std::stoi(args[4]);
+            board.fullmove_number = std::stoi(args[5]);
+        } catch (const std::invalid_argument &e) {
+            snprintf(sendbuf, BUFLEN, "juliette:: Move counters must be integers");
+            UCI::reply();
+            return;
+        }
+        moves_index = 6;
     }
+    std::all_of(args.begin() + moves_index, args.end(),
+                [](const std::string &arg) {
+                    move_t mv = parse_move(arg);
+                    if (mv == NULL_MOVE) {
+                        return false;
+                    }
+                    push(mv);
+                    return true;
+                });
     board_initialized = true;
 }
 
-void go(std::string &args) {
-    std::vector<std::string> argv = split(args);
-    // TODO: Configure function based on provided arguments according to UCI protocol.
+void UCI::go(const std::vector<std::string> &args) {
     if (!board_initialized) {
-        // TODO: Error handling for uninitialized board
+        snprintf(sendbuf, BUFLEN, "juliette:: a start position must be specified.");
+        UCI::reply();
+        return;
     }
+
+    // TODO: Configure function based on provided arguments according to UCI protocol.
     auto start = std::chrono::steady_clock::now();
-    info_t result = search((int16_t) 6);
+    UCI::info_t result = search((int16_t) 6);
     auto end = std::chrono::steady_clock::now();
-    std::cout << "Elapsed Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << '\n';
-    sprintf(sendbuf, "%s %c%d%c%d", replies[bestmove].c_str(),
-            file_of(result.best_move.from) + 'a', rank_of(result.best_move.from) + 1,
-            file_of(result.best_move.to) + 'a', rank_of(result.best_move.to) + 1);
-    reply();
+    result.elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    result.format_data(options[UCI::option_t::debug] == "on");
+    UCI::reply();
 }
 
-void reply() {
-    if (source == 0) {
-        send(clientSocket, sendbuf, (int) strlen(sendbuf), 0);
-    } else if (source == 1) {
-        std::cout << sendbuf << std::endl;
+void UCI::reply() {
+    std::cout << sendbuf << std::endl;
+}
+
+void UCI::set_option(const std::vector<std::string> &args) {
+    if (args[0] != "name" || args[2] != "value" || args.size() != 4) {
+        snprintf(sendbuf, BUFLEN, "juliette:: syntax: setoption name [name] value [value]");
+        UCI::reply();
+        return;
+    }
+
+    if (args[1] == "contempt") {
+        if (is_number(args[3])) {
+            options[UCI::option_t::contempt] = args[3];
+        } else {
+            snprintf(sendbuf, BUFLEN, "juliette:: contempt value must be an integer");
+            UCI::reply();
+        }
+    } else if (args[1] == "debug") {
+        if (args[3] == "on" || args[3] == "off") {
+            options[UCI::option_t::debug] = args[3];
+        } else {
+            snprintf(sendbuf, BUFLEN, "juliette:: 'debug' option must be set to 'on' or 'off'");
+            UCI::reply();
+        }
+    } else if (args[1] == "own_book") {
+        if (args[3] == "on" || args[3] == "off") {
+            options[UCI::option_t::own_book] = args[3];
+        } else {
+            snprintf(sendbuf, BUFLEN, "juliette:: 'own_book' option must be set to 'on' or 'off'");
+            UCI::reply();
+        }
+    } else if (args[1] == "thread_cnt") {
+        if (is_number(args[3])) {
+            options[UCI::option_t::thread_cnt] = args[3];
+        } else {
+            snprintf(sendbuf, BUFLEN, "juliette:: thread count must be a number");
+            UCI::reply();
+        }
+    } else {
+        snprintf(sendbuf, BUFLEN, "juliette:: unrecognized option name '%s'", args[1].c_str());
+        UCI::reply();
     }
 }

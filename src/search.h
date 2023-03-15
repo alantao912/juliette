@@ -1,15 +1,15 @@
 #pragma once
 
 #include <chrono>
-#include <vector>
 #include <stack>
+#include <vector>
+
+#include "uci.h"
 #include "util.h"
 
-typedef struct info {
-    int32_t score;
-
-    move_t best_move;
-} info_t;
+namespace UCI {
+    typedef struct info info_t;
+};
 
 static bool is_drawn();
 
@@ -35,8 +35,8 @@ static int32_t piece_value(int square);
 
 static int32_t move_value(move_t move);
 
-static info_t generate_reply(int32_t evaluation, move_t best_move);
+static UCI::info_t generate_reply(int32_t evaluation, move_t best_move);
 
-info_t search(int16_t depth);
+UCI::info_t search(int16_t depth);
 
-info_t search(std::chrono::duration<int64_t, std::milli> time);
+UCI::info_t search(std::chrono::duration<int64_t, std::milli> time);

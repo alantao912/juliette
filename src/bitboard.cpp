@@ -460,3 +460,37 @@ void print_board() {
     }
     std::cout << '\n';
 }
+
+move_t parse_move(const std::string &mv_str) {
+    if (mv_str.size() < 4) {
+        return NULL_MOVE;
+    }
+    move_t moves[MAX_MOVE_NUM];
+    int n = gen_legal_moves(moves, board.turn);
+    for (int i = 0; i < n; ++i) {
+        int src_file = int(mv_str[0] - 'a');
+        int src_rank = int(mv_str[1] - '1');
+        int dest_file = int(mv_str[2] - 'a');
+        int dest_rank = int(mv_str[3] - '1');
+
+        if ((moves[i].flag > CAPTURE) && (mv_str.size() < 5)) {
+            /** Some sort of promotion is happening. However, the move string does not contain a 5th character */
+            continue;
+        }
+
+        if (moves[i].from == 8 * src_rank + src_file && moves[i].to == 8 * dest_rank + dest_file) {
+            if (moves[i].flag == NONE) {
+                return moves[i];
+            } else if ((moves[i].flag == PC_QUEEN || moves[i].flag == PR_QUEEN) && mv_str[4] == 'q') {
+                return moves[i];
+            } else if ((moves[i].flag == PC_ROOK || moves[i].flag == PR_ROOK) && mv_str[4] == 'r') {
+                return moves[i];
+            } else if ((moves[i].flag == PC_BISHOP || moves[i].flag == PR_BISHOP) && mv_str[4] == 'b') {
+                return moves[i];
+            } else if ((moves[i].flag == PC_KNIGHT || moves[i].flag == PR_KNIGHT) && mv_str[4] == 'n') {
+                return moves[i];
+            }
+        }
+    }
+    return NULL_MOVE;
+}

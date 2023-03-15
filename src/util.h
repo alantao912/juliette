@@ -1,6 +1,8 @@
 #pragma once
 
+#include <chrono>
 #include <iostream>
+#include <vector>
 
 #define WHITE 1
 #define BLACK 0
@@ -215,3 +217,7 @@ void ltrim(std::string &string);
 void rtrim(std::string &string);
 
 void trim(std::string &string);
+
+std::vector<std::string> split(std::string &input);
+
+bool is_number(const std::string &input);

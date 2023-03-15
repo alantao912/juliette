@@ -15,14 +15,30 @@
 #include "tables.h"
 #include "evaluation.h"
 
-void initialize_UCI(SOCKET cs);
+namespace UCI {
 
-void parse_UCI_string(const char *uci);
+    enum option_t {
+        contempt, debug, own_book, thread_cnt
+    };
 
-std::vector<std::string> split(std::string &input);
+    typedef struct info {
+        int32_t score;
 
-void position(std::string &args);
+        move_t best_move;
+        std::chrono::milliseconds elapsed_time;
 
-void go(std::string &args);
+        void format_data(bool verbose);
+    } info_t;
 
-void reply();
+    void initialize_UCI();
+
+    void parse_UCI_string(const char *uci);
+
+    void position(const std::vector<std::string> &args);
+
+    void go(const std::vector<std::string> &args);
+
+    void reply();
+
+    void set_option(const std::vector<std::string> &args);
+};

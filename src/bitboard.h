@@ -21,3 +21,5 @@ uint64_t *get_bitboard(piece_t piece);
 void print_bitboard(uint64_t bb);
 
 void print_board();
+
+move_t parse_move(const std::string &mv_str);

@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <vector>
 
 #include "util.h"
 #include "weights.h"
@@ -292,4 +293,32 @@ void rtrim(std::string &s) {
 void trim(std::string &s) {
     rtrim(s);
     ltrim(s);
+}
+
+std::vector<std::string> split(std::string &input) {
+    /** Ensures that there exists exactly one trailing space. */
+    trim(input);
+    input.push_back(' ');
+
+    std::vector<std::string> args;
+    std::string tok;
+    size_t p;
+
+    while ((p = input.find(' ')) != std::string::npos) {
+        tok = input.substr(0, p);
+        args.push_back(tok);
+
+        /** Removes newly detached token from string*/
+        input.erase(0, p);
+
+        /** Removes spaces between tokens */
+        size_t begin = 0;
+        while (std::isspace(input[++begin]));
+        input.erase(0, begin);
+    }
+    return args;
+}
+
+bool is_number(const std::string &str) {
+    return std::all_of(str.begin(), str.end(), [](char c) { return std::isdigit(c); });
 }

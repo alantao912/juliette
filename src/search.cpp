@@ -1,19 +1,21 @@
 #include <chrono>
 #include <cstring>
+#include <pthread.h>
 #include <algorithm>
 #include <unordered_map>
-#include "util.h"
-#include "stack.h"
-#include "tables.h"
-#include "search.h"
-#include "weights.h"
-#include "movegen.h"
+
 #include "bitboard.h"
 #include "evaluation.h"
+#include "movegen.h"
+#include "search.h"
+#include "stack.h"
+#include "tables.h"
+#include "util.h"
+#include "weights.h"
 
 #define MIN_SCORE (INT32_MIN + 1000)
 #define MATE_SCORE(depth) (MIN_SCORE + INT16_MAX - depth)
-#define DRAW (int32_t) contempt;
+#define DRAW (int32_t) contempt_value;
 #define MAX_DEPTH 128
 
 /**
@@ -27,7 +29,7 @@ const int16_t qsearch_lim = 6;
  * Positive contempt indicates respect for stronger opponent.
  * Negative contempt indicates perceived weaker opponent
  */
-const int32_t contempt = 0;
+const int32_t contempt_value = 0;
 
 std::unordered_map<uint64_t, TTEntry> transposition_table;
 
@@ -513,12 +515,12 @@ int32_t move_value(move_t move) {
     }
 }
 
-info_t generate_reply(int32_t evaluation, move_t best_move) {
-    info_t reply = {.score = (1 - 2 * (board.turn == BLACK)) * evaluation, .best_move = NULL_MOVE};
+UCI::info_t generate_reply(int32_t evaluation, move_t best_move) {
+    UCI::info_t reply = {.score = (1 - 2 * (board.turn == BLACK)) * evaluation, .best_move = NULL_MOVE};
     if (!(best_move.from == A1 && best_move.to == A1 && best_move.flag == NONE)) {
         /** Not stalemate or checkmate */
         reply.best_move = best_move;
-    } else if (abs(reply.score) == contempt) {
+    } else if (abs(reply.score) == contempt_value) {
         /** Stalemate */
         reply.best_move = STALEMATE;
     } else {
@@ -528,7 +530,7 @@ info_t generate_reply(int32_t evaluation, move_t best_move) {
     return reply;
 }
 
-info_t search(int16_t depth) {
+UCI::info_t search(int16_t depth) {
     move_t pv[depth];
     pv[0] = NULL_MOVE;
     ply = 0;
@@ -545,7 +547,7 @@ info_t search(int16_t depth) {
     return generate_reply(evaluation, pv[0]);
 }
 
-info_t search(std::chrono::duration<int64_t, std::milli> time_ms) {
+UCI::info_t search(std::chrono::duration<int64_t, std::milli> time_ms) {
     move_t pv[MAX_DEPTH];
     pv[0] = NULL_MOVE;
     ply = 0;
