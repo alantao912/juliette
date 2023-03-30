@@ -6,7 +6,7 @@
 #include <algorithm>
 
 /** Global board struct */
-extern bitboard board;
+extern __thread bitboard board;
 static struct eval_stats stats;
 
 void eval_stats::reset() {

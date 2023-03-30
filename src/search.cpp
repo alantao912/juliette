@@ -31,17 +31,24 @@ const int16_t qsearch_lim = 6;
  */
 const int32_t contempt_value = 0;
 
-std::unordered_map<uint64_t, TTEntry> transposition_table;
+static std::unordered_map<uint64_t, TTEntry> transposition_table;
+static pthread_mutex_t tt_lock;
+static pthread_mutex_t print_lock;
+static pthread_mutex_t sort_lock;
+
+volatile bool smp_abort = true;
+volatile bool time_remaining = true;
 
 /** Following fields are thread local */
-// TODO: Wrap thread local fields into struct.
-std::unordered_map<uint64_t, RTEntry> repetition_table;
-std::vector<move_t> *killer_mvs = nullptr;
-bitboard board;
-stack_t *stack = nullptr;
-int16_t ply = 0;
-int16_t init_depth;
-int32_t h_table[HTABLE_LEN];
+thread_local std::unordered_map<uint64_t, RTEntry> repetition_table;
+
+static __thread std::vector<move_t> *killer_mvs = nullptr;
+static __thread int16_t init_depth;
+static __thread int32_t h_table[HTABLE_LEN];
+
+__thread bitboard board;
+__thread stack_t *stack = nullptr;
+__thread int16_t ply = 0;
 
 bool is_drawn() {
     auto iterator = repetition_table.find(board.hash_code);
@@ -121,10 +128,14 @@ static inline bool contains_promotions() {
  */
 
 int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) { // NOLINT
+    /** If out of time, return minimum score */
+    if (!time_remaining) {
+        return MIN_SCORE;
+    }
+
     if (is_drawn()) {
         return DRAW;
     }
-
     int32_t stand_pat = MIN_SCORE;
 
     move_t moves[MAX_MOVE_NUM];
@@ -198,6 +209,10 @@ int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) { // NOLINT
  */
 
 static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
+    /** If out of time, return minimum score */
+    if (!time_remaining || smp_abort) {
+        return MIN_SCORE;
+    }
     const int32_t original_alpha = alpha;
     std::unordered_map<uint64_t, TTEntry>::iterator t = transposition_table.find(board.hash_code);
     if (t != transposition_table.end() && t->second.depth >= depth) {
@@ -291,6 +306,9 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
             break;
         }
     }
+    if (!time_remaining || smp_abort) {
+        return MIN_SCORE;
+    }
     END:
     /** Updates the transposition table with the appropriate values */
     TTEntry tt_entry(best_score, depth, EXACT, mvs[pv_index]);
@@ -302,7 +320,9 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
     if (t != transposition_table.end()) {
         t->second = tt_entry;
     } else {
+        pthread_mutex_lock(&tt_lock);
         transposition_table.insert(std::pair<uint64_t, TTEntry>(board.hash_code, tt_entry));
+        pthread_mutex_unlock(&tt_lock);
     }
     killer_mvs[ply + 1].clear();
     return best_score;
@@ -330,7 +350,7 @@ int16_t reduction(int32_t score, int16_t current_ply) {
 
 void order_moves(move_t mvs[], int32_t mv_scores[], int n) {
     auto cmp = [&mv_scores](int i, int j) { return mv_scores[i] > mv_scores[j]; };
-    std::unordered_map<uint64_t, TTEntry>::iterator it = transposition_table.find(board.hash_code);
+    std::unordered_map<uint64_t, TTEntry>::const_iterator it = transposition_table.find(board.hash_code);
     const std::vector<move_t> &kmvs = killer_mvs[ply];
 
     move_t hash_move = NULL_MOVE;
@@ -530,17 +550,125 @@ UCI::info_t generate_reply(int32_t evaluation, move_t best_move) {
     return reply;
 }
 
+void *__search(void *args) {
+    thread_args_t *thread_args = (thread_args_t *) args;
+    /** Synchronize thread local data, repetition table, and board state to thread. */
+    board = *(thread_args->main_board);
+    std::unordered_map<uint64_t, RTEntry>::const_iterator it = thread_args->main_repetition_table->begin();
+    while (it != thread_args->main_repetition_table->end()) {
+        repetition_table.insert(std::pair<uint64_t, RTEntry>(it->first, it->second));
+        ++it;
+    }
+
+    /** Search environment, auxiliary data structures */
+    move_t pv[MAX_DEPTH];
+    ply = 0;
+
+    std::vector<move_t> kmv[MAX_DEPTH];
+    killer_mvs = kmv;
+
+    BLOCK:
+    /** Block thread until main search thread */
+    while (smp_abort);
+
+    int16_t depth = 1;
+    while (!smp_abort && depth < MAX_DEPTH) {
+        init_depth = depth;
+        for (int i = 0; i < thread_args->n_root_mvs && time_remaining && !smp_abort; ++i) {
+            push(thread_args->root_mvs[i]);
+            pvs(depth, MIN_SCORE, -MIN_SCORE, pv);
+            pop();
+        }
+        ++depth;
+    }
+    if (time_remaining) {
+        goto BLOCK;
+    }
+    return nullptr;
+}
+
+UCI::info_t search(const int n_threads) {
+    pthread_t helper_threads[n_threads - 1];
+    thread_args_t thread_args[n_threads - 1];
+    for (int i = 0; i < n_threads - 1; ++i) {
+        thread_args_t &arg = thread_args[i];
+        arg.main_board = &board;
+        arg.main_repetition_table = &repetition_table;
+    }
+    for (int i = 0; i < n_threads - 1; ++i) {
+        if (pthread_create(&(helper_threads[i]), nullptr, &__search, &(thread_args[i])) != 0) {
+            std::cout << "juliette:: failed to spawn child thread" << std::endl;
+            exit(-1);
+        }
+    }
+    pthread_mutex_init(&tt_lock, nullptr);
+    pthread_mutex_init(&print_lock, nullptr);
+    pthread_mutex_init(&sort_lock, nullptr);
+
+    /** Search environment, auxiliary data structures */
+    move_t best_move = NULL_MOVE;
+    move_t pv[MAX_DEPTH];
+    pv[0] = NULL_MOVE;
+    ply = 0;
+
+    std::vector<move_t> kmv[MAX_DEPTH];
+    killer_mvs = kmv;
+    memset(h_table, 0, sizeof(int) * HTABLE_LEN);
+
+    /** Initial depth 1 search */
+    pvs(1, MIN_SCORE, -MIN_SCORE, pv);
+
+    /** Root moves */
+    move_t mvs[MAX_MOVE_NUM];
+    int32_t move_scores[MAX_MOVE_NUM];
+
+    /** Order moves using heuristics populated from depth 1 search. */
+    int n = gen_legal_moves(mvs, board.turn);
+    order_moves(mvs, move_scores, n);
+
+    for (int i = 0; i < n_threads - 1; ++i) {
+        thread_args_t &arg = thread_args[i];
+        arg.n_root_mvs = (n / (n_threads - 1)) + (i < (n % (n_threads - 1)));
+        arg.root_mvs = new move_t[arg.n_root_mvs];
+        /** Scatter moves evenly among threads */
+        for (int j = i, k = 0; j < n; j += (n_threads - 1)) {
+            arg.root_mvs[k++] = mvs[j];
+        }
+    }
+
+    int32_t evaluation;
+    for (int16_t d = 2; d < MAX_DEPTH; ++d) {
+        init_depth = d;
+        smp_abort = false;
+        evaluation = pvs(d, MIN_SCORE, -MIN_SCORE, pv);
+        smp_abort = true;
+        if (!time_remaining) {
+            break;
+        }
+        /** Latest iteration did not halt early due to lack of time, copy best move */
+        best_move = pv[0];
+    }
+    smp_abort = true;
+    for (int i = 0; i < n_threads; ++i) {
+        delete[] thread_args[i].root_mvs;
+    }
+    pthread_mutex_destroy(&tt_lock);
+    pthread_mutex_destroy(&print_lock);
+    pthread_mutex_destroy(&sort_lock);
+    return generate_reply(evaluation, best_move);
+}
+
 UCI::info_t search(int16_t depth) {
     move_t pv[depth];
     pv[0] = NULL_MOVE;
     ply = 0;
-    init_depth = depth;
     std::vector<move_t> kmv[depth];
     killer_mvs = kmv;
     memset(h_table, 0, sizeof(int) * HTABLE_LEN);
 
     int32_t evaluation;
     for (int16_t i = 1; i <= depth; ++i) {
+        init_depth = i;
         evaluation = pvs(i, MIN_SCORE, -MIN_SCORE, pv);
     }
     killer_mvs = nullptr;

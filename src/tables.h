@@ -6,6 +6,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "util.h"
+
 enum flag_t {
     EXACT, LOWER, UPPER
 };
@@ -28,4 +30,8 @@ struct RTEntry {
     uint8_t num_seen;
 
     explicit RTEntry(uint8_t n) : num_seen(n) {};
+
+    explicit RTEntry(const RTEntry &other) {
+        num_seen = other.num_seen;
+    }
 };

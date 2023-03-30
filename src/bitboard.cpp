@@ -4,7 +4,7 @@
 #include "util.h"
 #include "movegen.h"
 
-extern bitboard board;
+extern __thread bitboard board;
 
 uint64_t rand_bitstring() {
     uint64_t out = 0;
@@ -419,7 +419,7 @@ uint64_t *get_bitboard(piece_t piece) {
         case BLACK_KING:
             return &board.b_king;
         default:
-            std::cout << "Bad thing happened: " << piece << '\n';
+            std::cout << "Bad thing happened in bitboard.cpp 422: " << piece << '\n';
             return nullptr;
     }
 }

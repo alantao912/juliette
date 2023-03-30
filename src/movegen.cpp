@@ -7,7 +7,7 @@
 #include "search.h"
 
 
-extern bitboard board;
+extern __thread bitboard board;
 
 // Pseudo-legal bitboards indexed by square to determine where that piece can attack
 const uint64_t BB_KNIGHT_ATTACKS[64] = {

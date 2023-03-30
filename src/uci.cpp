@@ -8,7 +8,6 @@
 
 #include "bitboard.h"
 #include "stack.h"
-#include "tables.h"
 #include "uci.h"
 #include "util.h"
 
@@ -28,7 +27,9 @@ std::string replies[] = {"id", "uciok", "readyok", "bestmove", "copyprotection",
 #define uci_info 6
 #define option 7
 
-extern bitboard board;
+extern __thread bitboard board;
+extern bool time_remaining;
+
 bool board_initialized = false;
 
 char sendbuf[BUFLEN];
@@ -128,7 +129,7 @@ void UCI::go(const std::vector<std::string> &args) {
         return;
     }
 
-    // TODO: Configure function based on provided arguments according to UCI protocol.
+    //TODO: Configure function based on provided arguments according to UCI protocol.
     auto start = std::chrono::steady_clock::now();
     UCI::info_t result = search((int16_t) 6);
     auto end = std::chrono::steady_clock::now();

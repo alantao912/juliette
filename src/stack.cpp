@@ -5,11 +5,11 @@
 #include "bitboard.h"
 #include "tables.h"
 
-extern bitboard board;
-extern stack_t *stack;
+extern __thread bitboard board;
+extern __thread stack_t *stack;
 
-extern std::unordered_map<uint64_t, RTEntry> repetition_table;
-extern int16_t ply;
+extern thread_local std::unordered_map<uint64_t, RTEntry> repetition_table;
+extern __thread int16_t ply;
 
 /**
  * Initalizes the stack.

@@ -83,8 +83,6 @@ uint64_t BB_RAYS[64][64];
 
 uint64_t ZOBRIST_VALUES[781];
 
-extern bitboard board;
-
 const move_t NULL_MOVE = {A1, A1, PASS};
 const move_t CHECKMATE = {A1, A1, PASS};
 const move_t STALEMATE = {H8, H8, PASS};

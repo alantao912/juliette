@@ -5,10 +5,11 @@
 #include "stack.h"
 #include "movegen.h"
 #include "bitboard.h"
+#include "timeman.h"
 
 #define BUFLEN 512
 
-extern bitboard board;
+extern __thread bitboard board;
 
 void play_game() {
     init_board(START_POSITION);
@@ -94,7 +95,7 @@ void play_game() {
 }
 
 /**
- * To compile: g++ src/*.cpp -lWS2_32 -o juliette -O3
+ * To compile: g++ src/*.cpp -lpthreads -o juliette -O3
  */
 
 int main(int argc, char *argv[]) {
@@ -141,6 +142,15 @@ int main(int argc, char *argv[]) {
                 initialize_zobrist();
 
                 /** Insert dev code below this line */
+                init_board(START_POSITION);
+                int seconds = 35;
+                pthread_t timer_thread;
+                pthread_create(&timer_thread, nullptr, start_timer, &seconds);
+                UCI::info_t info = search(4);
+                std::cout << "Completed search\n";
+                std::cout << "Best move: ";
+                print_move(info.best_move);
+                std::cout << '\n';
             } else if (strcmp(recvbuf, "perft") == 0) {
                 std::cout << "juliette:: starting performance test..." << std::endl;
                 // TODO: Re-implement performance test
