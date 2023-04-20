@@ -339,7 +339,6 @@ void make_move(const move_t move) {
     } else {
         board.halfmove_clock++;
     }
-    // Below two lines are an attempted optimization of the above:
     board.turn = !color;
     board.fullmove_number += color;
     board.hash_code ^= ZOBRIST_VALUES[768];
@@ -419,7 +418,6 @@ uint64_t *get_bitboard(piece_t piece) {
         case BLACK_KING:
             return &board.b_king;
         default:
-            std::cout << "Bad thing happened in bitboard.cpp 422: " << piece << '\n';
             return nullptr;
     }
 }

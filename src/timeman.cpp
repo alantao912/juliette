@@ -3,7 +3,6 @@
 //
 
 #include "timeman.h"
-#include <iostream>
 #include <unistd.h>
 
 extern bool time_remaining;
@@ -13,8 +12,5 @@ void *start_timer(void *args) {
     time_remaining = true;
     sleep(*t);
     time_remaining = false;
-    if (!time_remaining) {
-        std::cout << "time remaining set to false\n";
-    }
     return nullptr;
 }

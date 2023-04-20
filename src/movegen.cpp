@@ -332,7 +332,6 @@ int gen_legal_moves(move_t *moves, bool color) {
                 moves_bb = get_king_moves(color, from) & ~attackmask;
                 break;
             default:
-                std::cout << "366 movegen\n";
                 exit(-1);
         }
 

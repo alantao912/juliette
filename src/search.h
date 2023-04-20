@@ -48,7 +48,7 @@ static UCI::info_t generate_reply(int32_t evaluation, move_t best_move);
 
 static void *__search(void *args);
 
-UCI::info_t search(const int n_threads);
+UCI::info_t search(int n_threads);
 
 UCI::info_t search(int16_t depth);
 

@@ -27,14 +27,12 @@ void init_stack() {
 void push(move_t move) {
     // Update move stack
     stack_t *node = new stack_t;
-
     node->board = board;
     make_move(move);
     node->next = stack;
     node->prev_mv = move;
     stack = node;
-
-    auto rt_pair = repetition_table.find(board.hash_code);
+    std::unordered_map<uint64_t, RTEntry>::iterator rt_pair = repetition_table.find(board.hash_code);
     if (rt_pair != repetition_table.end()) {
         RTEntry &rt_entry = rt_pair->second;
         ++rt_entry.num_seen;
@@ -51,10 +49,12 @@ void push(move_t move) {
 void pop() {
     RTEntry &rt_pair = repetition_table.find(board.hash_code)->second;
     --rt_pair.num_seen;
-    /** TODO: Is this check necessary? Experiment with removal of this part*/
+    // TODO: Is this check necessary? Experiment with removal of this part
+    /*
     if (!rt_pair.num_seen) {
         repetition_table.erase(board.hash_code);
     }
+    */
     // Update move stack
     stack_t *temp = stack;
     board = stack->board;

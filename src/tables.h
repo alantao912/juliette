@@ -27,11 +27,16 @@ struct TTEntry {
 };
 
 struct RTEntry {
+
     uint8_t num_seen;
 
     explicit RTEntry(uint8_t n) : num_seen(n) {};
 
-    explicit RTEntry(const RTEntry &other) {
+    RTEntry() {
+        num_seen = 0;
+    }
+
+    RTEntry(const RTEntry &other) {
         num_seen = other.num_seen;
     }
 };

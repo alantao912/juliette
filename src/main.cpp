@@ -143,14 +143,16 @@ int main(int argc, char *argv[]) {
 
                 /** Insert dev code below this line */
                 init_board(START_POSITION);
-                int seconds = 35;
+                int seconds = 5;
                 pthread_t timer_thread;
                 pthread_create(&timer_thread, nullptr, start_timer, &seconds);
-                UCI::info_t info = search(4);
+                UCI::info_t info = search(2);
                 std::cout << "Completed search\n";
                 std::cout << "Best move: ";
                 print_move(info.best_move);
                 std::cout << '\n';
+                volatile bool b = true;
+                while (b);
             } else if (strcmp(recvbuf, "perft") == 0) {
                 std::cout << "juliette:: starting performance test..." << std::endl;
                 // TODO: Re-implement performance test
