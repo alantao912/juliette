@@ -5,7 +5,6 @@
 #include "stack.h"
 #include "movegen.h"
 #include "bitboard.h"
-#include "timeman.h"
 
 #define BUFLEN 512
 
@@ -142,9 +141,10 @@ int main(int argc, char *argv[]) {
 
                 initialize_zobrist();
                 /** Insert dev code below this line */
-                init_board(START_POSITION);
-                int seconds = 5;
-                UCI::info_t info = search_fd(6);
+                UCI::initialize_UCI();
+                UCI::parse_UCI_string("ucinewgame");
+                UCI::parse_UCI_string("position startpos");
+                UCI::parse_UCI_string("go");
             } else if (strcmp(recvbuf, "perft") == 0) {
                 std::cout << "juliette:: starting performance test..." << std::endl;
                 // TODO: Re-implement performance test

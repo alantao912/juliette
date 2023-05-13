@@ -17,9 +17,23 @@ struct TTEntry {
 
     int32_t score;
     uint16_t depth;
-    move_t best_move;
+    move_t best_move{};
+
+    TTEntry() {
+        flag = EXACT;
+        score = 0;
+        depth = 0;
+        best_move = NULL_MOVE;
+    }
 
     TTEntry(int32_t e, uint16_t d, flag_t f, move_t m) : score(e), depth(d), flag(f), best_move(m) {};
+
+    TTEntry(const TTEntry &other) {
+        flag = other.flag;
+        score = other.score;
+        depth = other.depth;
+        best_move = other.best_move;
+    }
 };
 
 struct RTEntry {

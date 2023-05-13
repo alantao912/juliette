@@ -410,7 +410,6 @@ int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) { // NOLINT
  * @param beta: Maximum score that the minimizing player is assured of.
  */
 
-#pragma clang diagnostic push
 #pragma ide diagnostic ignored "misc-no-recursion"
 
 static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
@@ -558,8 +557,9 @@ void search_t(thread_args_t *args) {
         repetition_table.insert(std::pair<uint64_t, RTEntry>(it->first, it->second));
         ++it;
     }
-
-    if (args->is_main_thread) {
+    const bool is_main_thread = args->is_main_thread;
+    if (is_main_thread) {
+        /** Main thread initializes shared locks */
         block_thread = true;
         pthread_mutex_init(&tt_lock, nullptr);
         pthread_mutex_init(&rand_lock, nullptr);
@@ -595,7 +595,7 @@ void search_t(thread_args_t *args) {
         for (int i = 0; i < n; ++i) {
             mv_pv[0] = root_mvs[i];
             push(mv_pv[0]);
-            int32_t mv_score = pvs(d, evaluation, -MIN_SCORE, &mv_pv[1]);
+            int32_t mv_score = -pvs(d, MIN_SCORE, -evaluation, &mv_pv[1]);
             pop();
 
             if (mv_score > evaluation) {
@@ -603,7 +603,12 @@ void search_t(thread_args_t *args) {
                 memcpy(pv, mv_pv, (d + 1) * sizeof(move_t));
             }
         }
-        if (args->is_main_thread) {
+        TTEntry tt_entry(evaluation, d + 1, EXACT, pv[0]);
+        pthread_mutex_lock(&tt_lock);
+        transposition_table[board.hash_code] = tt_entry;
+        pthread_mutex_unlock(&tt_lock);
+
+        if (args->is_main_thread && time_remaining) {
             result.best_move = pv[0];
             result.score = evaluation;
         }
@@ -611,7 +616,7 @@ void search_t(thread_args_t *args) {
 
     /** Thread tear-down code */
     killer_mvs = nullptr;
-    if (args->is_main_thread) {
+    if (is_main_thread) {
         pthread_mutex_destroy(&tt_lock);
         pthread_mutex_destroy(&rand_lock);
     }

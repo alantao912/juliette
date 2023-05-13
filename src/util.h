@@ -221,5 +221,3 @@ void trim(std::string &string);
 std::vector<std::string> split(std::string &input);
 
 bool is_number(const std::string &input);
-
-void shuffle()
