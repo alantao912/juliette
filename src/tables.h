@@ -19,11 +19,7 @@ struct TTEntry {
     uint16_t depth;
     move_t best_move;
 
-    bool is_pv;
-
-    TTEntry(int32_t e, uint16_t d, flag_t f, move_t m) : score(e), depth(d), flag(f), best_move(m) {
-        is_pv = false;
-    };
+    TTEntry(int32_t e, uint16_t d, flag_t f, move_t m) : score(e), depth(d), flag(f), best_move(m) {};
 };
 
 struct RTEntry {

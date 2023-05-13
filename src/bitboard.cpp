@@ -20,14 +20,14 @@ uint64_t rand_bitstring() {
 }
 
 void initialize_zobrist() {
-    for (unsigned long long &i: ZOBRIST_VALUES) {
-        i = rand_bitstring();
+    for (int i = 0; i < 781; ++i) {
+        ZOBRIST_VALUES[i] = rand_bitstring();
     }
 }
 
 void init_board(const char *fen) {
     char *rest = strdup(fen);
-
+    char *og_rest = rest;
     // Initalize bitboards and mailbox
     char *token = strtok_r(rest, " ", &rest);
     for (int i = A1; i <= H8; ++i) {
@@ -101,19 +101,16 @@ void init_board(const char *fen) {
                 break;
         }
     }
-
     // Initalize possible en passant square
     token = strtok_r(rest, " ", &rest);
     board.en_passant_square = (*token == '-') ? INVALID : parse_square(token);
-
     // Initalize halfmove clock
     token = strtok_r(rest, " ", &rest);
-    board.halfmove_clock = strtol(token, nullptr, 10);
-
+    
+    if (token) board.halfmove_clock = strtol(token, nullptr, 10);
     // Initalize fullmove number
     token = strtok_r(rest, " ", &rest);
-    board.fullmove_number = strtol(token, nullptr, 10);
-
+    if (token) board.fullmove_number = strtol(token, nullptr, 10);
     board.hash_code = 0;
     for (int square = A1; square <= H8; square++) {
         piece_t piece = board.mailbox[square];
@@ -139,7 +136,7 @@ void init_board(const char *fen) {
     if (board.en_passant_square != INVALID) {
         board.hash_code ^= ZOBRIST_VALUES[773 + file_of(board.en_passant_square)];
     }
-    free(rest);
+    free(og_rest);
 }
 
 /**
@@ -368,13 +365,11 @@ bool is_move_check(move_t move) {
 bool is_attacked(bool color, int square) {
     if (color == BLACK) {
         uint64_t square_bb = BB_SQUARES[square];
-
         if (get_queen_moves(WHITE, square) & board.b_queens) return true;
         if (get_rook_moves(WHITE, square) & board.b_rooks) return true;
         if (get_bishop_moves(WHITE, square) & board.b_bishops) return true;
         if (get_knight_moves(WHITE, square) & board.b_knights) return true;
         if ((((square_bb << 9) & ~BB_FILE_A) | ((square_bb << 7) & ~BB_FILE_H)) & board.b_pawns) return true;
-
         return false;
     } else {
         uint64_t square_bb = BB_SQUARES[square];

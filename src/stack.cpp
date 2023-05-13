@@ -50,11 +50,9 @@ void pop() {
     RTEntry &rt_pair = repetition_table.find(board.hash_code)->second;
     --rt_pair.num_seen;
     // TODO: Is this check necessary? Experiment with removal of this part
-    /*
     if (!rt_pair.num_seen) {
         repetition_table.erase(board.hash_code);
     }
-    */
     // Update move stack
     stack_t *temp = stack;
     board = stack->board;

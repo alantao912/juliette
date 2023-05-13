@@ -8,8 +8,7 @@
 #include <vector>
 #include <cstring>
 #include <iostream>
-#include <cinttypes>
-#include <windows.h>
+#include <cinttypes>    
 
 #include "search.h"
 #include "tables.h"

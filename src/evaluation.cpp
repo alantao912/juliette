@@ -7,7 +7,7 @@
 
 /** Global board struct */
 extern __thread bitboard board;
-static struct eval_stats stats;
+static __thread struct eval_stats stats;
 
 void eval_stats::reset() {
     midgame_score = 0;

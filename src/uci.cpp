@@ -36,7 +36,7 @@ char sendbuf[BUFLEN];
 
 void UCI::info_t::format_data(bool verbose) {
     if (verbose) {
-        snprintf(sendbuf, BUFLEN, "elapsed time: (%lld)ms\n%s:  %c%d%c%d\nevaluation: %d",
+        snprintf(sendbuf, BUFLEN, "elapsed time: (%ld)ms\n%s:  %c%d%c%d\nevaluation: %d",
                  elapsed_time.count(), replies[bestmove].c_str(), char(file_of(best_move.from) + 'a'),
                  int(rank_of(best_move.from) + 1), char(file_of(best_move.to) + 'a'),
                  int(rank_of(best_move.to) + 1), score);
