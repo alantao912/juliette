@@ -28,16 +28,17 @@ std::string replies[] = {"id", "uciok", "readyok", "bestmove", "copyprotection",
 #define option 7
 
 extern __thread bitboard board;
+extern thread_local std::unordered_map<uint64_t, RTEntry> repetition_table;
 extern bool time_remaining;
 
 bool board_initialized = false;
-
 char sendbuf[BUFLEN];
 
-void UCI::info_t::format_data(bool verbose) {
+void UCI::info_t::format_data(bool verbose) const {
     if (verbose) {
         snprintf(sendbuf, BUFLEN, "elapsed time: (%ld)ms\n%s:  %c%d%c%d\nevaluation: %d",
-                 elapsed_time.count(), replies[bestmove].c_str(), char(file_of(best_move.from) + 'a'),
+                 static_cast<long> (elapsed_time.count()), replies[bestmove].c_str(),
+                 char(file_of(best_move.from) + 'a'),
                  int(rank_of(best_move.from) + 1), char(file_of(best_move.to) + 'a'),
                  int(rank_of(best_move.to) + 1), score);
     } else {
@@ -129,7 +130,8 @@ void UCI::go(const std::vector<std::string> &args) {
         return;
     }
 
-    //TODO: Configure function based on provided arguments according to UCI protocol.
+    // TODO: Configure function based on provided arguments according to UCI protocol.
+    thread_args_t arguments = {.main_board = &board, .main_repetition_table = &repetition_table};
     auto start = std::chrono::steady_clock::now();
     UCI::info_t result = search((int16_t) 6);
     auto end = std::chrono::steady_clock::now();

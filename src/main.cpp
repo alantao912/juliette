@@ -139,6 +139,7 @@ int main(int argc, char *argv[]) {
                 /**
                  * To be used for development purposes:
                  */
+
                 initialize_zobrist();
                 /** Insert dev code below this line */
                 init_board(START_POSITION);

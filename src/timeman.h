@@ -4,4 +4,4 @@
 
 #pragma once
 
-void *start_timer(void *args);
+void start_timer(int ms);

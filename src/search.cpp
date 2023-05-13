@@ -34,7 +34,6 @@ const int32_t contempt_value = 0;
 static std::unordered_map<uint64_t, TTEntry> transposition_table;
 static pthread_mutex_t tt_lock;
 
-volatile bool smp_abort = true;
 volatile bool time_remaining = true;
 
 /** Following fields are thread local */
@@ -47,17 +46,6 @@ static __thread int32_t h_table[HTABLE_LEN];
 __thread bitboard board;
 __thread stack_t *stack = nullptr;
 __thread int16_t ply = 0;
-
-bool is_drawn() {
-    const std::unordered_map<uint64_t, RTEntry>::const_iterator iterator = repetition_table.find(board.hash_code);
-    if (iterator != repetition_table.end()) {
-        const RTEntry &rt_entry = iterator->second;
-        if (rt_entry.num_seen >= 3) {
-            return verify_repetition(board.hash_code);
-        }
-    }
-    return board.halfmove_clock >= 100;
-}
 
 bool verify_repetition(uint64_t hash) {
     uint8_t num_seen = 0;
@@ -89,6 +77,23 @@ bool verify_repetition(uint64_t hash) {
 }
 
 /**
+ * Determines and returns whether the game's current state is a draw based off of the 50 move rule,
+ * and 3-fold repetition.
+ * @return Whether the game's current state is a draw.
+ */
+
+bool is_drawn() {
+    const std::unordered_map<uint64_t, RTEntry>::const_iterator iterator = repetition_table.find(board.hash_code);
+    if (iterator != repetition_table.end()) {
+        const RTEntry &rt_entry = iterator->second;
+        if (rt_entry.num_seen >= 3) {
+            return verify_repetition(board.hash_code);
+        }
+    }
+    return board.halfmove_clock >= 100;
+}
+
+/**
  * Determines whether to enable futility pruning.
  * @param cm Candidate move
  * @param depth Depth remaining until horizon
@@ -117,6 +122,212 @@ static inline bool contains_promotions() {
 }
 
 /**
+ * Implements Late Move Reduction for moves with negative SEE.
+ * @param score Rated "goodness" or "interesting-ness" of a particular move.
+ * @param current_ply Current ply remaining to search
+ * @return The new depth to search at.
+ */
+
+int16_t reduction(int32_t score, int16_t current_ply) {
+    const int16_t RF = 200, no_reduction = 2;
+    /** TODO: Update reduction formula as new features are added*/
+
+    if (current_ply <= no_reduction || score >= 0) {
+        return current_ply - 1; // NOLINT
+    }
+    score += WIN_EX_SCORE; // Normalize the move's score value.
+    return std::max((int16_t) 0, (int16_t) (current_ply - std::max(1, abs(std::min(0, (score + RF - 1) / RF)))));
+}
+
+/**
+ * Returns the move_value of the piece moved in centipawns.
+ * @param move self-explanatory
+ * @return the move_value of the piece moved in centipawns
+ */
+
+int32_t piece_value(int square) {
+    piece_t piece = static_cast<piece_t> (board.mailbox[square]);
+    switch (piece) {
+        case BLACK_PAWN:
+            return Weights::PAWN_MATERIAL;
+        case BLACK_KNIGHT:
+            return Weights::KNIGHT_MATERIAL;
+        case BLACK_BISHOP:
+            return Weights::BISHOP_MATERIAL;
+        case BLACK_ROOK:
+            return Weights::ROOK_MATERIAL;
+        case BLACK_QUEEN:
+            return Weights::QUEEN_MATERIAL;
+        case WHITE_PAWN:
+            return Weights::PAWN_MATERIAL;
+        case WHITE_KNIGHT:
+            return Weights::KNIGHT_MATERIAL;
+        case WHITE_BISHOP:
+            return Weights::BISHOP_MATERIAL;
+        case WHITE_ROOK:
+            return Weights::ROOK_MATERIAL;
+        case WHITE_QUEEN:
+            return Weights::QUEEN_MATERIAL;
+        default:
+            return 0;
+    }
+}
+
+move_t find_lva(int square) {
+    move_t recaptures[MAX_ATTACK_NUM];
+    int num_recaptures = gen_legal_captures_sq(recaptures, board.turn, 1ULL << square);
+
+    if (!num_recaptures) {
+        /** There does not exist any moves that recapture on the given square */
+        return NULL_MOVE;
+    }
+    int lva_index = 0;
+    for (int i = 1; i < num_recaptures; ++i) {
+        if (piece_value(recaptures[i].from) < piece_value(recaptures[lva_index].from)) {
+            lva_index = i;
+        }
+    }
+    return recaptures[lva_index];
+}
+
+/**
+ * Static exchange score:
+ * @param move a move that captures an opponent's piece
+ * @return returns whether or not the capture does not lose material
+ */
+
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "misc-no-recursion"
+
+int32_t SEE(int square) {
+    int32_t see = 0;
+    move_t lva_move = find_lva(square);
+    if (lva_move.flag != PASS) {
+        int32_t cpv = piece_value(square);
+        bitboard temp = board;
+        make_move(lva_move);
+        int32_t prom_value = (lva_move.flag >= PC_KNIGHT) * piece_value(lva_move.to);
+        see = std::max(0, prom_value + cpv - SEE(square));
+        board = temp;
+    }
+    return see;
+}
+
+int32_t move_SEE(move_t move) {
+    int32_t score = Weights::PAWN_MATERIAL * (move.flag == EN_PASSANT) + piece_value(move.to);
+    bitboard temp = board;
+    make_move(move);
+    if (move.flag >= PR_KNIGHT && move.flag <= PR_QUEEN) {
+        score += piece_value(move.to);
+    }
+    score -= SEE(move.to);
+    board = temp;
+    return score;
+}
+
+int32_t move_value(move_t move) {
+    switch (move.flag) {
+        case EN_PASSANT:
+            return Weights::PAWN_MATERIAL;
+        case CAPTURE:
+            return piece_value(move.to);
+        case PR_KNIGHT:
+            return Weights::KNIGHT_MATERIAL;
+        case PR_BISHOP:
+            return Weights::BISHOP_MATERIAL;
+        case PR_ROOK:
+            return Weights::ROOK_MATERIAL;
+        case PR_QUEEN:
+            return Weights::QUEEN_MATERIAL;
+        case PC_KNIGHT:
+            return Weights::KNIGHT_MATERIAL + piece_value(move.to);
+        case PC_BISHOP:
+            return Weights::BISHOP_MATERIAL + piece_value(move.to);
+        case PC_ROOK:
+            return Weights::ROOK_MATERIAL + piece_value(move.to);
+        case PC_QUEEN:
+            return Weights::QUEEN_MATERIAL + piece_value(move.to);
+        default:
+            return 0;
+    }
+}
+
+inline size_t h_table_index(const move_t &mv) {
+    return 64 * int(board.mailbox[mv.from]) + mv.to;
+}
+
+void store_cutoff_mv(move_t mv, int32_t mv_score) {
+    if (mv.flag == NONE) {
+        /** If move is not a check, nor already a killer move since KM_SCORE < CHECK_SCORE.*/
+        if (mv_score < KM_SCORE) {
+            killer_mvs[ply].push_back(mv);
+        }
+        h_table[h_table_index(mv)] += ply * ply;
+    }
+}
+
+void order_moves(move_t mvs[], int32_t mv_scores[], int n) {
+    auto cmp = [&mv_scores](int i, int j) { return mv_scores[i] > mv_scores[j]; };
+    pthread_mutex_lock(&tt_lock);
+    std::unordered_map<uint64_t, TTEntry>::const_iterator it = transposition_table.find(
+            board.hash_code), end = transposition_table.end();
+    pthread_mutex_unlock(&tt_lock);
+    const std::vector<move_t> &kmvs = killer_mvs[ply];
+
+    move_t hash_move = NULL_MOVE;
+    if (it != end) {
+        const TTEntry &tte = it->second;
+        hash_move = tte.best_move;
+    }
+
+    uint_fast8_t mv_order[MAX_MOVE_NUM];
+    for (int i = 0; i < n; ++i) {
+        mv_order[i] = i;
+        const move_t &mv = mvs[i];
+        int &score = mv_scores[i];
+        if (mv == hash_move) {
+            score = HM_SCORE;
+            continue;
+        } else if (std::find(kmvs.begin(), kmvs.end(), mv) != kmvs.end()) {
+            score = KM_SCORE;
+            continue;
+        }
+
+        score = 0;
+
+        if (is_move_check(mv)) {
+            score += CHECK_SCORE;
+        }
+
+        switch (mv.flag) {
+            case CASTLING:
+                break;
+            case CAPTURE: {
+                int diff = piece_value(mv.to) - piece_value(mv.from);
+                if (diff > 0) {
+                    score += WIN_EX_SCORE + diff;
+                    break;
+                }
+            }
+            default: {
+                /** SEE determines whether or not the move wins or loses material */
+                int32_t SEE = move_SEE(mv);
+                score += (SEE > 0) * WIN_EX_SCORE + (SEE < 0) * NEG_EX_SCORE + SEE;
+                score += (SEE >= 0) * h_table[h_table_index(mv)];
+            }
+        }
+    }
+    std::sort(mv_order, mv_order + n, cmp);
+    move_t temp_buff[MAX_MOVE_NUM];
+    for (size_t i = 0; i < n; ++i) {
+        temp_buff[i] = mvs[mv_order[i]];
+    }
+    for (size_t i = 0; i < n; ++i) {
+        mvs[i] = temp_buff[i];
+    }
+}
+
+/**
  * @brief Extends the search position until a "quiet" position is reached.
  * @param alpha: Minimum score that the maximizing player is assured of.
  * @param beta: Maximum score that the minimizing player is assured of.
@@ -124,11 +335,6 @@ static inline bool contains_promotions() {
  */
 
 int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) { // NOLINT
-    /** If out of time, return minimum score */
-    if (!time_remaining || smp_abort) {
-        return -MIN_SCORE;
-    }
-
     if (is_drawn()) {
         return DRAW;
     }
@@ -194,9 +400,6 @@ int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) { // NOLINT
     return alpha;
 }
 
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "misc-no-recursion"
-
 /**
  * @brief Returns an integer move_value, representing the score of the specified turn.
  *
@@ -204,16 +407,17 @@ int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) { // NOLINT
  * @param beta: Maximum score that the minimizing player is assured of.
  */
 
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "misc-no-recursion"
+
 static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
-    /** If out of time, return minimum score */
-    if (!time_remaining || smp_abort) {
-        return -MIN_SCORE;
-    }
     const int32_t original_alpha = alpha;
+
     pthread_mutex_lock(&tt_lock);
     std::unordered_map<uint64_t, TTEntry>::iterator t = transposition_table.find(board.hash_code);
     std::unordered_map<uint64_t, TTEntry>::const_iterator end = transposition_table.end();
     pthread_mutex_unlock(&tt_lock);
+
     if (t != end && t->second.depth >= depth) {
         const TTEntry &tt_entry = t->second;
         switch (tt_entry.flag) {
@@ -228,6 +432,7 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
                 break;
         }
     }
+
     if (depth == 0) {
         /** Extend the search until the position is quiet */
         // return qsearch(qsearch_lim, alpha, beta);
@@ -237,7 +442,7 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
     move_t mvs[MAX_MOVE_NUM];
     int n = gen_legal_moves(mvs, board.turn);
 
-    /** Check game-lookahead, terminating conditions */
+    /** Check game-lookahead terminating conditions */
     if (n == 0) {
         if (is_check(board.turn)) {
             /** King is in check, and there are no legal mvs. Checkmate */
@@ -291,10 +496,6 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
         }
         pop();
 
-        if (!time_remaining || smp_abort) {
-            return -MIN_SCORE;
-        }
-
         if (score > best_score) {
             best_score = score;
             pv_index = i;
@@ -331,215 +532,6 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
     return best_score;
 }
 
-#pragma clang diagnostic pop
-
-/**
- * Implements Late Move Reduction for moves with negative SEE.
- * @param score Rated "goodness" or "interesting-ness" of a particular move.
- * @param current_ply Current ply remaining to search
- * @return The new depth to search at.
- */
-
-int16_t reduction(int32_t score, int16_t current_ply) {
-    const int16_t RF = 200, no_reduction = 2;
-    /** TODO: Update reduction formula as new features are added*/
-
-    if (current_ply <= no_reduction || score >= 0) {
-        return current_ply - 1; // NOLINT
-    }
-    score += WIN_EX_SCORE; // Normalize the move's score value.
-    return std::max((int16_t) 0, (int16_t) (current_ply - std::max(1, abs(std::min(0, (score + RF - 1) / RF)))));
-}
-
-void order_moves(move_t mvs[], int32_t mv_scores[], int n) {
-    auto cmp = [&mv_scores](int i, int j) { return mv_scores[i] > mv_scores[j]; };
-    pthread_mutex_lock(&tt_lock);
-    std::unordered_map<uint64_t, TTEntry>::const_iterator it = transposition_table.find(board.hash_code), end = transposition_table.end();
-    pthread_mutex_unlock(&tt_lock);
-    const std::vector<move_t> &kmvs = killer_mvs[ply];
-
-    move_t hash_move = NULL_MOVE;
-    if (it != end) {
-        const TTEntry &tte = it->second;
-        hash_move = tte.best_move;
-    }
-
-    uint_fast8_t mv_order[MAX_MOVE_NUM];
-    for (int i = 0; i < n; ++i) {
-        mv_order[i] = i;
-        const move_t &mv = mvs[i];
-        int &score = mv_scores[i];
-        if (mv == hash_move) {
-            score = HM_SCORE;
-            continue;
-        } else if (std::find(kmvs.begin(), kmvs.end(), mv) != kmvs.end()) {
-            score = KM_SCORE;
-            continue;
-        }
-
-        score = 0;
-
-        if (is_move_check(mv)) {
-            score += CHECK_SCORE;
-        }
-
-        switch (mv.flag) {
-            case CASTLING:
-                break;
-            case CAPTURE: {
-                int diff = piece_value(mv.to) - piece_value(mv.from);
-                if (diff > 0) {
-                    score += WIN_EX_SCORE + diff;
-                    break;
-                }
-            }
-            default: {
-                /** SEE determines whether or not the move wins or loses material */
-                int32_t SEE = move_SEE(mv);
-                score += (SEE > 0) * WIN_EX_SCORE + (SEE < 0) * NEG_EX_SCORE + SEE;
-                score += (SEE >= 0) * h_table[h_table_index(mv)];
-            }
-        }
-    }
-    std::sort(mv_order, mv_order + n, cmp);
-    move_t temp_buff[MAX_MOVE_NUM];
-    for (size_t i = 0; i < n; ++i) {
-        temp_buff[i] = mvs[mv_order[i]];
-    }
-    for (size_t i = 0; i < n; ++i) {
-        mvs[i] = temp_buff[i];
-    }
-}
-
-void store_cutoff_mv(move_t mv, int32_t mv_score) {
-    if (mv.flag == NONE) {
-        /** If move is not a check, nor already a killer move since KM_SCORE < CHECK_SCORE.*/
-        if (mv_score < KM_SCORE) {
-            killer_mvs[ply].push_back(mv);
-        }
-        h_table[h_table_index(mv)] += ply * ply;
-    }
-}
-
-size_t h_table_index(const move_t &mv) {
-    return 64 * int(board.mailbox[mv.from]) + mv.to;
-}
-
-int32_t move_SEE(move_t move) {
-    int32_t score = Weights::PAWN_MATERIAL * (move.flag == EN_PASSANT) + piece_value(move.to);
-    bitboard temp = board;
-    make_move(move);
-    if (move.flag >= PR_KNIGHT && move.flag <= PR_QUEEN) {
-        score += piece_value(move.to);
-    }
-    score -= SEE(move.to);
-    board = temp;
-    return score;
-}
-
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "misc-no-recursion"
-
-/**
- * Static exchange score:
- * @param move a move that captures an opponent's piece
- * @return returns whether or not the capture does not lose material
- */
-
-int32_t SEE(int square) {
-    int32_t see = 0;
-    move_t lva_move = find_lva(square);
-    if (lva_move.flag != PASS) {
-        int32_t cpv = piece_value(square);
-        bitboard temp = board;
-        make_move(lva_move);
-        int32_t prom_value = (lva_move.flag >= PC_KNIGHT) * piece_value(lva_move.to);
-        see = std::max(0, prom_value + cpv - SEE(square));
-        board = temp;
-    }
-    return see;
-}
-
-#pragma clang diagnostic pop
-
-move_t find_lva(int square) {
-    move_t recaptures[MAX_ATTACK_NUM];
-    int num_recaptures = gen_legal_captures_sq(recaptures, board.turn, 1ULL << square);
-
-    if (!num_recaptures) {
-        /** There does not exist any moves that recapture on the given square */
-        return NULL_MOVE;
-    }
-    int lva_index = 0;
-    for (int i = 1; i < num_recaptures; ++i) {
-        if (piece_value(recaptures[i].from) < piece_value(recaptures[lva_index].from)) {
-            lva_index = i;
-        }
-    }
-    return recaptures[lva_index];
-}
-
-/**
- * Returns the move_value of the piece moved in centipawns.
- * @param move self-explanatory
- * @return the move_value of the piece moved in centipawns
- */
-
-int32_t piece_value(int square) {
-    piece_t piece = static_cast<piece_t> (board.mailbox[square]);
-    switch (piece) {
-        case BLACK_PAWN:
-            return Weights::PAWN_MATERIAL;
-        case BLACK_KNIGHT:
-            return Weights::KNIGHT_MATERIAL;
-        case BLACK_BISHOP:
-            return Weights::BISHOP_MATERIAL;
-        case BLACK_ROOK:
-            return Weights::ROOK_MATERIAL;
-        case BLACK_QUEEN:
-            return Weights::QUEEN_MATERIAL;
-        case WHITE_PAWN:
-            return Weights::PAWN_MATERIAL;
-        case WHITE_KNIGHT:
-            return Weights::KNIGHT_MATERIAL;
-        case WHITE_BISHOP:
-            return Weights::BISHOP_MATERIAL;
-        case WHITE_ROOK:
-            return Weights::ROOK_MATERIAL;
-        case WHITE_QUEEN:
-            return Weights::QUEEN_MATERIAL;
-        default:
-            return 0;
-    }
-}
-
-int32_t move_value(move_t move) {
-    switch (move.flag) {
-        case EN_PASSANT:
-            return Weights::PAWN_MATERIAL;
-        case CAPTURE:
-            return piece_value(move.to);
-        case PR_KNIGHT:
-            return Weights::KNIGHT_MATERIAL;
-        case PR_BISHOP:
-            return Weights::BISHOP_MATERIAL;
-        case PR_ROOK:
-            return Weights::ROOK_MATERIAL;
-        case PR_QUEEN:
-            return Weights::QUEEN_MATERIAL;
-        case PC_KNIGHT:
-            return Weights::KNIGHT_MATERIAL + piece_value(move.to);
-        case PC_BISHOP:
-            return Weights::BISHOP_MATERIAL + piece_value(move.to);
-        case PC_ROOK:
-            return Weights::ROOK_MATERIAL + piece_value(move.to);
-        case PC_QUEEN:
-            return Weights::QUEEN_MATERIAL + piece_value(move.to);
-        default:
-            return 0;
-    }
-}
-
 UCI::info_t generate_reply(int32_t evaluation, move_t best_move) {
     UCI::info_t reply = {.score = (1 - 2 * (board.turn == BLACK)) * evaluation, .best_move = NULL_MOVE};
     if (!(best_move.from == A1 && best_move.to == A1 && best_move.flag == NONE)) {
@@ -555,111 +547,14 @@ UCI::info_t generate_reply(int32_t evaluation, move_t best_move) {
     return reply;
 }
 
-void *__search(void *args) {
-    thread_args_t *thread_args = (thread_args_t *) args;
-    /** Synchronize thread local data, repetition table, and board state to thread. */
-    board = *(thread_args->main_board);
-    std::unordered_map<uint64_t, RTEntry>::const_iterator it = thread_args->main_repetition_table->begin();
-    while (it != thread_args->main_repetition_table->end()) {
-        repetition_table.insert(std::pair<uint64_t, RTEntry>(it->first, it->second));
-        ++it;
-    }
-    /** Search environment, auxiliary data structures */
-    move_t pv[MAX_DEPTH];
-    pv[0] = NULL_MOVE;
-    ply = 0;
+UCI::info_t search(thread_args_t *args) {
+    board = *(args->main_board);
 
-    std::vector<move_t> kmv[MAX_DEPTH];
-    killer_mvs = kmv;
-    memset(h_table, 0, sizeof(int) * HTABLE_LEN);
-    BLOCK:
-    /** Block thread until main search thread */
-    while (smp_abort);
-    int16_t depth = 1;
-
-    while (!smp_abort && time_remaining && depth < MAX_DEPTH) {
-        init_depth = depth;
-        for (int i = 0; i < thread_args->n_root_mvs && time_remaining && !smp_abort; ++i) {
-            push(thread_args->root_mvs[i]);
-            pvs(depth, MIN_SCORE, -MIN_SCORE, pv);
-            pop();
-        }
-        ++depth;
+    const std::unordered_map<uint64_t, RTEntry>::iterator rt_it = args->main_repetition_table->begin();
+    const std::unordered_map<uint64_t, RTEntry>::const_iterator end = args->main_repetition_table->end();
+    while (rt_it != end) {
+        
     }
-    if (time_remaining) {
-        goto BLOCK;
-    }
-    pthread_exit(nullptr);  
-    return nullptr;
-}
-
-UCI::info_t search(int n_threads) {
-    n_threads -= 1;
-    pthread_t helper_threads[n_threads];
-    thread_args_t thread_args[n_threads];
-    for (int i = 0; i < n_threads; ++i) {
-        thread_args_t &arg = thread_args[i];
-        arg.main_board = &board;
-        arg.main_repetition_table = &repetition_table;
-    }
-    for (int i = 0; i < n_threads; ++i) {
-        if (pthread_create(&(helper_threads[i]), nullptr, __search, &(thread_args[i])) != 0) {
-            std::cout << "juliette:: failed to spawn child thread" << std::endl;
-            exit(-1);
-        }
-    }
-    pthread_mutex_init(&tt_lock, nullptr);
-    /** Search environment, auxiliary data structures */
-    move_t best_move = NULL_MOVE;
-    move_t pv[MAX_DEPTH];
-    pv[0] = NULL_MOVE;
-    ply = 0;
-
-    std::vector<move_t> kmv[MAX_DEPTH];
-    killer_mvs = kmv;
-    memset(h_table, 0, sizeof(int) * HTABLE_LEN);
-
-    /** Initial depth 1 search */
-    pvs(1, MIN_SCORE, -MIN_SCORE, pv);
-    /** Root moves */
-    move_t mvs[MAX_MOVE_NUM];
-    int32_t move_scores[MAX_MOVE_NUM];
-
-    /** Order moves using heuristics populated from depth 1 search. */
-    int n = gen_legal_moves(mvs, board.turn);
-    order_moves(mvs, move_scores, n);
-
-    for (int i = 0; i < n_threads; ++i) {
-        thread_args_t &arg = thread_args[i];
-        arg.n_root_mvs = (n / (n_threads)) + (i < (n % (n_threads)));
-        arg.root_mvs = new move_t[arg.n_root_mvs];
-        /** Scatter moves evenly among threads */
-        for (int j = i, k = 0; j < n; j += (n_threads)) {
-            arg.root_mvs[k++] = mvs[j];
-        }
-    }
-    smp_abort = false;
-
-    int32_t evaluation;
-    for (int16_t d = 2; d < MAX_DEPTH; ++d) {
-        init_depth = d;
-        //smp_abort = false;
-        int32_t e = pvs(d, MIN_SCORE, -MIN_SCORE, pv);
-        //smp_abort = true;
-        if (!time_remaining) {
-            break;
-        }
-        /** Latest iteration did not halt early due to lack of time, copy best move */
-        best_move = pv[0];
-        evaluation = e;
-        std::cout << "Finished depth " << d << '\n';
-    }
-    smp_abort = true;
-    for (int i = 0; i < n_threads; ++i) {
-        delete[] thread_args[i].root_mvs;
-    }
-    pthread_mutex_destroy(&tt_lock);
-    return generate_reply(evaluation, best_move);
 }
 
 UCI::info_t search(int16_t depth) {
@@ -669,7 +564,6 @@ UCI::info_t search(int16_t depth) {
     std::vector<move_t> kmv[depth];
     killer_mvs = kmv;
     memset(h_table, 0, sizeof(int) * HTABLE_LEN);
-    smp_abort = false;
     int32_t evaluation;
     for (int16_t i = 1; i <= depth; ++i) {
         init_depth = i;

@@ -8,7 +8,7 @@
 #include <vector>
 #include <cstring>
 #include <iostream>
-#include <cinttypes>    
+#include <cinttypes>
 
 #include "search.h"
 #include "tables.h"
@@ -26,7 +26,7 @@ namespace UCI {
         move_t best_move;
         std::chrono::milliseconds elapsed_time;
 
-        void format_data(bool verbose);
+        void format_data(bool verbose) const;
     } info_t;
 
     void initialize_UCI();
