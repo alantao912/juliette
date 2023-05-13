@@ -15,14 +15,16 @@ namespace UCI {
 
 typedef struct thread_args {
     const bitboard *main_board;
-    std::unordered_map<uint64_t, RTEntry> *main_repetition_table;
+    const std::unordered_map<uint64_t, RTEntry> *main_repetition_table;
+
+    bool is_main_thread;
 
 } thread_args_t;
 
 int32_t move_SEE(move_t move);
 
-UCI::info_t search(thread_args_t *args);
+void search_t(thread_args_t *args);
 
-UCI::info_t search(int16_t depth);
+UCI::info_t search_fd(int16_t depth);
 
-UCI::info_t search(std::chrono::duration<int64_t, std::milli> time);
+UCI::info_t search_ft(std::chrono::duration<int64_t, std::milli> time);

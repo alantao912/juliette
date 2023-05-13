@@ -2,6 +2,7 @@
 #include <cstring>
 #include <pthread.h>
 #include <algorithm>
+#include <random>
 #include <unordered_map>
 
 #include "bitboard.h"
@@ -19,7 +20,7 @@
 #define MAX_DEPTH 128
 
 /**
- * Quiescent search max ply count.
+ * Quiescent search_fd max ply count.
  */
 
 const int16_t qsearch_lim = 6;
@@ -32,20 +33,22 @@ const int16_t qsearch_lim = 6;
 const int32_t contempt_value = 0;
 
 static std::unordered_map<uint64_t, TTEntry> transposition_table;
-static pthread_mutex_t tt_lock;
+static pthread_mutex_t tt_lock, rand_lock;
 
-volatile bool time_remaining = true;
+volatile bool time_remaining = true, block_thread = true;
 
 /** Following fields are thread local */
 thread_local std::unordered_map<uint64_t, RTEntry> repetition_table;
 
 static __thread std::vector<move_t> *killer_mvs = nullptr;
-static __thread int16_t init_depth;
+static __thread int16_t search_depth;
 static __thread int32_t h_table[HTABLE_LEN];
 
 __thread bitboard board;
 __thread stack_t *stack = nullptr;
 __thread int16_t ply = 0;
+
+extern UCI::info_t result;
 
 bool verify_repetition(uint64_t hash) {
     uint8_t num_seen = 0;
@@ -124,8 +127,8 @@ static inline bool contains_promotions() {
 /**
  * Implements Late Move Reduction for moves with negative SEE.
  * @param score Rated "goodness" or "interesting-ness" of a particular move.
- * @param current_ply Current ply remaining to search
- * @return The new depth to search at.
+ * @param current_ply Current ply remaining to search_fd
+ * @return The new depth to search_fd at.
  */
 
 int16_t reduction(int32_t score, int16_t current_ply) {
@@ -328,7 +331,7 @@ void order_moves(move_t mvs[], int32_t mv_scores[], int n) {
 }
 
 /**
- * @brief Extends the search position until a "quiet" position is reached.
+ * @brief Extends the search_fd position until a "quiet" position is reached.
  * @param alpha: Minimum score that the maximizing player is assured of.
  * @param beta: Maximum score that the minimizing player is assured of.
  * @return
@@ -355,7 +358,7 @@ int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) { // NOLINT
         goto CHECK_EVASIONS;
     } else {
         /** Side to move is in check, evasions do not exist. Checkmate :( */
-        return MATE_SCORE(depth + init_depth);
+        return MATE_SCORE(depth + search_depth);
     }
 
     stand_pat = evaluate();
@@ -434,9 +437,8 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
     }
 
     if (depth == 0) {
-        /** Extend the search until the position is quiet */
-        // return qsearch(qsearch_lim, alpha, beta);
-        return evaluate();
+        /** Extend the search_fd until the position is quiet */
+        return qsearch(qsearch_lim, alpha, beta);
     }
     /** Move generation logic */
     move_t mvs[MAX_MOVE_NUM];
@@ -490,7 +492,7 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
         variations[0] = mv;
         /** Zero-Window Search. Assume good move ordering, and all subsequent mvs are worse. */
         int32_t score = -pvs(reduction(mv_score, depth), -alpha - 1, -alpha, &variations[1]);
-        /** If mvs[i] turns out to be better, re-search with full window*/
+        /** If mvs[i] turns out to be better, re-search_fd with full window*/
         if (alpha < score && score < beta) {
             score = -pvs(reduction(mv_score, depth), -beta, -score, &variations[1]);
         }
@@ -547,33 +549,94 @@ UCI::info_t generate_reply(int32_t evaluation, move_t best_move) {
     return reply;
 }
 
-UCI::info_t search(thread_args_t *args) {
+void search_t(thread_args_t *args) {
     board = *(args->main_board);
 
-    const std::unordered_map<uint64_t, RTEntry>::iterator rt_it = args->main_repetition_table->begin();
+    std::unordered_map<uint64_t, RTEntry>::const_iterator it = args->main_repetition_table->begin();
     const std::unordered_map<uint64_t, RTEntry>::const_iterator end = args->main_repetition_table->end();
-    while (rt_it != end) {
-        
+    while (it != end) {
+        repetition_table.insert(std::pair<uint64_t, RTEntry>(it->first, it->second));
+        ++it;
     }
+
+    if (args->is_main_thread) {
+        block_thread = true;
+        pthread_mutex_init(&tt_lock, nullptr);
+        pthread_mutex_init(&rand_lock, nullptr);
+        block_thread = false;
+    } else {
+        /** Busy-wait for lock initialization to complete */
+        while (block_thread);
+    }
+
+    move_t pv[MAX_DEPTH];
+    pv[0] = NULL_MOVE;
+    ply = 0;
+
+    std::vector<move_t> kmv[MAX_DEPTH];
+    killer_mvs = kmv;
+    memset(h_table, 0, sizeof(int) * HTABLE_LEN);
+
+    move_t root_mvs[MAX_MOVE_NUM];
+    int n = gen_legal_moves(root_mvs, board.turn);
+
+    pthread_mutex_lock(&rand_lock);
+    int seed = std::random_device()();
+    std::mt19937 rng(seed);
+    pthread_mutex_unlock(&rand_lock);
+    std::shuffle(root_mvs, &(root_mvs[n]), rng);
+
+    move_t mv_pv[MAX_DEPTH];
+
+    for (int16_t d = 0; time_remaining && d < MAX_DEPTH - 1; ++d) {
+        search_depth = d;
+        int32_t evaluation = MIN_SCORE;
+
+        for (int i = 0; i < n; ++i) {
+            mv_pv[0] = root_mvs[i];
+            push(mv_pv[0]);
+            int32_t mv_score = pvs(d, evaluation, -MIN_SCORE, &mv_pv[1]);
+            pop();
+
+            if (mv_score > evaluation) {
+                evaluation = mv_score;
+                memcpy(pv, mv_pv, (d + 1) * sizeof(move_t));
+            }
+        }
+        if (args->is_main_thread) {
+            result.best_move = pv[0];
+            result.score = evaluation;
+        }
+    }
+
+    /** Thread tear-down code */
+    killer_mvs = nullptr;
+    if (args->is_main_thread) {
+        pthread_mutex_destroy(&tt_lock);
+        pthread_mutex_destroy(&rand_lock);
+    }
+    pthread_exit(nullptr);
 }
 
-UCI::info_t search(int16_t depth) {
+UCI::info_t search_fd(int16_t depth) {
     move_t pv[depth];
     pv[0] = NULL_MOVE;
     ply = 0;
+
     std::vector<move_t> kmv[depth];
     killer_mvs = kmv;
     memset(h_table, 0, sizeof(int) * HTABLE_LEN);
+
     int32_t evaluation;
     for (int16_t i = 1; i <= depth; ++i) {
-        init_depth = i;
+        search_depth = i;
         evaluation = pvs(i, MIN_SCORE, -MIN_SCORE, pv);
     }
     killer_mvs = nullptr;
     return generate_reply(evaluation, pv[0]);
 }
 
-UCI::info_t search(std::chrono::duration<int64_t, std::milli> time_ms) {
+UCI::info_t search_ft(std::chrono::duration<int64_t, std::milli> time) {
     move_t pv[MAX_DEPTH];
     pv[0] = NULL_MOVE;
     ply = 0;
@@ -584,13 +647,13 @@ UCI::info_t search(std::chrono::duration<int64_t, std::milli> time_ms) {
 
     int32_t evaluation;
     std::chrono::time_point<std::chrono::steady_clock> start = std::chrono::steady_clock::now();
-    for (int16_t i = 1; time_ms.count() > 0; ++i) {
-        init_depth = i;
+    for (int16_t i = 1; time.count() > 0; ++i) {
+        search_depth = i;
         evaluation = pvs(i, MIN_SCORE, -MIN_SCORE, pv);
 
         /** Update time */
         std::chrono::time_point<std::chrono::steady_clock> now = std::chrono::steady_clock::now();
-        time_ms -= std::chrono::duration_cast<std::chrono::milliseconds>(now - start);
+        time -= std::chrono::duration_cast<std::chrono::milliseconds>(now - start);
         start = now;
 
         if (i > kmv_len) {

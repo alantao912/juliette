@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <pthread.h>
 #include <unordered_map>
 
 #include "bitboard.h"
@@ -33,6 +34,8 @@ extern bool time_remaining;
 
 bool board_initialized = false;
 char sendbuf[BUFLEN];
+
+UCI::info_t result;
 
 void UCI::info_t::format_data(bool verbose) const {
     if (verbose) {
@@ -131,12 +134,18 @@ void UCI::go(const std::vector<std::string> &args) {
     }
 
     // TODO: Configure function based on provided arguments according to UCI protocol.
-    thread_args_t arguments = {.main_board = &board, .main_repetition_table = &repetition_table};
-    auto start = std::chrono::steady_clock::now();
-    UCI::info_t result = search((int16_t) 6);
-    auto end = std::chrono::steady_clock::now();
-    result.elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    result.format_data(options[UCI::option_t::debug] == "on");
+    thread_args_t main_arg = {.main_board = &board, .main_repetition_table = &repetition_table, .is_main_thread = true};
+    thread_args_t aux_args = {.main_board = &board, .main_repetition_table = &repetition_table, .is_main_thread = false};
+
+    int n_threads = stoi(args[UCI::option_t::thread_cnt]);
+    pthread_t threads[n_threads];
+    pthread_create(&threads[0], nullptr, reinterpret_cast<void *(*)(void *)> (search_t), (void *) &main_arg);
+    for (int i = 1; i < n_threads; ++i) {
+        pthread_create(&threads[i], nullptr, reinterpret_cast<void *(*)(void *)> (search_t), (void *) &aux_args);
+    }
+    while (time_remaining);
+    // result.elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    // result.format_data(options[UCI::option_t::debug] == "on");
     UCI::reply();
 }
 
