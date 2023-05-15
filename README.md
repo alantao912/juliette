@@ -14,7 +14,7 @@ Features:
     - Iterative Deepening
     - Alpha-Beta Pruning
     - MVV-LVA move ordering
-    - Static Exchange Evaluation (SEE)
+    - Static Exchange Evaluation (fast_SEE)
     - Killer-Move Heuristic
     - Late Move Reduction (LMR)
     - Futility Pruning

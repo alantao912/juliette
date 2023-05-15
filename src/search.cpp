@@ -125,7 +125,7 @@ static inline bool contains_promotions() {
 }
 
 /**
- * Implements Late Move Reduction for moves with negative SEE.
+ * Implements Late Move Reduction for moves with negative fast_SEE.
  * @param score Rated "goodness" or "interesting-ness" of a particular move.
  * @param current_ply Current ply remaining to search_fd
  * @return The new depth to search at.
@@ -253,9 +253,9 @@ uint64_t consider_xray_attacks(int from, int to, const uint64_t occupied) {
  * @return returns whether or not the capture does not lose material
  */
 
-int32_t move_SEE(move_t move) {
+int32_t fast_SEE(move_t move) {
     int gain[32], d = 0;
-    uint64_t max_Xray = board.w_pawns | board.b_pawns | board.w_bishops | board.b_bishops | board.w_rooks |
+    uint64_t may_xray = board.w_pawns | board.b_pawns | board.w_bishops | board.b_bishops | board.w_rooks |
                         board.b_rooks | board.w_queens | board.b_queens;
     uint64_t from_bb = BB_SQUARES[move.from];
     uint64_t occupied_bb = board.occupied;
@@ -269,8 +269,8 @@ int32_t move_SEE(move_t move) {
         if (std::max(-gain[d - 1], gain[d]) < 0) break;
         attadef ^= from_bb;
         occupied_bb ^= from_bb;
-        if (from_bb & max_Xray) {
-            attadef |= consider_xray_attacks(get_lsb(from_bb), move.to, occupied_bb); // TODO: Consider x-ray attacks
+        if (from_bb & may_xray) {
+            attadef |= consider_xray_attacks(get_lsb(from_bb), move.to, occupied_bb);
         }
         from_bb = find_lva(attadef, (bool) ((board.turn + d) % 2), attacking_piece);
     } while (from_bb);
@@ -371,10 +371,10 @@ void order_moves(move_t mvs[], int32_t mv_scores[], int n) {
                 }
             }
             default: {
-                /** SEE determines whether or not the move wins or loses material */
-                int32_t SEE = move_SEE(mv);
-                score += (SEE > 0) * WIN_EX_SCORE + (SEE < 0) * NEG_EX_SCORE + SEE;
-                score += (SEE >= 0) * h_table[h_table_index(mv)];
+                /** fast_SEE determines whether or not the move wins or loses material */
+                int32_t see_score = fast_SEE(mv);
+                score += (see_score > 0) * WIN_EX_SCORE + (see_score < 0) * NEG_EX_SCORE + see_score;
+                score += (see_score >= 0) * h_table[h_table_index(mv)];
             }
         }
     }
