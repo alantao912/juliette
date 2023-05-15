@@ -682,7 +682,7 @@ int gen_nonquiescent_moves(move_t *moves, bool color, int *n_checks) {
             moves[num_checks + num_proms + num_captures] = moves[num_checks + num_proms];
             moves[num_checks + num_proms] = moves[i];
             ++num_proms;
-        } else if ((moves[i].flag == CAPTURE && move_SEE(moves[i]) >= 0) || moves[i].flag == EN_PASSANT) {
+        } else if ((moves[i].flag == CAPTURE && fast_SEE(moves[i]) >= 0) || moves[i].flag == EN_PASSANT) {
             /**
              * move_t is a non-losing capture.
              */

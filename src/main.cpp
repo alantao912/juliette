@@ -144,16 +144,21 @@ int main(int argc, char *argv[]) {
 
                 move_t moves[MAX_MOVE_NUM];
                 int n = gen_legal_moves(moves, board.turn);
-                bool print_mvs = false;
-                if (print_mvs) {
-                    for (int i = 0; i < n; ++i) {
-                        std::cout << i << ' ';
-                        print_move(moves[i]);
-                        std::cout << '\n';
-                    }
+                bool print_mvs = true;
+                for (int i = 0; i < n; ++i) {
+                    std::cout << i << ' ';
+                    print_move(moves[i]);
+                    std::cout << '\n';
                 }
-                int32_t see_score = move_SEE(moves[8]);
-                std::cout << "SEE: " << see_score << '\n';
+                while (true) {
+                    std::string user_input;
+                    std::cin >> user_input;
+                    trim(user_input);
+                    int i = std::stoi(user_input);
+
+                    int32_t see_score = fast_SEE(moves[i]);
+                    std::cout << "fast_SEE: " << see_score << '\n';
+                }
                 /** Insert dev code below this line */
                 /**
                 UCI::initialize_UCI();
