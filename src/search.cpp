@@ -58,7 +58,7 @@ bool verify_repetition(uint64_t hash) {
             /**
              * When checking if two positions are equal, it could be the case that two positions are equal, but have
              * different half move and full move number values. Thus, before and after using strncmp, we save and
-             * restore the true values of the two varaibles.
+             * restore the true values of the two variables.
              */
             int t0 = iterator->board.halfmove_clock;
             int t1 = iterator->board.fullmove_number;
@@ -128,7 +128,7 @@ static inline bool contains_promotions() {
  * Implements Late Move Reduction for moves with negative SEE.
  * @param score Rated "goodness" or "interesting-ness" of a particular move.
  * @param current_ply Current ply remaining to search_fd
- * @return The new depth to search_fd at.
+ * @return The new depth to search at.
  */
 
 int16_t reduction(int32_t score, int16_t current_ply) {
@@ -141,12 +141,6 @@ int16_t reduction(int32_t score, int16_t current_ply) {
     score += WIN_EX_SCORE; // Normalize the move's score value.
     return std::max((int16_t) 0, (int16_t) (current_ply - std::max(1, abs(std::min(0, (score + RF - 1) / RF)))));
 }
-
-/**
- * Returns the move_value of the piece moved in centipawns.
- * @param move self-explanatory
- * @return the move_value of the piece moved in centipawns
- */
 
 int32_t piece_value(int square) {
     piece_t piece = static_cast<piece_t> (board.mailbox[square]);
@@ -176,21 +170,81 @@ int32_t piece_value(int square) {
     }
 }
 
-move_t find_lva(int square) {
-    move_t recaptures[MAX_ATTACK_NUM];
-    int num_recaptures = gen_legal_captures_sq(recaptures, board.turn, 1ULL << square);
-
-    if (!num_recaptures) {
-        /** There does not exist any moves that recapture on the given square */
-        return NULL_MOVE;
+int32_t piece_value(piece_t p) {
+    switch (p) {
+        case BLACK_PAWN:
+            return Weights::PAWN_MATERIAL;
+        case BLACK_KNIGHT:
+            return Weights::KNIGHT_MATERIAL;
+        case BLACK_BISHOP:
+            return Weights::BISHOP_MATERIAL;
+        case BLACK_ROOK:
+            return Weights::ROOK_MATERIAL;
+        case BLACK_QUEEN:
+            return Weights::QUEEN_MATERIAL;
+        case WHITE_PAWN:
+            return Weights::PAWN_MATERIAL;
+        case WHITE_KNIGHT:
+            return Weights::KNIGHT_MATERIAL;
+        case WHITE_BISHOP:
+            return Weights::BISHOP_MATERIAL;
+        case WHITE_ROOK:
+            return Weights::ROOK_MATERIAL;
+        case WHITE_QUEEN:
+            return Weights::QUEEN_MATERIAL;
+        default:
+            return 0;
     }
-    int lva_index = 0;
-    for (int i = 1; i < num_recaptures; ++i) {
-        if (piece_value(recaptures[i].from) < piece_value(recaptures[lva_index].from)) {
-            lva_index = i;
+}
+
+uint64_t find_lva(uint64_t attadef, bool turn, piece_t &piece) {
+    int32_t min_piece_value = INT32_MAX;
+    uint64_t lva_bb = 0ULL;
+    while (attadef) {
+        int i = pull_lsb(&attadef), value;
+
+        if ((static_cast<int> (board.mailbox[i]) / 6) == turn &&
+            (value = piece_value(board.mailbox[i])) < min_piece_value) {
+            min_piece_value = value;
+
+            lva_bb = BB_SQUARES[i];
+            piece = board.mailbox[i];
         }
     }
-    return recaptures[lva_index];
+    return lva_bb;
+}
+
+uint64_t consider_xray_attacks(int from, int to, const uint64_t occupied) {
+    int shift_amt;
+    uint64_t iterator = BB_SQUARES[from], boundary;
+    if (from > to) {
+        /** Left-Shift*/
+        bool top_left = file_of(from) < file_of(to);
+        bool top = file_of(from) == file_of(to);
+        bool right = rank_of(from) == rank_of(to);
+        bool top_right = (file_of(from) > file_of(to)) & (rank_of(from) > rank_of(to));
+        shift_amt = 7 * top_left + 8 * top + right + 9 * top_right;
+        boundary = ((top_right | right) * BB_FILE_A) + (top_left * BB_FILE_H);
+        do {
+            iterator = (iterator << shift_amt) & ~boundary;
+            if (iterator & occupied)
+                return iterator;
+        } while (iterator);
+    } else {
+        /** Right-Shift */
+        bool bottom_right = file_of(from) > file_of(to);
+        bool bottom = file_of(from) == file_of(to);
+        bool left = rank_of(from) == rank_of(to);
+        bool bottom_left = ((file_of(from) < file_of(to)) & (rank_of(from) < rank_of(to)));
+        shift_amt = left + 7 * bottom_right + 8 * bottom + 9 * bottom_left;
+        boundary = (BB_FILE_A * bottom_right) + (BB_FILE_H * (left | bottom_left));
+        do {
+            iterator = (iterator >> shift_amt) & ~boundary;
+            if (iterator & occupied)
+                return iterator;
+        } while (iterator);
+    }
+    return 0ULL;
 }
 
 /**
@@ -199,34 +253,38 @@ move_t find_lva(int square) {
  * @return returns whether or not the capture does not lose material
  */
 
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "misc-no-recursion"
-
-int32_t SEE(int square) {
-    int32_t see = 0;
-    move_t lva_move = find_lva(square);
-    if (lva_move.flag != PASS) {
-        int32_t cpv = piece_value(square);
-        bitboard temp = board;
-        make_move(lva_move);
-        int32_t prom_value = (lva_move.flag >= PC_KNIGHT) * piece_value(lva_move.to);
-        see = std::max(0, prom_value + cpv - SEE(square));
-        board = temp;
-    }
-    return see;
-}
-
 int32_t move_SEE(move_t move) {
-    int32_t score = Weights::PAWN_MATERIAL * (move.flag == EN_PASSANT) + piece_value(move.to);
-    bitboard temp = board;
-    make_move(move);
-    if (move.flag >= PR_KNIGHT && move.flag <= PR_QUEEN) {
-        score += piece_value(move.to);
+    int gain[32], d = 0;
+    uint64_t max_Xray = board.w_pawns | board.b_pawns | board.w_bishops | board.b_bishops | board.w_rooks |
+                        board.b_rooks | board.w_queens | board.b_queens;
+    uint64_t from_bb = BB_SQUARES[move.from];
+    uint64_t occupied_bb = board.occupied;
+    uint64_t attadef = attacks_to(move.to, occupied_bb);
+    gain[d] = piece_value(move.to) + Weights::PAWN_MATERIAL * (move.flag == EN_PASSANT);
+
+    piece_t attacking_piece = board.mailbox[move.from];
+    do {
+        ++d;
+        gain[d] = piece_value(attacking_piece) - gain[d - 1];
+        if (std::max(-gain[d - 1], gain[d]) < 0) break;
+        attadef ^= from_bb;
+        occupied_bb ^= from_bb;
+        if (from_bb & max_Xray) {
+            attadef |= consider_xray_attacks(get_lsb(from_bb), move.to, occupied_bb); // TODO: Consider x-ray attacks
+        }
+        from_bb = find_lva(attadef, (bool) ((board.turn + d) % 2), attacking_piece);
+    } while (from_bb);
+    while (--d) {
+        gain[d - 1] = -std::max(-gain[d - 1], gain[d]);
     }
-    score -= SEE(move.to);
-    board = temp;
-    return score;
+    return gain[0];
 }
+
+/**
+ * Returns the move_value of the piece moved in centi-pawns.
+ * @param move self-explanatory
+ * @return the move_value of the piece moved in centi-pawns
+ */
 
 int32_t move_value(move_t move) {
     switch (move.flag) {

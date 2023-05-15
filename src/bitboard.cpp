@@ -106,7 +106,7 @@ void init_board(const char *fen) {
     board.en_passant_square = (*token == '-') ? INVALID : parse_square(token);
     // Initalize halfmove clock
     token = strtok_r(rest, " ", &rest);
-    
+
     if (token) board.halfmove_clock = strtol(token, nullptr, 10);
     // Initalize fullmove number
     token = strtok_r(rest, " ", &rest);
@@ -381,6 +381,75 @@ bool is_attacked(bool color, int square) {
         return false;
     }
 }
+
+/**
+ *
+ */
+uint64_t attacks_to(int target_square, uint64_t occupied_bb) {
+    uint64_t attacks = 0ULL;
+    uint64_t pieces = board.occupied;
+
+    const uint64_t target_bb = BB_SQUARES[target_square];
+    while (pieces) {
+        int i = pull_lsb(&pieces);
+        piece_t piece_type = static_cast<piece_t> ((static_cast<int> (board.mailbox[i]) % 6));
+        switch (piece_type) {
+            case BLACK_PAWN: {
+                int pawn_file = file_of(i), pawn_rank = rank_of(i);
+                int target_file = file_of(target_square), target_rank = rank_of(target_square);
+                bool are_files_adjacent = abs(pawn_file - target_file) == 1;
+                bool is_direction_correct = (target_rank - pawn_rank) == (1 - (2 * (board.mailbox[i] < 6)));
+                uint64_t result = are_files_adjacent & is_direction_correct;
+                attacks |= (result << i);
+                break;
+            }
+            case BLACK_KNIGHT: {
+                bool is_attacking = (BB_KNIGHT_ATTACKS[i] & target_bb) != 0;
+                attacks |= (uint64_t(is_attacking) << i);
+                break;
+            }
+            case BLACK_BISHOP: {
+                uint64_t bishop_attacks = (BB_DIAGONALS[diagonal_of(i)] ^
+                                           BB_ANTI_DIAGONALS[anti_diagonal_of(i)]);
+                uint64_t ray = get_ray_between(i, target_square) & ~BB_SQUARES[i] & ~BB_SQUARES[target_square];
+                bool alignment_exists = (bishop_attacks | target_bb) == bishop_attacks;
+                bool no_obstructions = (ray ^ occupied_bb) == (ray | occupied_bb);
+                uint64_t result = alignment_exists & no_obstructions;
+                attacks |= (result << i);
+                break;
+            }
+            case BLACK_ROOK: {
+                uint64_t rook_attacks = (BB_RANKS[rank_of(i)] ^ BB_FILES[file_of(i)]);
+                uint64_t ray = get_ray_between(i, target_square) & ~BB_SQUARES[i] & ~BB_SQUARES[target_square];
+                bool alignment_exists = ((rook_attacks | target_bb) == rook_attacks);
+                bool no_obstructions = (ray ^ occupied_bb) == (ray | occupied_bb);
+                uint64_t result = alignment_exists & no_obstructions;
+                attacks |= (result << i);
+                break;
+            }
+            case BLACK_QUEEN: {
+                uint64_t ray = get_ray_between(target_square, i);
+                bool alignment_exists = ray != 0;
+                ray &= ~BB_SQUARES[i];
+                ray &= ~BB_SQUARES[target_square];
+                bool no_obstructions = (ray ^ occupied_bb) == (ray | occupied_bb);
+                uint64_t result = alignment_exists & no_obstructions;
+                attacks |= (result << i);
+                break;
+            }
+            case BLACK_KING: {
+                bool can_king_reach = (BB_KING_ATTACKS[i] & target_bb) != 0;
+                uint64_t result = can_king_reach;
+                attacks |= (result << i);
+                break;
+            }
+            default:
+                std::cout << "Something is seriously wrong in attacks_to() in bitboard.cpp\n";
+        }
+    }
+    return attacks;
+}
+
 
 /**
  * @param piece

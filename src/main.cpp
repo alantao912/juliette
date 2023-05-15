@@ -140,11 +140,27 @@ int main(int argc, char *argv[]) {
                  */
 
                 initialize_zobrist();
+                init_board("1k1r4/1pp4p/p7/4p3/8/P5P1/1PP4P/2K1R3 w - - ");
+
+                move_t moves[MAX_MOVE_NUM];
+                int n = gen_legal_moves(moves, board.turn);
+                bool print_mvs = false;
+                if (print_mvs) {
+                    for (int i = 0; i < n; ++i) {
+                        std::cout << i << ' ';
+                        print_move(moves[i]);
+                        std::cout << '\n';
+                    }
+                }
+                int32_t see_score = move_SEE(moves[8]);
+                std::cout << "SEE: " << see_score << '\n';
                 /** Insert dev code below this line */
+                /**
                 UCI::initialize_UCI();
                 UCI::parse_UCI_string("ucinewgame");
                 UCI::parse_UCI_string("position startpos");
                 UCI::parse_UCI_string("go");
+                 */
             } else if (strcmp(recvbuf, "perft") == 0) {
                 std::cout << "juliette:: starting performance test..." << std::endl;
                 // TODO: Re-implement performance test
