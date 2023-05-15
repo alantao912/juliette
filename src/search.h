@@ -21,6 +21,8 @@ typedef struct thread_args {
 
 } thread_args_t;
 
+uint64_t consider_xray_attacks(int from, int to, const uint64_t occupied);
+
 int32_t move_SEE(move_t move);
 
 void search_t(thread_args_t *args);
