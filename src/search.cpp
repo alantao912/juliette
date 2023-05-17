@@ -2,6 +2,7 @@
 #include <cstring>
 #include <pthread.h>
 #include <algorithm>
+#include <random>
 #include <unordered_map>
 
 #include "bitboard.h"
@@ -19,7 +20,7 @@
 #define MAX_DEPTH 128
 
 /**
- * Quiescent search max ply count.
+ * Quiescent search_fd max ply count.
  */
 
 const int16_t qsearch_lim = 6;
@@ -32,20 +33,22 @@ const int16_t qsearch_lim = 6;
 const int32_t contempt_value = 0;
 
 static std::unordered_map<uint64_t, TTEntry> transposition_table;
-static pthread_mutex_t tt_lock;
+static pthread_mutex_t tt_lock, rand_lock;
 
-volatile bool time_remaining = true;
+volatile bool time_remaining = true, block_thread = true;
 
 /** Following fields are thread local */
 thread_local std::unordered_map<uint64_t, RTEntry> repetition_table;
 
 static __thread std::vector<move_t> *killer_mvs = nullptr;
-static __thread int16_t init_depth;
+static __thread int16_t search_depth;
 static __thread int32_t h_table[HTABLE_LEN];
 
 __thread bitboard board;
 __thread stack_t *stack = nullptr;
 __thread int16_t ply = 0;
+
+extern UCI::info_t result;
 
 bool verify_repetition(uint64_t hash) {
     uint8_t num_seen = 0;
@@ -55,7 +58,7 @@ bool verify_repetition(uint64_t hash) {
             /**
              * When checking if two positions are equal, it could be the case that two positions are equal, but have
              * different half move and full move number values. Thus, before and after using strncmp, we save and
-             * restore the true values of the two varaibles.
+             * restore the true values of the two variables.
              */
             int t0 = iterator->board.halfmove_clock;
             int t1 = iterator->board.fullmove_number;
@@ -122,9 +125,9 @@ static inline bool contains_promotions() {
 }
 
 /**
- * Implements Late Move Reduction for moves with negative SEE.
+ * Implements Late Move Reduction for moves with negative fast_SEE.
  * @param score Rated "goodness" or "interesting-ness" of a particular move.
- * @param current_ply Current ply remaining to search
+ * @param current_ply Current ply remaining to search_fd
  * @return The new depth to search at.
  */
 
@@ -138,12 +141,6 @@ int16_t reduction(int32_t score, int16_t current_ply) {
     score += WIN_EX_SCORE; // Normalize the move's score value.
     return std::max((int16_t) 0, (int16_t) (current_ply - std::max(1, abs(std::min(0, (score + RF - 1) / RF)))));
 }
-
-/**
- * Returns the move_value of the piece moved in centipawns.
- * @param move self-explanatory
- * @return the move_value of the piece moved in centipawns
- */
 
 int32_t piece_value(int square) {
     piece_t piece = static_cast<piece_t> (board.mailbox[square]);
@@ -173,21 +170,81 @@ int32_t piece_value(int square) {
     }
 }
 
-move_t find_lva(int square) {
-    move_t recaptures[MAX_ATTACK_NUM];
-    int num_recaptures = gen_legal_captures_sq(recaptures, board.turn, 1ULL << square);
-
-    if (!num_recaptures) {
-        /** There does not exist any moves that recapture on the given square */
-        return NULL_MOVE;
+int32_t piece_value(piece_t p) {
+    switch (p) {
+        case BLACK_PAWN:
+            return Weights::PAWN_MATERIAL;
+        case BLACK_KNIGHT:
+            return Weights::KNIGHT_MATERIAL;
+        case BLACK_BISHOP:
+            return Weights::BISHOP_MATERIAL;
+        case BLACK_ROOK:
+            return Weights::ROOK_MATERIAL;
+        case BLACK_QUEEN:
+            return Weights::QUEEN_MATERIAL;
+        case WHITE_PAWN:
+            return Weights::PAWN_MATERIAL;
+        case WHITE_KNIGHT:
+            return Weights::KNIGHT_MATERIAL;
+        case WHITE_BISHOP:
+            return Weights::BISHOP_MATERIAL;
+        case WHITE_ROOK:
+            return Weights::ROOK_MATERIAL;
+        case WHITE_QUEEN:
+            return Weights::QUEEN_MATERIAL;
+        default:
+            return 0;
     }
-    int lva_index = 0;
-    for (int i = 1; i < num_recaptures; ++i) {
-        if (piece_value(recaptures[i].from) < piece_value(recaptures[lva_index].from)) {
-            lva_index = i;
+}
+
+uint64_t find_lva(uint64_t attadef, bool turn, piece_t &piece) {
+    int32_t min_piece_value = INT32_MAX;
+    uint64_t lva_bb = 0ULL;
+    while (attadef) {
+        int i = pull_lsb(&attadef), value;
+
+        if ((static_cast<int> (board.mailbox[i]) / 6) == turn &&
+            (value = piece_value(board.mailbox[i])) < min_piece_value) {
+            min_piece_value = value;
+
+            lva_bb = BB_SQUARES[i];
+            piece = board.mailbox[i];
         }
     }
-    return recaptures[lva_index];
+    return lva_bb;
+}
+
+uint64_t consider_xray_attacks(int from, int to, const uint64_t occupied) {
+    int shift_amt;
+    uint64_t iterator = BB_SQUARES[from], boundary;
+    if (from > to) {
+        /** Left-Shift*/
+        bool top_left = file_of(from) < file_of(to);
+        bool top = file_of(from) == file_of(to);
+        bool right = rank_of(from) == rank_of(to);
+        bool top_right = (file_of(from) > file_of(to)) & (rank_of(from) > rank_of(to));
+        shift_amt = 7 * top_left + 8 * top + right + 9 * top_right;
+        boundary = ((top_right | right) * BB_FILE_A) + (top_left * BB_FILE_H);
+        do {
+            iterator = (iterator << shift_amt) & ~boundary;
+            if (iterator & occupied)
+                return iterator;
+        } while (iterator);
+    } else {
+        /** Right-Shift */
+        bool bottom_right = file_of(from) > file_of(to);
+        bool bottom = file_of(from) == file_of(to);
+        bool left = rank_of(from) == rank_of(to);
+        bool bottom_left = ((file_of(from) < file_of(to)) & (rank_of(from) < rank_of(to)));
+        shift_amt = left + 7 * bottom_right + 8 * bottom + 9 * bottom_left;
+        boundary = (BB_FILE_A * bottom_right) + (BB_FILE_H * (left | bottom_left));
+        do {
+            iterator = (iterator >> shift_amt) & ~boundary;
+            if (iterator & occupied)
+                return iterator;
+        } while (iterator);
+    }
+    return 0ULL;
 }
 
 /**
@@ -196,34 +253,38 @@ move_t find_lva(int square) {
  * @return returns whether or not the capture does not lose material
  */
 
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "misc-no-recursion"
+int32_t fast_SEE(move_t move) {
+    int gain[32], d = 0;
+    uint64_t may_xray = board.w_pawns | board.b_pawns | board.w_bishops | board.b_bishops | board.w_rooks |
+                        board.b_rooks | board.w_queens | board.b_queens;
+    uint64_t from_bb = BB_SQUARES[move.from];
+    uint64_t occupied_bb = board.occupied;
+    uint64_t attadef = attacks_to(move.to, occupied_bb);
+    gain[d] = piece_value(move.to) + Weights::PAWN_MATERIAL * (move.flag == EN_PASSANT);
 
-int32_t SEE(int square) {
-    int32_t see = 0;
-    move_t lva_move = find_lva(square);
-    if (lva_move.flag != PASS) {
-        int32_t cpv = piece_value(square);
-        bitboard temp = board;
-        make_move(lva_move);
-        int32_t prom_value = (lva_move.flag >= PC_KNIGHT) * piece_value(lva_move.to);
-        see = std::max(0, prom_value + cpv - SEE(square));
-        board = temp;
+    piece_t attacking_piece = board.mailbox[move.from];
+    do {
+        ++d;
+        gain[d] = piece_value(attacking_piece) - gain[d - 1];
+        if (std::max(-gain[d - 1], gain[d]) < 0) break;
+        attadef ^= from_bb;
+        occupied_bb ^= from_bb;
+        if (from_bb & may_xray) {
+            attadef |= consider_xray_attacks(get_lsb(from_bb), move.to, occupied_bb);
+        }
+        from_bb = find_lva(attadef, (bool) ((board.turn + d) % 2), attacking_piece);
+    } while (from_bb);
+    while (--d) {
+        gain[d - 1] = -std::max(-gain[d - 1], gain[d]);
     }
-    return see;
+    return gain[0];
 }
 
-int32_t move_SEE(move_t move) {
-    int32_t score = Weights::PAWN_MATERIAL * (move.flag == EN_PASSANT) + piece_value(move.to);
-    bitboard temp = board;
-    make_move(move);
-    if (move.flag >= PR_KNIGHT && move.flag <= PR_QUEEN) {
-        score += piece_value(move.to);
-    }
-    score -= SEE(move.to);
-    board = temp;
-    return score;
-}
+/**
+ * Returns the move_value of the piece moved in centi-pawns.
+ * @param move self-explanatory
+ * @return the move_value of the piece moved in centi-pawns
+ */
 
 int32_t move_value(move_t move) {
     switch (move.flag) {
@@ -310,10 +371,10 @@ void order_moves(move_t mvs[], int32_t mv_scores[], int n) {
                 }
             }
             default: {
-                /** SEE determines whether or not the move wins or loses material */
-                int32_t SEE = move_SEE(mv);
-                score += (SEE > 0) * WIN_EX_SCORE + (SEE < 0) * NEG_EX_SCORE + SEE;
-                score += (SEE >= 0) * h_table[h_table_index(mv)];
+                /** fast_SEE determines whether or not the move wins or loses material */
+                int32_t see_score = fast_SEE(mv);
+                score += (see_score > 0) * WIN_EX_SCORE + (see_score < 0) * NEG_EX_SCORE + see_score;
+                score += (see_score >= 0) * h_table[h_table_index(mv)];
             }
         }
     }
@@ -328,7 +389,7 @@ void order_moves(move_t mvs[], int32_t mv_scores[], int n) {
 }
 
 /**
- * @brief Extends the search position until a "quiet" position is reached.
+ * @brief Extends the search_fd position until a "quiet" position is reached.
  * @param alpha: Minimum score that the maximizing player is assured of.
  * @param beta: Maximum score that the minimizing player is assured of.
  * @return
@@ -355,7 +416,7 @@ int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) { // NOLINT
         goto CHECK_EVASIONS;
     } else {
         /** Side to move is in check, evasions do not exist. Checkmate :( */
-        return MATE_SCORE(depth + init_depth);
+        return MATE_SCORE(depth + search_depth);
     }
 
     stand_pat = evaluate();
@@ -407,7 +468,6 @@ int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) { // NOLINT
  * @param beta: Maximum score that the minimizing player is assured of.
  */
 
-#pragma clang diagnostic push
 #pragma ide diagnostic ignored "misc-no-recursion"
 
 static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
@@ -434,9 +494,8 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
     }
 
     if (depth == 0) {
-        /** Extend the search until the position is quiet */
-        // return qsearch(qsearch_lim, alpha, beta);
-        return evaluate();
+        /** Extend the search_fd until the position is quiet */
+        return qsearch(qsearch_lim, alpha, beta);
     }
     /** Move generation logic */
     move_t mvs[MAX_MOVE_NUM];
@@ -490,7 +549,7 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
         variations[0] = mv;
         /** Zero-Window Search. Assume good move ordering, and all subsequent mvs are worse. */
         int32_t score = -pvs(reduction(mv_score, depth), -alpha - 1, -alpha, &variations[1]);
-        /** If mvs[i] turns out to be better, re-search with full window*/
+        /** If mvs[i] turns out to be better, re-search_fd with full window*/
         if (alpha < score && score < beta) {
             score = -pvs(reduction(mv_score, depth), -beta, -score, &variations[1]);
         }
@@ -547,33 +606,99 @@ UCI::info_t generate_reply(int32_t evaluation, move_t best_move) {
     return reply;
 }
 
-UCI::info_t search(thread_args_t *args) {
+void search_t(thread_args_t *args) {
     board = *(args->main_board);
 
-    const std::unordered_map<uint64_t, RTEntry>::iterator rt_it = args->main_repetition_table->begin();
+    std::unordered_map<uint64_t, RTEntry>::const_iterator it = args->main_repetition_table->begin();
     const std::unordered_map<uint64_t, RTEntry>::const_iterator end = args->main_repetition_table->end();
-    while (rt_it != end) {
-        
+    while (it != end) {
+        repetition_table.insert(std::pair<uint64_t, RTEntry>(it->first, it->second));
+        ++it;
     }
+    const bool is_main_thread = args->is_main_thread;
+    if (is_main_thread) {
+        /** Main thread initializes shared locks */
+        block_thread = true;
+        pthread_mutex_init(&tt_lock, nullptr);
+        pthread_mutex_init(&rand_lock, nullptr);
+        block_thread = false;
+    } else {
+        /** Busy-wait for lock initialization to complete */
+        while (block_thread);
+    }
+
+    move_t pv[MAX_DEPTH];
+    pv[0] = NULL_MOVE;
+    ply = 0;
+
+    std::vector<move_t> kmv[MAX_DEPTH];
+    killer_mvs = kmv;
+    memset(h_table, 0, sizeof(int) * HTABLE_LEN);
+
+    move_t root_mvs[MAX_MOVE_NUM];
+    int n = gen_legal_moves(root_mvs, board.turn);
+
+    pthread_mutex_lock(&rand_lock);
+    int seed = std::random_device()();
+    std::mt19937 rng(seed);
+    pthread_mutex_unlock(&rand_lock);
+    std::shuffle(root_mvs, &(root_mvs[n]), rng);
+
+    move_t mv_pv[MAX_DEPTH];
+
+    for (int16_t d = 0; time_remaining && d < MAX_DEPTH - 1; ++d) {
+        search_depth = d;
+        int32_t evaluation = MIN_SCORE;
+
+        for (int i = 0; i < n; ++i) {
+            mv_pv[0] = root_mvs[i];
+            push(mv_pv[0]);
+            int32_t mv_score = -pvs(d, MIN_SCORE, -evaluation, &mv_pv[1]);
+            pop();
+
+            if (mv_score > evaluation) {
+                evaluation = mv_score;
+                memcpy(pv, mv_pv, (d + 1) * sizeof(move_t));
+            }
+        }
+        TTEntry tt_entry(evaluation, d + 1, EXACT, pv[0]);
+        pthread_mutex_lock(&tt_lock);
+        transposition_table[board.hash_code] = tt_entry;
+        pthread_mutex_unlock(&tt_lock);
+        if (args->is_main_thread && time_remaining) {
+            result.best_move = pv[0];
+            result.score = evaluation;
+        }
+    }
+
+    /** Thread tear-down code */
+    killer_mvs = nullptr;
+    if (is_main_thread) {
+        pthread_mutex_destroy(&tt_lock);
+        pthread_mutex_destroy(&rand_lock);
+    }
+    pthread_exit(nullptr);
 }
 
-UCI::info_t search(int16_t depth) {
+UCI::info_t search_fd(int16_t depth) {
     move_t pv[depth];
     pv[0] = NULL_MOVE;
     ply = 0;
+
     std::vector<move_t> kmv[depth];
     killer_mvs = kmv;
     memset(h_table, 0, sizeof(int) * HTABLE_LEN);
+
     int32_t evaluation;
     for (int16_t i = 1; i <= depth; ++i) {
-        init_depth = i;
+        search_depth = i;
         evaluation = pvs(i, MIN_SCORE, -MIN_SCORE, pv);
     }
     killer_mvs = nullptr;
     return generate_reply(evaluation, pv[0]);
 }
 
-UCI::info_t search(std::chrono::duration<int64_t, std::milli> time_ms) {
+UCI::info_t search_ft(std::chrono::duration<int64_t, std::milli> time) {
     move_t pv[MAX_DEPTH];
     pv[0] = NULL_MOVE;
     ply = 0;
@@ -584,13 +709,13 @@ UCI::info_t search(std::chrono::duration<int64_t, std::milli> time_ms) {
 
     int32_t evaluation;
     std::chrono::time_point<std::chrono::steady_clock> start = std::chrono::steady_clock::now();
-    for (int16_t i = 1; time_ms.count() > 0; ++i) {
-        init_depth = i;
+    for (int16_t i = 1; time.count() > 0; ++i) {
+        search_depth = i;
         evaluation = pvs(i, MIN_SCORE, -MIN_SCORE, pv);
 
         /** Update time */
         std::chrono::time_point<std::chrono::steady_clock> now = std::chrono::steady_clock::now();
-        time_ms -= std::chrono::duration_cast<std::chrono::milliseconds>(now - start);
+        time -= std::chrono::duration_cast<std::chrono::milliseconds>(now - start);
         start = now;
 
         if (i > kmv_len) {

@@ -13,11 +13,8 @@ extern volatile bool time_remaining;
 static int duration;
 
 static void *timer_thread(void *args) {
-
     time_remaining = true;
-    std::cout << "Timer started\n";
     std::this_thread::sleep_for(std::chrono::milliseconds(duration));
-    std::cout << "timer finished\n";
     time_remaining = false;
     pthread_exit(nullptr);
 }

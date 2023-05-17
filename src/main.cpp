@@ -5,7 +5,6 @@
 #include "stack.h"
 #include "movegen.h"
 #include "bitboard.h"
-#include "timeman.h"
 
 #define BUFLEN 512
 
@@ -37,7 +36,7 @@ void play_game() {
     std::chrono::steady_clock::time_point start, end;
     if (user_input == "b") {
         start = std::chrono::steady_clock::now();
-        reply = search((int16_t) depth);
+        reply = search_fd((int16_t) depth);
         end = std::chrono::steady_clock::now();
         push(reply.best_move);
     }
@@ -75,7 +74,7 @@ void play_game() {
             push(moves[i - 1]);
         } else {
             start = std::chrono::steady_clock::now();
-            reply = search((int16_t) depth);
+            reply = search_fd((int16_t) depth);
             end = std::chrono::steady_clock::now();
             push(reply.best_move);
         }
@@ -141,10 +140,32 @@ int main(int argc, char *argv[]) {
                  */
 
                 initialize_zobrist();
+                init_board("1k1r4/1pp4p/p7/4p3/8/P5P1/1PP4P/2K1R3 w - - ");
+
+                move_t moves[MAX_MOVE_NUM];
+                int n = gen_legal_moves(moves, board.turn);
+                bool print_mvs = true;
+                for (int i = 0; i < n; ++i) {
+                    std::cout << i << ' ';
+                    print_move(moves[i]);
+                    std::cout << '\n';
+                }
+                while (true) {
+                    std::string user_input;
+                    std::cin >> user_input;
+                    trim(user_input);
+                    int i = std::stoi(user_input);
+
+                    int32_t see_score = fast_SEE(moves[i]);
+                    std::cout << "fast_SEE: " << see_score << '\n';
+                }
                 /** Insert dev code below this line */
-                init_board(START_POSITION);
-                int seconds = 5;
-                UCI::info_t info = search(6);
+                /**
+                UCI::initialize_UCI();
+                UCI::parse_UCI_string("ucinewgame");
+                UCI::parse_UCI_string("position startpos");
+                UCI::parse_UCI_string("go");
+                 */
             } else if (strcmp(recvbuf, "perft") == 0) {
                 std::cout << "juliette:: starting performance test..." << std::endl;
                 // TODO: Re-implement performance test
@@ -213,7 +234,7 @@ int main(int argc, char *argv[]) {
             }
             i += 5;
         }
-        UCI::info_t reply = search((int16_t) 2);
+        UCI::info_t reply = search_fd((int16_t) 2);
         print_move(reply.best_move);
     }
     return 0;
