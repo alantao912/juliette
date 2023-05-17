@@ -50,6 +50,12 @@ __thread int16_t ply = 0;
 
 extern UCI::info_t result;
 
+/**
+ * Verifies three-fold repetition claimed by the repetition table.
+ * @param hash Hash-code of the position to check
+ * @return whether the three-fold repetition of the position provided by the hash-code is valid.
+ */
+
 bool verify_repetition(uint64_t hash) {
     uint8_t num_seen = 0;
     stack_t *iterator = stack;
@@ -105,8 +111,13 @@ bool is_drawn() {
 
 inline bool use_fprune(move_t cm, int16_t depth) {
     return false;
-    // return depth == 1 && cm.score < CHECK_SCORE && stack->prev_mv.score < CHECK_SCORE;
+    // return depth == 1 && cm.score < CHECK_MOVE && stack->prev_mv.score < CHECK_MOVE;
 }
+
+/**
+ * Determines whether the position contains any pawn promotion moves.
+ * @return Whether the position contains any pawn promotion moves.
+ */
 
 static inline bool contains_promotions() {
     uint64_t prom_squares;
@@ -125,21 +136,58 @@ static inline bool contains_promotions() {
 }
 
 /**
- * Implements Late Move Reduction for moves with negative fast_SEE.
- * @param score Rated "goodness" or "interesting-ness" of a particular move.
- * @param current_ply Current ply remaining to search_fd
- * @return The new depth to search at.
+ * Computes the index of a given move in the history table using butterfly boards. That is,
+ * h_table[from][to]. Where 'from' and 'to' are converted to an index on [0, 63].
+ * @param mv Move to compute index for.
+ * @return Index of given move in the history table.
  */
 
-int16_t reduction(int32_t score, int16_t current_ply) {
-    const int16_t RF = 200, no_reduction = 2;
-    /** TODO: Update reduction formula as new features are added*/
+inline size_t h_table_index(const move_t &mv) {
+    return 64 * int(board.mailbox[mv.from]) + mv.to;
+}
 
-    if (current_ply <= no_reduction || score >= 0) {
-        return current_ply - 1; // NOLINT
+/**
+ * Implements Late Move Reduction.
+ * @param move Move to determine compute reduction ply count.
+ * @param current_ply Current ply remaining to search.
+ * @return The amount by which to reduce current ply.
+ */
+
+int16_t compute_reduction(move_t mv, int16_t current_ply, int n) {
+    //std::cout << "CR: " << current_ply << '\n';
+    const int16_t no_reduction = 4;
+    /** If there are two plies or fewer to horizon, giving check, or in check, do not reduce. */
+    if (current_ply < no_reduction || mv.is_type(move_t::type_t::CHECK_MOVE) ||
+        stack->prev_mv.is_type(move_t::type_t::CHECK_MOVE)) {
+        //std::cout << "Done\n";
+        return 0;
     }
-    score += WIN_EX_SCORE; // Normalize the move's score value.
-    return std::max((int16_t) 0, (int16_t) (current_ply - std::max(1, abs(std::min(0, (score + RF - 1) / RF)))));
+
+    /** If move is a capture or promotion (tactical possibilities), do not reduce. */
+    if (mv.flag >= move_flags::EN_PASSANT && !mv.is_type(move_t::type_t::LOSING_EXCHANGE)) {
+        //std::cout << "Done\n";
+        return 0;
+    }
+
+    /** If quiet move has good relative-history, do not reduce. */
+    if ((mv.is_type(move_t::type_t::QUIET) && mv.normalize_score() > 0) ||
+        mv.is_type(move_t::type_t::KILLER_MOVE)) {
+        //std::cout << "Done\n";
+        return 0;
+    }
+
+    /** int32_t material_loss_rf: Material loss in centipawns resulting in one additional ply reduction */
+    const int32_t material_loss_rf = 150;
+    int16_t reduction = int16_t(sqrt(current_ply - 1) + sqrt(n - 1));
+    // std::cout << "Fruit R: " << reduction << '\n';
+    if (mv.is_type(move_t::LOSING_EXCHANGE)) {
+        const int32_t loss = mv.normalize_score();
+        const int16_t inc = (loss - 1) / material_loss_rf + 1;
+        //std::cout << "Inc: " << inc << '\n';
+        reduction += inc;
+    }
+    //std::cout << "Reduction: " << reduction << '\n';
+    return reduction;
 }
 
 int32_t piece_value(int square) {
@@ -313,79 +361,69 @@ int32_t move_value(move_t move) {
     }
 }
 
-inline size_t h_table_index(const move_t &mv) {
-    return 64 * int(board.mailbox[mv.from]) + mv.to;
-}
-
-void store_cutoff_mv(move_t mv, int32_t mv_score) {
-    if (mv.flag == NONE) {
-        /** If move is not a check, nor already a killer move since KM_SCORE < CHECK_SCORE.*/
-        if (mv_score < KM_SCORE) {
+void store_cutoff_mv(move_t mv) {
+    if (mv.is_type(move_t::type_t::QUIET) && !mv.is_type(move_t::type_t::CHECK_MOVE)) {
+        /** If move is not a check, nor already a killer move since KM_SCORE < CHECK_MOVE.*/
+        if (!mv.is_type(move_t::type_t::KILLER_MOVE)) {
             killer_mvs[ply].push_back(mv);
         }
         h_table[h_table_index(mv)] += ply * ply;
     }
 }
 
-void order_moves(move_t mvs[], int32_t mv_scores[], int n) {
-    auto cmp = [&mv_scores](int i, int j) { return mv_scores[i] > mv_scores[j]; };
-    pthread_mutex_lock(&tt_lock);
+void order_moves(move_t mvs[], int n) {
     std::unordered_map<uint64_t, TTEntry>::const_iterator it = transposition_table.find(
-            board.hash_code), end = transposition_table.end();
-    pthread_mutex_unlock(&tt_lock);
+            board.hash_code);
     const std::vector<move_t> &kmvs = killer_mvs[ply];
 
     move_t hash_move = NULL_MOVE;
-    if (it != end) {
+    if (it != transposition_table.end()) {
         const TTEntry &tte = it->second;
         hash_move = tte.best_move;
     }
 
-    uint_fast8_t mv_order[MAX_MOVE_NUM];
     for (int i = 0; i < n; ++i) {
-        mv_order[i] = i;
-        const move_t &mv = mvs[i];
-        int &score = mv_scores[i];
+        move_t &mv = mvs[i];
         if (mv == hash_move) {
-            score = HM_SCORE;
+            mv.set_score(move_t::type_t::HASH_MOVE, 0);
             continue;
         } else if (std::find(kmvs.begin(), kmvs.end(), mv) != kmvs.end()) {
-            score = KM_SCORE;
+            mv.set_score(move_t::type_t::KILLER_MOVE, 0);
             continue;
         }
 
-        score = 0;
-
         if (is_move_check(mv)) {
-            score += CHECK_SCORE;
+            mv.set_score(move_t::type_t::CHECK_MOVE, 0);
         }
 
         switch (mv.flag) {
             case CASTLING:
+                mv.set_score(move_t::type_t::QUIET, h_table[h_table_index(mv)]);
                 break;
             case CAPTURE: {
                 int diff = piece_value(mv.to) - piece_value(mv.from);
                 if (diff > 0) {
-                    score += WIN_EX_SCORE + diff;
+                    mv.set_score(move_t::type_t::WINNING_EXCHANGE, diff);
                     break;
                 }
             }
             default: {
                 /** fast_SEE determines whether or not the move wins or loses material */
                 int32_t see_score = fast_SEE(mv);
-                score += (see_score > 0) * WIN_EX_SCORE + (see_score < 0) * NEG_EX_SCORE + see_score;
-                score += (see_score >= 0) * h_table[h_table_index(mv)];
+                if (see_score < 0) {
+                    /** Quiet move that loses material, or losing exchange. */
+                    mv.set_score(move_t::type_t::LOSING_EXCHANGE, see_score);
+                } else if (mv.flag == NONE) {
+                    /** Quiet move. Cannot be a move that wins material since that would require capture. */
+                    mv.set_score(move_t::type_t::QUIET, h_table[h_table_index(mv)]);
+                } else {
+                    /** Non-quiet move that wins, or maintains equal material */
+                    mv.set_score(move_t::type_t::WINNING_EXCHANGE, see_score);
+                }
             }
         }
     }
-    std::sort(mv_order, mv_order + n, cmp);
-    move_t temp_buff[MAX_MOVE_NUM];
-    for (size_t i = 0; i < n; ++i) {
-        temp_buff[i] = mvs[mv_order[i]];
-    }
-    for (size_t i = 0; i < n; ++i) {
-        mvs[i] = temp_buff[i];
-    }
+    std::sort(mvs, mvs + n);
 }
 
 /**
@@ -493,7 +531,7 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
         }
     }
 
-    if (depth == 0) {
+    if (depth <= 0) {
         /** Extend the search_fd until the position is quiet */
         return qsearch(qsearch_lim, alpha, beta);
     }
@@ -515,8 +553,8 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
     }
 
     /** Move ordering logic */
-    int32_t mv_scores[MAX_MOVE_NUM];
-    order_moves(mvs, mv_scores, n);
+    order_moves(mvs, n);
+
     /** Begin PVS check first move */
     size_t pv_index = 0;
     move_t variations[depth];
@@ -532,7 +570,7 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
     }
 
     if (alpha >= beta) {
-        store_cutoff_mv(mvs[0], mv_scores[0]);
+        store_cutoff_mv(mvs[0]);
         goto END;
     }
     /** End PVS check first move */
@@ -540,18 +578,19 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
     /** PVS check subsequent moves */
     for (size_t i = 1; i < n; ++i) {
         const move_t &mv = mvs[i];
-        const int &mv_score = mv_scores[i];
         /** Futility pruning */
         if (use_fprune(mv, depth) && best_score + move_value(mv) < alpha - DELTA_MARGIN) {
             continue;
         }
         push(mv);
         variations[0] = mv;
+
+        int16_t r = compute_reduction(mv, depth, n);
         /** Zero-Window Search. Assume good move ordering, and all subsequent mvs are worse. */
-        int32_t score = -pvs(reduction(mv_score, depth), -alpha - 1, -alpha, &variations[1]);
-        /** If mvs[i] turns out to be better, re-search_fd with full window*/
+        int32_t score = -pvs(depth - 1 - r, -alpha - 1, -alpha, &variations[1]);
+        /** If mvs[i] turns out to be better, re-search move with full window */
         if (alpha < score && score < beta) {
-            score = -pvs(reduction(mv_score, depth), -beta, -score, &variations[1]);
+            score = -pvs(depth - 1, -beta, -score, &variations[1]);
         }
         pop();
 
@@ -567,7 +606,7 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
 
         /** Beta-Cutoff */
         if (alpha >= beta) {
-            store_cutoff_mv(mv, mv_score);
+            store_cutoff_mv(mv);
             break;
         }
     }
@@ -581,11 +620,7 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
     }
 
     pthread_mutex_lock(&tt_lock);
-    if (t != transposition_table.end()) {
-        t->second = tt_entry;
-    } else {
-        transposition_table.insert(std::pair<uint64_t, TTEntry>(board.hash_code, tt_entry));
-    }
+    transposition_table[board.hash_code] = tt_entry;
     pthread_mutex_unlock(&tt_lock);
     killer_mvs[ply + 1].clear();
     return best_score;
@@ -667,6 +702,7 @@ void search_t(thread_args_t *args) {
         pthread_mutex_unlock(&tt_lock);
 
         if (args->is_main_thread && time_remaining) {
+            std::cout << "Finished depth: " << d << '\n';
             result.best_move = pv[0];
             result.score = evaluation;
         }

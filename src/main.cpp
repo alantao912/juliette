@@ -140,25 +140,7 @@ int main(int argc, char *argv[]) {
                  */
 
                 initialize_zobrist();
-                init_board("1k1r4/1pp4p/p7/4p3/8/P5P1/1PP4P/2K1R3 w - - ");
 
-                move_t moves[MAX_MOVE_NUM];
-                int n = gen_legal_moves(moves, board.turn);
-                bool print_mvs = true;
-                for (int i = 0; i < n; ++i) {
-                    std::cout << i << ' ';
-                    print_move(moves[i]);
-                    std::cout << '\n';
-                }
-                while (true) {
-                    std::string user_input;
-                    std::cin >> user_input;
-                    trim(user_input);
-                    int i = std::stoi(user_input);
-
-                    int32_t see_score = fast_SEE(moves[i]);
-                    std::cout << "fast_SEE: " << see_score << '\n';
-                }
                 /** Insert dev code below this line */
                 /**
                 UCI::initialize_UCI();
