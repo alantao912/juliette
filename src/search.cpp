@@ -150,12 +150,13 @@ inline size_t h_table_index(const move_t &mv) {
  * Implements Late Move Reduction.
  * @param move Move to determine compute reduction ply count.
  * @param current_ply Current ply remaining to search.
+ * @param n Move index number after move ordering.
  * @return The amount by which to reduce current ply.
  */
 
 int16_t compute_reduction(move_t mv, int16_t current_ply, int n) {
     //std::cout << "CR: " << current_ply << '\n';
-    const int16_t no_reduction = 4;
+    const int16_t no_reduction = 3;
     /** If there are two plies or fewer to horizon, giving check, or in check, do not reduce. */
     if (current_ply < no_reduction || mv.is_type(move_t::type_t::CHECK_MOVE) ||
         stack->prev_mv.is_type(move_t::type_t::CHECK_MOVE)) {
@@ -177,16 +178,17 @@ int16_t compute_reduction(move_t mv, int16_t current_ply, int n) {
     }
 
     /** int32_t material_loss_rf: Material loss in centipawns resulting in one additional ply reduction */
-    const int32_t material_loss_rf = 150;
+    const int32_t material_loss_rf = 250;
     int16_t reduction = int16_t(sqrt(current_ply - 1) + sqrt(n - 1));
     // std::cout << "Fruit R: " << reduction << '\n';
     if (mv.is_type(move_t::LOSING_EXCHANGE)) {
-        const int32_t loss = mv.normalize_score();
+        const int32_t loss = -mv.normalize_score();
+        // std::cout << "Loss: " << loss << '\n';
         const int16_t inc = (loss - 1) / material_loss_rf + 1;
-        //std::cout << "Inc: " << inc << '\n';
+        // std::cout << "Inc: " << inc << '\n';
         reduction += inc;
     }
-    //std::cout << "Reduction: " << reduction << '\n';
+    // std::cout << "Reduction: " << reduction << '\n';
     return reduction;
 }
 
@@ -585,11 +587,12 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
         push(mv);
         variations[0] = mv;
 
-        int16_t r = compute_reduction(mv, depth, n);
+        int16_t r = compute_reduction(mv, depth, i);
         /** Zero-Window Search. Assume good move ordering, and all subsequent mvs are worse. */
         int32_t score = -pvs(depth - 1 - r, -alpha - 1, -alpha, &variations[1]);
         /** If mvs[i] turns out to be better, re-search move with full window */
         if (alpha < score && score < beta) {
+            std::cout << "Researching\n";
             score = -pvs(depth - 1, -beta, -score, &variations[1]);
         }
         pop();
