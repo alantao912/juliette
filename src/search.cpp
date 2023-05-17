@@ -592,7 +592,6 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
         int32_t score = -pvs(depth - 1 - r, -alpha - 1, -alpha, &variations[1]);
         /** If mvs[i] turns out to be better, re-search move with full window */
         if (alpha < score && score < beta) {
-            std::cout << "Researching\n";
             score = -pvs(depth - 1, -beta, -score, &variations[1]);
         }
         pop();
