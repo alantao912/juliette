@@ -93,19 +93,31 @@ const int MAX_MOVE_NUM = 218;
 const int MAX_CAPTURE_NUM = 74;
 /** Maximum number of attacks on a single square */
 const int MAX_ATTACK_NUM = 16;
-/** Score added to a move's "interestingness" if it gives check. */
-const int32_t CHECK_SCORE = 1000000000;
-/** Score added to a move if it is the best move retrieved from a transposition table. */
-const int32_t HM_SCORE = INT32_MAX;
-/** Score added to a move if it is a quiet move that caused a beta-cutoff */
-const int32_t KM_SCORE = 10000000;
-/** Score added to a move if it is a winning exchange. */
-const int32_t WIN_EX_SCORE = 100000000;
-/** Score added to a move if it is a losing exchagne. */
-const int32_t NEG_EX_SCORE = -WIN_EX_SCORE;
+/** Maximum amount of material that can be lost in any exchange */
+const int32_t MAX_MATERIAL_LOSS = Weights::QUEEN_MATERIAL;
+
+int32_t move_t::normalize_score() const {
+    return (SCORE_MASK & score) - MAX_MATERIAL_LOSS;
+}
+
+void move_t::set_score(move_t::type_t t, int32_t s) {
+    score |= (1 << (24 + t));
+    s += MAX_MATERIAL_LOSS;
+    score |= (s & move_t::SCORE_MASK);
+    // std::cout << "Overall: ";
+    // print_bitstring32(score);
+}
+
+bool move_t::is_type(move_t::type_t t) const {
+    return (score & (1 << (24 + t))) != 0;
+}
 
 bool move_t::operator==(const move_t &other) const {
     return to == other.to && from == other.from && flag == other.flag;
+}
+
+bool move_t::operator<(const move_t &other) const {
+    return score > other.score;
 }
 
 piece_t to_enum(char p) {
@@ -136,8 +148,8 @@ piece_t to_enum(char p) {
             return BLACK_KING;
         default:
             std::cout << "Bad thing happened" << std::endl;
+            return EMPTY;
     }
-    return EMPTY;
 }
 
 char to_char(piece_t p) {
@@ -166,8 +178,9 @@ char to_char(piece_t p) {
             return 'q';
         case BLACK_KING:
             return 'k';
+        default:
+            return '-';
     }
-    return '-';
 }
 
 uint64_t get_ray_between(int square1, int square2) {
@@ -272,6 +285,19 @@ void print_move(move_t move) {
             std::cout << ' ';
             break;
     }
+}
+
+void print_bitstring32(const uint32_t bitstring) {
+    uint32_t mask = 1 << 31;
+    while (mask) {
+        if (mask & bitstring) {
+            std::cout << '1';
+        } else {
+            std::cout << '0';
+        }
+        mask >>= 1;
+    }
+    std::cout << '\n';
 }
 
 void ltrim(std::string &s) {

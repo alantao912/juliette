@@ -10,6 +10,9 @@
 #define START_POSITION "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -"
 #define HTABLE_LEN 784
 
+/**
+ * Index enumeration of individual squares on the chess board.
+ */
 enum squares {
     A1, B1, C1, D1, E1, F1, G1, H1,
     A2, B2, C2, D2, E2, F2, G2, H2,
@@ -22,7 +25,9 @@ enum squares {
 };
 
 
-// Special characteristic of a move
+/**
+ * Special characteristics of a move.
+ */
 enum move_flags {
     NONE, // No special flag
     PASS, // Null move
@@ -39,22 +44,51 @@ enum move_flags {
     PC_QUEEN
 };
 
+/**
+ * Indexed enumeration of piece types.
+ */
+
 enum piece_t {
     BLACK_PAWN, BLACK_KNIGHT, BLACK_BISHOP, BLACK_ROOK, BLACK_QUEEN, BLACK_KING,
     WHITE_PAWN, WHITE_KNIGHT, WHITE_BISHOP, WHITE_ROOK, WHITE_QUEEN, WHITE_KING,
-    EMPTY, COUNT
+    EMPTY
 };
 
 /**
  * Representation of a move.
  */
-
 typedef struct move_t {
+
+    static const int32_t SCORE_MASK = 0xFFFFFF;
+
+    enum type_t {
+        LOSING_EXCHANGE, QUIET, KILLER_MOVE, WINNING_EXCHANGE, CHECK_MOVE, HASH_MOVE
+    };
+
     unsigned int from: 6;
     unsigned int to: 6;
     unsigned int flag: 4;
 
+    /**
+     * Most significant 8-bits of the following integer are used to disambiguate the move "type".
+     * More significant bits have higher precedence in move ordering. Lower 24 bits used to differentiate
+     * moves of the same type.
+     *
+     * MSB                            LSB
+     * ________  ________________________
+     *  Type                       Score
+     */
+    int32_t score;
+
+    int32_t normalize_score() const;
+
+    void set_score(type_t t, int32_t score);
+
+    bool is_type(type_t t) const;
+
     bool operator==(const move_t &other) const;
+
+    bool operator<(const move_t &other) const;
 } move_t;
 
 typedef struct bitboard {
@@ -176,11 +210,6 @@ extern const move_t STALEMATE;
 extern const int MAX_MOVE_NUM;
 extern const int MAX_CAPTURE_NUM;
 extern const int MAX_ATTACK_NUM;
-extern const int32_t CHECK_SCORE;
-extern const int32_t HM_SCORE;
-extern const int32_t KM_SCORE;
-extern const int32_t WIN_EX_SCORE;
-extern const int32_t NEG_EX_SCORE;
 
 piece_t to_enum(char p);
 
@@ -211,6 +240,8 @@ int pull_lsb(uint64_t *bb);
 int parse_square(const char *square);
 
 void print_move(move_t move);
+
+void print_bitstring32(const uint32_t);
 
 void ltrim(std::string &string);
 
