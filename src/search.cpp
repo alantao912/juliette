@@ -155,40 +155,32 @@ inline size_t h_table_index(const move_t &mv) {
  */
 
 int16_t compute_reduction(move_t mv, int16_t current_ply, int n) {
-    //std::cout << "CR: " << current_ply << '\n';
     const int16_t no_reduction = 3;
     /** If there are two plies or fewer to horizon, giving check, or in check, do not reduce. */
     if (current_ply < no_reduction || mv.is_type(move_t::type_t::CHECK_MOVE) ||
         stack->prev_mv.is_type(move_t::type_t::CHECK_MOVE)) {
-        //std::cout << "Done\n";
         return 0;
     }
 
     /** If move is a capture or promotion (tactical possibilities), do not reduce. */
     if (mv.flag >= move_flags::EN_PASSANT && !mv.is_type(move_t::type_t::LOSING_EXCHANGE)) {
-        //std::cout << "Done\n";
         return 0;
     }
 
     /** If quiet move has good relative-history, do not reduce. */
     if ((mv.is_type(move_t::type_t::QUIET) && mv.normalize_score() > 0) ||
         mv.is_type(move_t::type_t::KILLER_MOVE)) {
-        //std::cout << "Done\n";
         return 0;
     }
 
     /** int32_t material_loss_rf: Material loss in centipawns resulting in one additional ply reduction */
     const int32_t material_loss_rf = 250;
     int16_t reduction = int16_t(sqrt(current_ply - 1) + sqrt(n - 1));
-    // std::cout << "Fruit R: " << reduction << '\n';
     if (mv.is_type(move_t::LOSING_EXCHANGE)) {
         const int32_t loss = -mv.normalize_score();
-        // std::cout << "Loss: " << loss << '\n';
         const int16_t inc = (loss - 1) / material_loss_rf + 1;
-        // std::cout << "Inc: " << inc << '\n';
         reduction += inc;
     }
-    // std::cout << "Reduction: " << reduction << '\n';
     return reduction;
 }
 
