@@ -96,18 +96,19 @@ const int MAX_ATTACK_NUM = 16;
 /** Maximum amount of material that can be lost in any exchange */
 const int32_t MAX_MATERIAL_LOSS = Weights::QUEEN_MATERIAL;
 
-int32_t move_t::normalize_score() {
+int32_t move_t::normalize_score() const {
     return (SCORE_MASK & score) - MAX_MATERIAL_LOSS;
 }
 
 void move_t::set_score(move_t::type_t t, int32_t s) {
     score |= (1 << (24 + t));
     s += MAX_MATERIAL_LOSS;
-    s &= move_t::SCORE_MASK;
-    score |= s;
+    score |= (s & move_t::SCORE_MASK);
+    std::cout << "Overall: ";
+    print_bitstring32(score);
 }
 
-bool move_t::is_type(move_t::type_t t) {
+bool move_t::is_type(move_t::type_t t) const {
     return (score & (1 << (24 + t))) != 0;
 }
 
@@ -284,6 +285,19 @@ void print_move(move_t move) {
             std::cout << ' ';
             break;
     }
+}
+
+void print_bitstring32(const uint32_t bitstring) {
+    uint32_t mask = 1 << 31;
+    while (mask) {
+        if (mask & bitstring) {
+            std::cout << '1';
+        } else {
+            std::cout << '0';
+        }
+        mask >>= 1;
+    }
+    std::cout << '\n';
 }
 
 void ltrim(std::string &s) {

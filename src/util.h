@@ -74,17 +74,17 @@ typedef struct move_t {
      * More significant bits have higher precedence in move ordering. Lower 24 bits used to differentiate
      * moves of the same type.
      *
-     * MSB                                   LSB
-     * ________  ________________________________
-     *  Type                               Score
+     * MSB                            LSB
+     * ________  ________________________
+     *  Type                       Score
      */
     int32_t score;
 
-    int32_t normalize_score();
+    int32_t normalize_score() const;
 
     void set_score(type_t t, int32_t score);
 
-    bool is_type(type_t t);
+    bool is_type(type_t t) const;
 
     bool operator==(const move_t &other) const;
 
@@ -240,6 +240,8 @@ int pull_lsb(uint64_t *bb);
 int parse_square(const char *square);
 
 void print_move(move_t move);
+
+void print_bitstring32(const uint32_t);
 
 void ltrim(std::string &string);
 

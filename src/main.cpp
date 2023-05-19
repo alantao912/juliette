@@ -140,7 +140,9 @@ int main(int argc, char *argv[]) {
                  */
 
                 initialize_zobrist();
-
+                move_t m0, m1;
+                m0.set_score(move_t::type_t::HASH_MOVE, -200);
+                m1.set_score(move_t::type_t::LOSING_EXCHANGE, -100);
                 /** Insert dev code below this line */
                 /**
                 UCI::initialize_UCI();
