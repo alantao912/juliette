@@ -356,7 +356,7 @@ int32_t move_value(move_t move) {
 }
 
 void store_cutoff_mv(move_t mv) {
-    if (mv.is_type(move_t::type_t::QUIET) && !mv.is_type(move_t::type_t::CHECK_MOVE)) {
+    if (mv.is_type(move_t::type_t::QUIET)) {
         /** If move is not a check, nor already a killer move since KM_SCORE < CHECK_MOVE.*/
         if (!mv.is_type(move_t::type_t::KILLER_MOVE)) {
             killer_mvs[ply].push_back(mv);

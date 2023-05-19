@@ -117,7 +117,7 @@ bool move_t::operator==(const move_t &other) const {
 }
 
 bool move_t::operator<(const move_t &other) const {
-    return other.score > score;
+    return score > other.score;
 }
 
 piece_t to_enum(char p) {
