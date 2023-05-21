@@ -16,7 +16,7 @@
 
 #define MIN_SCORE (INT32_MIN + 1000)
 #define MATE_SCORE(depth) (MIN_SCORE + INT16_MAX - depth)
-#define DRAW (int32_t) contempt_value;
+#define DRAW contempt_value;
 #define MAX_DEPTH 128
 
 /**
@@ -40,6 +40,7 @@ volatile bool time_remaining = true, block_thread = true;
 /** Following fields are thread local */
 thread_local std::unordered_map<uint64_t, RTEntry> repetition_table;
 
+static __thread Evaluation position;
 static __thread std::vector<move_t> *killer_mvs = nullptr;
 static __thread int16_t search_depth;
 static __thread int32_t h_table[HTABLE_LEN];
@@ -184,59 +185,14 @@ int16_t compute_reduction(move_t mv, int16_t current_ply, int n) {
     return reduction;
 }
 
-int32_t piece_value(int square) {
-    piece_t piece = static_cast<piece_t> (board.mailbox[square]);
-    switch (piece) {
-        case BLACK_PAWN:
-            return Weights::PAWN_MATERIAL;
-        case BLACK_KNIGHT:
-            return Weights::KNIGHT_MATERIAL;
-        case BLACK_BISHOP:
-            return Weights::BISHOP_MATERIAL;
-        case BLACK_ROOK:
-            return Weights::ROOK_MATERIAL;
-        case BLACK_QUEEN:
-            return Weights::QUEEN_MATERIAL;
-        case WHITE_PAWN:
-            return Weights::PAWN_MATERIAL;
-        case WHITE_KNIGHT:
-            return Weights::KNIGHT_MATERIAL;
-        case WHITE_BISHOP:
-            return Weights::BISHOP_MATERIAL;
-        case WHITE_ROOK:
-            return Weights::ROOK_MATERIAL;
-        case WHITE_QUEEN:
-            return Weights::QUEEN_MATERIAL;
-        default:
-            return 0;
-    }
+int32_t piece_value(piece_t p) {
+    size_t index = static_cast<size_t> (p) % 6;
+    return Weights::MATERIAL[index];
 }
 
-int32_t piece_value(piece_t p) {
-    switch (p) {
-        case BLACK_PAWN:
-            return Weights::PAWN_MATERIAL;
-        case BLACK_KNIGHT:
-            return Weights::KNIGHT_MATERIAL;
-        case BLACK_BISHOP:
-            return Weights::BISHOP_MATERIAL;
-        case BLACK_ROOK:
-            return Weights::ROOK_MATERIAL;
-        case BLACK_QUEEN:
-            return Weights::QUEEN_MATERIAL;
-        case WHITE_PAWN:
-            return Weights::PAWN_MATERIAL;
-        case WHITE_KNIGHT:
-            return Weights::KNIGHT_MATERIAL;
-        case WHITE_BISHOP:
-            return Weights::BISHOP_MATERIAL;
-        case WHITE_ROOK:
-            return Weights::ROOK_MATERIAL;
-        case WHITE_QUEEN:
-            return Weights::QUEEN_MATERIAL;
-        default:
-            return 0;
-    }
+int32_t piece_value(int square) {
+    piece_t piece = board.mailbox[square];
+    return (1 - (piece == piece_t::EMPTY)) * piece_value(piece);
 }
 
 uint64_t find_lva(uint64_t attadef, bool turn, piece_t &piece) {
@@ -302,7 +258,7 @@ int32_t fast_SEE(move_t move) {
     uint64_t from_bb = BB_SQUARES[move.from];
     uint64_t occupied_bb = board.occupied;
     uint64_t attadef = attacks_to(move.to, occupied_bb);
-    gain[d] = piece_value(move.to) + Weights::PAWN_MATERIAL * (move.flag == EN_PASSANT);
+    gain[d] = piece_value(move.to) + Weights::MATERIAL[piece_t::BLACK_PAWN] * (move.flag == EN_PASSANT);
 
     piece_t attacking_piece = board.mailbox[move.from];
     do {
@@ -331,25 +287,25 @@ int32_t fast_SEE(move_t move) {
 int32_t move_value(move_t move) {
     switch (move.flag) {
         case EN_PASSANT:
-            return Weights::PAWN_MATERIAL;
+            return Weights::MATERIAL[piece_t::BLACK_PAWN];
         case CAPTURE:
             return piece_value(move.to);
         case PR_KNIGHT:
-            return Weights::KNIGHT_MATERIAL;
+            return Weights::MATERIAL[piece_t::BLACK_KNIGHT];
         case PR_BISHOP:
-            return Weights::BISHOP_MATERIAL;
+            return Weights::MATERIAL[piece_t::BLACK_BISHOP];
         case PR_ROOK:
-            return Weights::ROOK_MATERIAL;
+            return Weights::MATERIAL[piece_t::BLACK_ROOK];
         case PR_QUEEN:
-            return Weights::QUEEN_MATERIAL;
+            return Weights::MATERIAL[piece_t::BLACK_QUEEN];
         case PC_KNIGHT:
-            return Weights::KNIGHT_MATERIAL + piece_value(move.to);
+            return Weights::MATERIAL[piece_t::BLACK_KNIGHT] + piece_value(move.to);
         case PC_BISHOP:
-            return Weights::BISHOP_MATERIAL + piece_value(move.to);
+            return Weights::MATERIAL[piece_t::BLACK_BISHOP] + piece_value(move.to);
         case PC_ROOK:
-            return Weights::ROOK_MATERIAL + piece_value(move.to);
+            return Weights::MATERIAL[piece_t::BLACK_ROOK] + piece_value(move.to);
         case PC_QUEEN:
-            return Weights::QUEEN_MATERIAL + piece_value(move.to);
+            return Weights::MATERIAL[piece_t::BLACK_QUEEN] + piece_value(move.to);
         default:
             return 0;
     }
@@ -439,7 +395,7 @@ int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) { // NOLINT
         /** Generate non-quiet moves, such as checks, promotions, and captures. */
         if (depth < 0 || !(n = gen_nonquiescent_moves(moves, board.turn, &n_checks))) {
             /** Position is quiet, return score. */
-            return evaluate();
+            return position.evaluate();
         }
     } else if ((n = gen_legal_moves(moves, board.turn))) {
         /** Side to move is in check, evasions exist. */
@@ -451,13 +407,13 @@ int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) { // NOLINT
         return MATE_SCORE(depth + search_depth);
     }
 
-    stand_pat = evaluate();
+    stand_pat = position.evaluate();
     if (stand_pat >= beta) {
         return beta;
     }
 
     {
-        int big_delta = Weights::QUEEN_MATERIAL;
+        int big_delta = Weights::MATERIAL[piece_t::BLACK_QUEEN];
         if (contains_promotions()) {
             big_delta += 775;
         }
