@@ -11,9 +11,11 @@ typedef struct eval_stats {
 
     void reset();
 
-    int32_t compute_score();
+    int32_t compute_score() const;
+
 private:
     double compute_progression();
+
     uint64_t compute_king_vulnerabilities(uint64_t king, uint64_t pawns);
 } eval_stats;
 
@@ -21,12 +23,21 @@ private:
 int32_t evaluate();
 
 void material_score();
+
 void pawn_structure();
+
 void doubled_pawns();
+
 void knight_activity();
+
 void bishop_activity();
+
 void rook_activity();
+
 void queen_activity();
+
 void king_safety();
+
 void king_mobility();
+
 void passed_pawns();

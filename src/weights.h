@@ -6,35 +6,30 @@
 
 namespace Weights {
 
-    const int16_t QUEEN_MATERIAL = 975;
-    const int16_t ROOK_MATERIAL = 500;
-    const int16_t BISHOP_MATERIAL = 325;
-    const int16_t KNIGHT_MATERIAL = 300;
-    const int16_t PAWN_MATERIAL = 100;
+    enum characteristic_t {
+        PAWN_CHAIN, DOUBLED_PAWNS, CONNECTED_ROOKS, QUEEN_ROOK, QUEEN_BISHOP, KING_THREAT
+    };
 
-    const int16_t QUEEN_MATERIAL_EG = 950;
-    const int16_t ROOK_MATERIAL_EG = 550;
-    const int16_t BISHOP_MATERIAL_EG = 325;
-    const int16_t KNIGHT_MATERIAL_EG = 275;
-    const int16_t PAWN_MATERIAL_EG = 115;
+    /**
+     * Centi-pawn valuation of material indexed by piece_t coerced to integer.
+     */
+    const int32_t MATERIAL[5] = {100, 300, 325, 500, 975};
 
-    const int16_t CONNECTED_PAWNS = 2;
-    const int16_t CONNECTED_PAWNS_EG = 3;
+    /**
+     * Centi-pawn valuation of positional characteristics indexed by characteristic_t coerced to integer.
+     */
+    const int32_t POSITIONAL[6] = {2, -20, 20, 20, 5, 16};
 
-    const int16_t DOUBLED_PAWN_PENALTY = 20;
-    const int16_t DOUBLED_PAWN_PENALTY_EG = 20;
+    namespace Endgame {
 
-    const int16_t CONNECTED_ROOK_BONUS = 20;
-    const int16_t CONNECTED_ROOK_BONUS_EG = 20;
+        /**
+        * Centi-pawn valuation of endgame material indexed by piece_t coerced to integer.
+        */
 
-    const int16_t QR_BATTERY = 20;
-    const int16_t QR_BATTERY_EG = 10;
+        const int32_t MATERIAL[5] = {115, 275, 325, 550, 950};
 
-    const int16_t QB_BATTERY = 5;
-    const int16_t QB_BATTERY_EG = 7;
-
-    const int16_t KING_THREAT = 16;
-    const int16_t KING_THREAT_EG = 7;
+        const int32_t POSITIONAL[6] = {3, -20, 20, 10, 7, 7};
+    }
 
     const int16_t CENTRALIZED_KING = 2;
 
