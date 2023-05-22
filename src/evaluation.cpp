@@ -130,19 +130,19 @@ void Evaluation::material_score() {
 
 void Evaluation::pawn_structure() {
     int n = pop_count(get_pawn_attacks_setwise(WHITE) & board.w_pawns);
-    midgame_score += n * Weights::POSITIONAL[Weights::characteristic_t::PAWN_CHAIN];
-    endgame_score += n * Weights::Endgame::POSITIONAL[Weights::characteristic_t::PAWN_CHAIN];
+    midgame_score += n * Weights::POSITIONAL[Evaluation::characteristic_t::PAWN_CHAIN];
+    endgame_score += n * Weights::Endgame::POSITIONAL[Evaluation::characteristic_t::PAWN_CHAIN];
     uint64_t pawns = board.w_pawns;
     while (pawns) {
         int i = pull_lsb(&pawns);
-        midgame_score += Weights::mg_pawn_psqt[i];
-        endgame_score += Weights::eg_pawn_psqt[i];
+        midgame_score += Weights::PAWN_PSQT[i];
+        endgame_score += Weights::Endgame::PAWN_PSQT[i];
     }
     pawns = get_pawn_attacks_setwise(WHITE);
 
     n = pop_count(pawns & b_king_vulnerabilities);
-    midgame_score += n * Weights::POSITIONAL[Weights::characteristic_t::KING_THREAT];
-    endgame_score += n * Weights::Endgame::POSITIONAL[Weights::characteristic_t::KING_THREAT];
+    midgame_score += n * Weights::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
+    endgame_score += n * Weights::Endgame::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
 
     int32_t pawn_ctrl = 0;
     while (pawns) {
@@ -152,19 +152,19 @@ void Evaluation::pawn_structure() {
     midgame_score += pawn_ctrl;
 
     n = pop_count(get_pawn_attacks_setwise(BLACK) & board.b_pawns);
-    midgame_score -= n * Weights::POSITIONAL[Weights::characteristic_t::PAWN_CHAIN];
-    endgame_score -= n * Weights::Endgame::POSITIONAL[Weights::characteristic_t::PAWN_CHAIN];
+    midgame_score -= n * Weights::POSITIONAL[Evaluation::characteristic_t::PAWN_CHAIN];
+    endgame_score -= n * Weights::Endgame::POSITIONAL[Evaluation::characteristic_t::PAWN_CHAIN];
     pawns = _get_reverse_bb(board.b_pawns);
     while (pawns) {
         int i = pull_lsb(&pawns);
-        midgame_score -= Weights::mg_pawn_psqt[i];
-        endgame_score -= Weights::eg_pawn_psqt[i];
+        midgame_score -= Weights::PAWN_PSQT[i];
+        endgame_score -= Weights::Endgame::PAWN_PSQT[i];
     }
     pawns = get_pawn_attacks_setwise(BLACK);
 
     n = pop_count(pawns & w_king_vulnerabilities);
-    midgame_score -= n * Weights::POSITIONAL[Weights::characteristic_t::KING_THREAT];
-    endgame_score -= n * Weights::Endgame::POSITIONAL[Weights::characteristic_t::KING_THREAT];
+    midgame_score -= n * Weights::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
+    endgame_score -= n * Weights::Endgame::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
 
     pawn_ctrl = 0;
     while (pawns) {
@@ -179,16 +179,16 @@ void Evaluation::doubled_pawns() {
     for (int i = 0; i < 8; ++i) {
         /** Calculates the number of pawns of pawns in a file - 1 and penalizes accordingly */
         int n = std::max(pop_count(board.w_pawns & mask) - 1, 0);
-        midgame_score -= n * Weights::POSITIONAL[Weights::characteristic_t::DOUBLED_PAWNS];
-        endgame_score -= n * Weights::Endgame::POSITIONAL[Weights::characteristic_t::DOUBLED_PAWNS];
+        midgame_score -= n * Weights::POSITIONAL[Evaluation::characteristic_t::DOUBLED_PAWNS];
+        endgame_score -= n * Weights::Endgame::POSITIONAL[Evaluation::characteristic_t::DOUBLED_PAWNS];
         /** Shifts bitmask one file right */
         mask <<= 1;
     }
     mask = BB_FILE_A;
     for (int i = 0; i < 8; ++i) {
         int n = std::max((pop_count(board.b_pawns & mask) - 1), 0);
-        midgame_score += n * Weights::POSITIONAL[Weights::characteristic_t::DOUBLED_PAWNS];
-        endgame_score += n * Weights::Endgame::POSITIONAL[Weights::characteristic_t::DOUBLED_PAWNS];
+        midgame_score += n * Weights::POSITIONAL[Evaluation::characteristic_t::DOUBLED_PAWNS];
+        endgame_score += n * Weights::Endgame::POSITIONAL[Evaluation::characteristic_t::DOUBLED_PAWNS];
         mask <<= 1;
     }
 }
@@ -198,14 +198,14 @@ void Evaluation::knight_activity() {
     uint64_t knights = board.w_knights;
     while (knights) {
         int i = pull_lsb(&knights);
-        midgame_score += Weights::mg_knight_psqt[i];
-        endgame_score += Weights::eg_knight_psqt[i];
+        midgame_score += Weights::KNIGHT_PSQT[i];
+        endgame_score += Weights::Endgame::KNIGHT_PSQT[i];
     }
     knights = get_knight_mask_setwise(board.w_knights);
 
     int n = pop_count(knights & b_king_vulnerabilities);
-    midgame_score += n * Weights::POSITIONAL[Weights::characteristic_t::KING_THREAT];
-    endgame_score += n * Weights::Endgame::POSITIONAL[Weights::characteristic_t::KING_THREAT];
+    midgame_score += n * Weights::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
+    endgame_score += n * Weights::Endgame::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
 
     int32_t knights_ctrl = 0;
     while (knights) {
@@ -217,14 +217,14 @@ void Evaluation::knight_activity() {
     knights = _get_reverse_bb(board.b_knights);
     while (knights) {
         int i = pull_lsb(&knights);
-        midgame_score -= Weights::mg_knight_psqt[i];
-        endgame_score -= Weights::eg_knight_psqt[i];
+        midgame_score -= Weights::KNIGHT_PSQT[i];
+        endgame_score -= Weights::Endgame::KNIGHT_PSQT[i];
     }
     knights = get_knight_mask_setwise(board.b_knights);
 
     n = pop_count(knights & w_king_vulnerabilities);
-    midgame_score -= n * Weights::POSITIONAL[Weights::characteristic_t::KING_THREAT];
-    endgame_score -= n * Weights::Endgame::POSITIONAL[Weights::characteristic_t::KING_THREAT];
+    midgame_score -= n * Weights::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
+    endgame_score -= n * Weights::Endgame::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
 
     knights_ctrl = 0;
     while (knights) {
@@ -238,8 +238,8 @@ void Evaluation::bishop_activity() {
     uint64_t data = get_bishop_rays_setwise(board.w_bishops, ~board.occupied);
 
     int n = pop_count(data & b_king_vulnerabilities);
-    midgame_score += n * Weights::POSITIONAL[Weights::characteristic_t::KING_THREAT];
-    endgame_score += n * Weights::Endgame::POSITIONAL[Weights::characteristic_t::KING_THREAT];
+    midgame_score += n * Weights::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
+    endgame_score += n * Weights::Endgame::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
 
     int32_t bishop_ctrl = 0;
     while (data) {
@@ -250,14 +250,14 @@ void Evaluation::bishop_activity() {
     uint64_t bishops = board.w_bishops;
     while (bishops) {
         int i = pull_lsb(&bishops);
-        midgame_score += Weights::mg_bishop_psqt[i];
-        endgame_score += Weights::eg_bishop_psqt[i];
+        midgame_score += Weights::BISHOP_PSQT[i];
+        endgame_score += Weights::Endgame::BISHOP_PSQT[i];
     }
     data = get_bishop_rays_setwise(board.b_bishops, ~board.occupied);
 
     n = pop_count(data & w_king_vulnerabilities);
-    midgame_score -= n * Weights::POSITIONAL[Weights::characteristic_t::KING_THREAT];
-    endgame_score -= n * Weights::Endgame::POSITIONAL[Weights::characteristic_t::KING_THREAT];
+    midgame_score -= n * Weights::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
+    endgame_score -= n * Weights::Endgame::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
 
     bishop_ctrl = 0;
     while (data) {
@@ -268,8 +268,8 @@ void Evaluation::bishop_activity() {
     bishops = _get_reverse_bb(board.b_bishops);
     while (bishops) {
         int i = pull_lsb(&bishops);
-        midgame_score -= Weights::mg_bishop_psqt[i];
-        endgame_score -= Weights::eg_bishop_psqt[i];
+        midgame_score -= Weights::BISHOP_PSQT[i];
+        endgame_score -= Weights::Endgame::BISHOP_PSQT[i];
     }
 }
 
@@ -277,12 +277,12 @@ void Evaluation::rook_activity() {
     uint64_t data = get_rook_rays_setwise(board.w_rooks, ~(board.occupied ^ board.w_rooks));
     /** Detection of connected rooks */
     int n = std::max((pop_count(data & board.w_rooks) - 1), 0);
-    midgame_score += n * Weights::POSITIONAL[Weights::characteristic_t::CONNECTED_ROOKS];
-    endgame_score += n * Weights::Endgame::POSITIONAL[Weights::characteristic_t::CONNECTED_ROOKS];
+    midgame_score += n * Weights::POSITIONAL[Evaluation::characteristic_t::CONNECTED_ROOKS];
+    endgame_score += n * Weights::Endgame::POSITIONAL[Evaluation::characteristic_t::CONNECTED_ROOKS];
 
     n = pop_count(data & b_king_vulnerabilities);
-    midgame_score += n * Weights::POSITIONAL[Weights::characteristic_t::KING_THREAT];
-    endgame_score += n * Weights::Endgame::POSITIONAL[Weights::characteristic_t::KING_THREAT];
+    midgame_score += n * Weights::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
+    endgame_score += n * Weights::Endgame::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
 
     /** Evaluates board-control by rooks using the guard-heuristic.*/
     int32_t rook_ctrl = 0;
@@ -294,18 +294,18 @@ void Evaluation::rook_activity() {
     data = board.w_rooks;
     while (data) {
         int i = pull_lsb(&data);
-        midgame_score += Weights::mg_rook_psqt[i];
-        endgame_score += Weights::eg_rook_psqt[i];
+        midgame_score += Weights::ROOK_PSQT[i];
+        endgame_score += Weights::Endgame::ROOK_PSQT[i];
     }
     /** The following repeats the same score for black*/
     data = get_rook_rays_setwise(board.b_rooks, ~(board.occupied ^ board.b_rooks));
     n = std::max(pop_count(data & board.b_rooks) - 1, 0);
-    midgame_score -= n * Weights::POSITIONAL[Weights::characteristic_t::CONNECTED_ROOKS];
-    endgame_score -= n * Weights::Endgame::POSITIONAL[Weights::characteristic_t::CONNECTED_ROOKS];
+    midgame_score -= n * Weights::POSITIONAL[Evaluation::characteristic_t::CONNECTED_ROOKS];
+    endgame_score -= n * Weights::Endgame::POSITIONAL[Evaluation::characteristic_t::CONNECTED_ROOKS];
 
     n = pop_count(data & w_king_vulnerabilities);
-    midgame_score -= n * Weights::POSITIONAL[Weights::characteristic_t::KING_THREAT];
-    endgame_score -= n * Weights::Endgame::POSITIONAL[Weights::characteristic_t::KING_THREAT];
+    midgame_score -= n * Weights::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
+    endgame_score -= n * Weights::Endgame::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
 
     rook_ctrl = 0;
     while (data) {
@@ -316,8 +316,8 @@ void Evaluation::rook_activity() {
     data = _get_reverse_bb(board.b_rooks);
     while (data) {
         int i = pull_lsb(&data);
-        midgame_score -= Weights::mg_rook_psqt[i];
-        endgame_score -= Weights::eg_rook_psqt[i];
+        midgame_score -= Weights::ROOK_PSQT[i];
+        endgame_score -= Weights::Endgame::ROOK_PSQT[i];
     }
 }
 
@@ -330,17 +330,17 @@ void Evaluation::queen_activity() {
 
     /** Detects Queen-Rook batteries. */
     int n = std::max(pop_count(data & board.w_rooks) - 1, 0);
-    midgame_score += n * Weights::POSITIONAL[Weights::characteristic_t::QUEEN_ROOK];
-    endgame_score += n * Weights::Endgame::POSITIONAL[Weights::characteristic_t::QUEEN_ROOK];
+    midgame_score += n * Weights::POSITIONAL[Evaluation::characteristic_t::QUEEN_ROOK];
+    endgame_score += n * Weights::Endgame::POSITIONAL[Evaluation::characteristic_t::QUEEN_ROOK];
 
     /** Detects Queen-Bishop batteries. */
     n = std::max(pop_count(data & board.w_bishops) - 1, 0);
-    midgame_score += n * Weights::POSITIONAL[Weights::characteristic_t::QUEEN_BISHOP];
-    endgame_score += n * Weights::Endgame::POSITIONAL[Weights::characteristic_t::QUEEN_BISHOP];
+    midgame_score += n * Weights::POSITIONAL[Evaluation::characteristic_t::QUEEN_BISHOP];
+    endgame_score += n * Weights::Endgame::POSITIONAL[Evaluation::characteristic_t::QUEEN_BISHOP];
 
     n = pop_count(data & b_king_vulnerabilities);
-    midgame_score += n * Weights::POSITIONAL[Weights::characteristic_t::KING_THREAT];
-    endgame_score += n * Weights::Endgame::POSITIONAL[Weights::characteristic_t::KING_THREAT];
+    midgame_score += n * Weights::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
+    endgame_score += n * Weights::Endgame::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
 
     /** Evaluates board-control by queens using the guard-heuristic.*/
     int32_t queen_ctrl = 0;
@@ -354,22 +354,22 @@ void Evaluation::queen_activity() {
     data = board.w_queens;
     while (data) {
         int i = pull_lsb(&data);
-        midgame_score += Weights::mg_queen_psqt[i];
-        endgame_score += Weights::eg_queen_psqt[i];
+        midgame_score += Weights::QUEEN_PSQT[i];
+        endgame_score += Weights::Endgame::QUEEN_PSQT[i];
     }
     /** Following code duplicates the above functionality for black */
     data = get_queen_rays_setwise(board.b_queens, (~board.occupied ^ board.b_queens ^ board.b_rooks ^ board.b_bishops));
     n = std::max(pop_count(data & board.b_rooks) - 1, 0);
-    midgame_score -= n * Weights::POSITIONAL[Weights::characteristic_t::QUEEN_ROOK];
-    endgame_score -= n * Weights::Endgame::POSITIONAL[Weights::characteristic_t::QUEEN_ROOK];
+    midgame_score -= n * Weights::POSITIONAL[Evaluation::characteristic_t::QUEEN_ROOK];
+    endgame_score -= n * Weights::Endgame::POSITIONAL[Evaluation::characteristic_t::QUEEN_ROOK];
 
     n = std::max(pop_count(data & board.b_bishops) - 1, 0);
-    midgame_score -= n * Weights::POSITIONAL[Weights::characteristic_t::QUEEN_BISHOP];
-    endgame_score -= n * Weights::Endgame::POSITIONAL[Weights::characteristic_t::QUEEN_BISHOP];
+    midgame_score -= n * Weights::POSITIONAL[Evaluation::characteristic_t::QUEEN_BISHOP];
+    endgame_score -= n * Weights::Endgame::POSITIONAL[Evaluation::characteristic_t::QUEEN_BISHOP];
 
     n = pop_count(data & w_king_vulnerabilities);
-    midgame_score -= n * Weights::POSITIONAL[Weights::characteristic_t::KING_THREAT];
-    endgame_score -= n * Weights::Endgame::POSITIONAL[Weights::characteristic_t::KING_THREAT];
+    midgame_score -= n * Weights::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
+    endgame_score -= n * Weights::Endgame::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
 
     queen_ctrl = 0;
     while (data) {
@@ -380,20 +380,20 @@ void Evaluation::queen_activity() {
     data = _get_reverse_bb(board.b_queens);
     while (data) {
         int i = pull_lsb(&data);
-        midgame_score -= Weights::mg_queen_psqt[i];
-        endgame_score -= Weights::eg_queen_psqt[i];
+        midgame_score -= Weights::QUEEN_PSQT[i];
+        endgame_score -= Weights::Endgame::QUEEN_PSQT[i];
     }
 }
 
 void Evaluation::king_safety() {
     int i = get_lsb(board.w_king);
-    midgame_score += Weights::mg_king_psqt[i];
-    endgame_score += Weights::eg_king_psqt[i];
+    midgame_score += Weights::KING_PSQT[i];
+    endgame_score += Weights::Endgame::KING_PSQT[i];
 
 
     i = get_lsb(_get_reverse_bb(board.b_king));
-    midgame_score -= Weights::mg_king_psqt[i];
-    endgame_score -= Weights::eg_king_psqt[i];
+    midgame_score -= Weights::KING_PSQT[i];
+    endgame_score -= Weights::Endgame::KING_PSQT[i];
 }
 
 void Evaluation::king_mobility() {

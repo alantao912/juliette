@@ -94,7 +94,7 @@ const int MAX_CAPTURE_NUM = 74;
 /** Maximum number of attacks on a single square */
 const int MAX_ATTACK_NUM = 16;
 /** Maximum amount of material that can be lost in any exchange */
-const int32_t MAX_MATERIAL_LOSS = Weights::QUEEN_MATERIAL;
+const int32_t MAX_MATERIAL_LOSS = Weights::MATERIAL[piece_t::BLACK_QUEEN];
 
 int32_t move_t::normalize_score() const {
     return (SCORE_MASK & score) - MAX_MATERIAL_LOSS;

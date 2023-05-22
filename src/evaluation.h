@@ -9,6 +9,10 @@ public:
 
 private:
 
+    enum characteristic_t {
+        PAWN_CHAIN, DOUBLED_PAWNS, CONNECTED_ROOKS, QUEEN_ROOK, QUEEN_BISHOP, KING_THREAT
+    };
+
     uint64_t w_king_vulnerabilities, b_king_vulnerabilities;
     int32_t midgame_score, endgame_score;
 

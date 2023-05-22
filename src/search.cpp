@@ -111,8 +111,7 @@ bool is_drawn() {
  */
 
 inline bool use_fprune(move_t cm, int16_t depth) {
-    return false;
-    // return depth == 1 && cm.score < CHECK_MOVE && stack->prev_mv.score < CHECK_MOVE;
+    return depth == 1 && !cm.is_type(move_t::type_t::CHECK_MOVE) && !stack->prev_mv.is_type(move_t::type_t::CHECK_MOVE);
 }
 
 /**
@@ -432,7 +431,7 @@ int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) { // NOLINT
     CHECK_EVASIONS:
     for (size_t i = 0; i < n; ++i) {
         move_t candidate_move = moves[i];
-        if (i >= n_checks && move_value(candidate_move) + stand_pat < alpha - DELTA_MARGIN) {
+        if (i >= n_checks && move_value(candidate_move) + stand_pat < alpha - Weights::DELTA_MARGIN) {
             /** Skip evaluating this move */
             continue;
         }
@@ -529,7 +528,7 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
     for (size_t i = 1; i < n; ++i) {
         const move_t &mv = mvs[i];
         /** Futility pruning */
-        if (use_fprune(mv, depth) && best_score + move_value(mv) < alpha - DELTA_MARGIN) {
+        if (use_fprune(mv, depth) && best_score + move_value(mv) < alpha - Weights::DELTA_MARGIN) {
             continue;
         }
         push(mv);
