@@ -1,7 +1,6 @@
 #include <iostream>
 
 #include "stack.h"
-#include "weights.h"
 #include "movegen.h"
 #include "bitboard.h"
 #include "search.h"

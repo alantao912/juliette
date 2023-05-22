@@ -1,6 +1,6 @@
+#include "evaluation.h"
 #include "movegen.h"
 #include "weights.h"
-#include "evaluation.h"
 
 #include <cmath>
 #include <algorithm>
@@ -8,6 +8,24 @@
 /** Global board struct */
 extern __thread bitboard board;
 
+namespace Weights {
+
+    const int32_t (&PAWN_PSQT)[64] = Weights::PSQTs[piece_t::BLACK_PAWN];
+    const int32_t (&KNIGHT_PSQT)[64] = Weights::PSQTs[piece_t::BLACK_KNIGHT];
+    const int32_t (&BISHOP_PSQT)[64] = Weights::PSQTs[piece_t::BLACK_BISHOP];
+    const int32_t (&ROOK_PSQT)[64] = Weights::PSQTs[piece_t::BLACK_ROOK];
+    const int32_t (&QUEEN_PSQT)[64] = Weights::PSQTs[piece_t::BLACK_QUEEN];
+    const int32_t (&KING_PSQT)[64] = Weights::PSQTs[piece_t::BLACK_KING];
+
+    namespace Endgame {
+        const int32_t (&PAWN_PSQT)[64] = Weights::Endgame::PSQTs[piece_t::BLACK_PAWN];
+        const int32_t (&KNIGHT_PSQT)[64] = Weights::Endgame::PSQTs[piece_t::BLACK_KNIGHT];
+        const int32_t (&BISHOP_PSQT)[64] = Weights::Endgame::PSQTs[piece_t::BLACK_BISHOP];
+        const int32_t (&ROOK_PSQT)[64] = Weights::Endgame::PSQTs[piece_t::BLACK_ROOK];
+        const int32_t (&QUEEN_PSQT)[64] = Weights::Endgame::PSQTs[piece_t::BLACK_QUEEN];
+        const int32_t (&KING_PSQT)[64] = Weights::Endgame::PSQTs[piece_t::BLACK_KING];
+    }
+}
 
 void Evaluation::reset() {
     midgame_score = 0;
@@ -194,7 +212,6 @@ void Evaluation::doubled_pawns() {
 }
 
 void Evaluation::knight_activity() {
-    /** deez knights */
     uint64_t knights = board.w_knights;
     while (knights) {
         int i = pull_lsb(&knights);
@@ -413,7 +430,7 @@ void Evaluation::king_mobility() {
 }
 
 /**
- * Determines the number of unopposed pawns, or "passed" pawns. Passed pawns on the side of the baord are worth less than passed pawns
+ * Determines the number of unopposed pawns, or "passed" pawns. Passed pawns on the side of the board are worth less than passed pawns
  * toward the middle of the board.
  */
 

@@ -22,7 +22,7 @@ private:
 
     int32_t compute_score() const;
 
-    uint64_t compute_king_vulnerabilities(uint64_t king_bb, uint64_t pawns_bb);
+    static uint64_t compute_king_vulnerabilities(uint64_t king_bb, uint64_t pawns_bb);
 
     static double compute_progression();
 

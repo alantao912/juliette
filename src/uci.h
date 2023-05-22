@@ -12,7 +12,6 @@
 
 #include "search.h"
 #include "tables.h"
-#include "evaluation.h"
 
 namespace UCI {
 

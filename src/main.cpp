@@ -5,6 +5,7 @@
 #include "stack.h"
 #include "movegen.h"
 #include "bitboard.h"
+#include "weights.h"
 
 #define BUFLEN 512
 
@@ -141,6 +142,13 @@ int main(int argc, char *argv[]) {
 
                 initialize_zobrist();
 
+                const int32_t (&QUEEN_PSQT)[64] = Weights::Endgame::PSQTs[piece_t::BLACK_KNIGHT];
+                for (size_t i = 0; i < 64; ++i) {
+                    std::cout << QUEEN_PSQT[i] << " ";
+                    if (i % 8 == 7) {
+                        std::cout << '\n';
+                    }
+                }
                 /** Insert dev code below this line */
                 /**
                 UCI::initialize_UCI();

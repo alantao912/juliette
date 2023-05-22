@@ -89,13 +89,6 @@ namespace Weights {
             }
     };
 
-    const int32_t (&PAWN_PSQT)[64] = PSQTs[piece_t::BLACK_PAWN];
-    const int32_t (&KNIGHT_PSQT)[64] = PSQTs[piece_t::BLACK_KNIGHT];
-    const int32_t (&BISHOP_PSQT)[64] = PSQTs[piece_t::BLACK_BISHOP];
-    const int32_t (&ROOK_PSQT)[64] = PSQTs[piece_t::BLACK_ROOK];
-    const int32_t (&QUEEN_PSQT)[64] = PSQTs[piece_t::BLACK_QUEEN];
-    const int32_t (&KING_PSQT)[64] = PSQTs[piece_t::BLACK_KING];
-
     namespace Endgame {
 
         /**
@@ -176,13 +169,6 @@ namespace Weights {
 
 
         };
-
-        const int32_t (&PAWN_PSQT)[64] = PSQTs[piece_t::BLACK_PAWN];
-        const int32_t (&KNIGHT_PSQT)[64] = PSQTs[piece_t::BLACK_KNIGHT];
-        const int32_t (&BISHOP_PSQT)[64] = PSQTs[piece_t::BLACK_BISHOP];
-        const int32_t (&ROOK_PSQT)[64] = PSQTs[piece_t::BLACK_ROOK];
-        const int32_t (&QUEEN_PSQT)[64] = PSQTs[piece_t::BLACK_QUEEN];
-        const int32_t (&KING_PSQT)[64] = PSQTs[piece_t::BLACK_KING];
     }
 
     const int16_t CENTRALIZED_KING = 2;
