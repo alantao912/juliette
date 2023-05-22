@@ -16,7 +16,7 @@
 
 #define MIN_SCORE (INT32_MIN + 1000)
 #define MATE_SCORE(depth) (MIN_SCORE + INT16_MAX - depth)
-#define DRAW contempt_value;
+#define DRAW contempt_value
 #define MAX_DEPTH 128
 
 /**
@@ -33,7 +33,8 @@ const int16_t qsearch_lim = 6;
 const int32_t contempt_value = 0;
 
 static std::unordered_map<uint64_t, TTEntry> transposition_table;
-static pthread_mutex_t tt_lock, rand_lock;
+static pthread_mutex_t tt_lock, init_lock;
+static volatile size_t active_search_threads = 0;
 
 volatile bool time_remaining = true, block_thread = true;
 
@@ -173,7 +174,7 @@ int16_t compute_reduction(move_t mv, int16_t current_ply, int n) {
         return 0;
     }
 
-    /** int32_t material_loss_rf: Material loss in centipawns resulting in one additional ply reduction */
+    /** int32_t material_loss_rf: Material loss in centi-pawns resulting in one additional ply reduction */
     const int32_t material_loss_rf = 250;
     int16_t reduction = int16_t(sqrt(current_ply - 1) + sqrt(n - 1));
     if (mv.is_type(move_t::LOSING_EXCHANGE)) {
@@ -604,7 +605,7 @@ void search_t(thread_args_t *args) {
         /** Main thread initializes shared locks */
         block_thread = true;
         pthread_mutex_init(&tt_lock, nullptr);
-        pthread_mutex_init(&rand_lock, nullptr);
+        pthread_mutex_init(&init_lock, nullptr);
         block_thread = false;
     } else {
         /** Busy-wait for lock initialization to complete */
@@ -622,10 +623,11 @@ void search_t(thread_args_t *args) {
     move_t root_mvs[MAX_MOVE_NUM];
     int n = gen_legal_moves(root_mvs, board.turn);
 
-    pthread_mutex_lock(&rand_lock);
+    pthread_mutex_lock(&init_lock);
     int seed = std::random_device()();
     std::mt19937 rng(seed);
-    pthread_mutex_unlock(&rand_lock);
+    ++active_search_threads;
+    pthread_mutex_unlock(&init_lock);
     std::shuffle(root_mvs, &(root_mvs[n]), rng);
 
     move_t mv_pv[MAX_DEPTH];
@@ -660,9 +662,11 @@ void search_t(thread_args_t *args) {
     /** Thread tear-down code */
     killer_mvs = nullptr;
     if (is_main_thread) {
+        while (active_search_threads > 1);
         pthread_mutex_destroy(&tt_lock);
-        pthread_mutex_destroy(&rand_lock);
+        pthread_mutex_destroy(&init_lock);
     }
+    --active_search_threads;
     pthread_exit(nullptr);
 }
 

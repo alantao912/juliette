@@ -11,7 +11,7 @@
 
 namespace UCI {
     typedef struct info info_t;
-};
+}
 
 typedef struct thread_args {
     const bitboard *main_board;
@@ -21,7 +21,7 @@ typedef struct thread_args {
 
 } thread_args_t;
 
-uint64_t consider_xray_attacks(int from, int to, const uint64_t occupied);
+uint64_t consider_xray_attacks(int from, int to, uint64_t occupied);
 
 int32_t fast_SEE(move_t move);
 
