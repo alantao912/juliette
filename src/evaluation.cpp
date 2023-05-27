@@ -326,7 +326,7 @@ inline void queen_activity() {
      *  @var uint64_t data Stores a bitboard of all squares hit by any white queen.
      */
     uint64_t data = get_queen_rays_setwise(board.w_queens,
-                                           (~board.occupied ^ board.w_queens ^ board.w_rooks ^ board.w_bishops));
+                                           ~(board.occupied ^ board.w_queens ^ board.w_rooks ^ board.w_bishops));
 
     /** Detects Queen-Rook batteries. */
     int n = std::max(pop_count(data & board.w_rooks) - 1, 0);
@@ -358,7 +358,7 @@ inline void queen_activity() {
         stats.endgame_score += Weights::eg_queen_psqt[i];
     }
     /** Following code duplicates the above functionality for black */
-    data = get_queen_rays_setwise(board.b_queens, (~board.occupied ^ board.b_queens ^ board.b_rooks ^ board.b_bishops));
+    data = get_queen_rays_setwise(board.b_queens, ~(board.occupied ^ board.b_queens ^ board.b_rooks ^ board.b_bishops));
     n = std::max(pop_count(data & board.b_rooks) - 1, 0);
     stats.midgame_score -= n * Weights::QR_BATTERY;
     stats.endgame_score -= n * Weights::QR_BATTERY_EG;
