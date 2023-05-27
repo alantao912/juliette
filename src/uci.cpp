@@ -138,7 +138,7 @@ void UCI::go(const std::vector<std::string> &args) {
     thread_args_t aux_args = {.main_board = &board, .main_repetition_table = &repetition_table, .is_main_thread = false};
     int n_threads = stoi(options[UCI::option_t::thread_cnt]);
     pthread_t threads[n_threads];
-    start_timer(60000);
+    start_timer(1 * 60000);
     int status = pthread_create(&threads[0], nullptr, reinterpret_cast<void *(*)(void *)> (search_t),
                                 (void *) &main_arg);
     for (int i = 1; i < n_threads; ++i) {

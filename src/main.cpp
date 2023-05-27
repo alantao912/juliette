@@ -6,6 +6,7 @@
 #include "movegen.h"
 #include "bitboard.h"
 #include "weights.h"
+#include "evaluation.h"
 
 #define BUFLEN 512
 
@@ -141,21 +142,21 @@ int main(int argc, char *argv[]) {
                  */
 
                 initialize_zobrist();
-
-                const int32_t (&QUEEN_PSQT)[64] = Weights::Endgame::PSQTs[piece_t::BLACK_KNIGHT];
-                for (size_t i = 0; i < 64; ++i) {
-                    std::cout << QUEEN_PSQT[i] << " ";
-                    if (i % 8 == 7) {
-                        std::cout << '\n';
-                    }
-                }
-                /** Insert dev code below this line */
                 /**
+                std::cout << "\n\n";
+                print_board();
+                std::cout << "\n\n";
+                Evaluation pos;
+                pos.reset();
+                */
+
+                /** Insert dev code below this line */
+
                 UCI::initialize_UCI();
                 UCI::parse_UCI_string("ucinewgame");
-                UCI::parse_UCI_string("position startpos");
+                UCI::parse_UCI_string("position 7k/p4p2/3P4/8/1P6/8/8/7K w - - 0 1");
                 UCI::parse_UCI_string("go");
-                 */
+
             } else if (strcmp(recvbuf, "perft") == 0) {
                 std::cout << "juliette:: starting performance test..." << std::endl;
                 // TODO: Re-implement performance test

@@ -12,7 +12,7 @@ namespace Weights {
     /**
      * Centi-pawn valuation of positional characteristics indexed by characteristic_t coerced to integer.
      */
-    const int32_t POSITIONAL[6] = {2, -20, 20, 20, 5, 16};
+    const int32_t POSITIONAL[8] = {2, -20, 20, 20, 5, 16, 15, -10};
 
     /**
      * @Citation
@@ -97,7 +97,7 @@ namespace Weights {
 
         const int32_t MATERIAL[5] = {115, 275, 325, 550, 950};
 
-        const int32_t POSITIONAL[6] = {3, -20, 20, 10, 7, 7};
+        const int32_t POSITIONAL[8] = {3, -20, 20, 10, 7, 7, 60, -20};
 
         const int32_t PSQTs[6][64] = {
                 /** Pawn PSQT */
