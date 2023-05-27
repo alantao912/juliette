@@ -414,7 +414,7 @@ void Evaluation::queen_activity() {
      *  @var uint64_t data Stores a bitboard of all squares hit by any white queen.
      */
     uint64_t data = get_queen_rays_setwise(board.w_queens,
-                                           (~board.occupied ^ board.w_queens ^ board.w_rooks ^ board.w_bishops));
+                                           ~(board.occupied ^ board.w_queens ^ board.w_rooks ^ board.w_bishops));
 
     /** Detects Queen-Rook batteries. */
     accumulate_characteristic_w(std::max(pop_count(data & board.w_rooks) - 1, 0),
@@ -439,7 +439,7 @@ void Evaluation::queen_activity() {
     /** Evaluates queen placement using piece-square table */
 
     /** Following code duplicates the above functionality for black */
-    data = get_queen_rays_setwise(board.b_queens, (~board.occupied ^ board.b_queens ^ board.b_rooks ^ board.b_bishops));
+    data = get_queen_rays_setwise(board.b_queens, ~(board.occupied ^ board.b_queens ^ board.b_rooks ^ board.b_bishops));
     accumulate_characteristic_b(std::max(pop_count(data & board.b_rooks) - 1, 0),
                                 Evaluation::characteristic_t::QUEEN_ROOK);
     accumulate_characteristic_b(std::max(pop_count(data & board.b_bishops) - 1, 0),
