@@ -3,6 +3,8 @@
 //
 
 #include "timeman.h"
+#include "uci.h"
+
 #include <chrono>
 #include <iostream>
 #include <pthread.h>
@@ -16,6 +18,8 @@ static void *timer_thread(void *args) {
     time_remaining = true;
     std::this_thread::sleep_for(std::chrono::milliseconds(duration));
     time_remaining = false;
+    UCI::format_data();
+    UCI::reply();
     pthread_exit(nullptr);
 }
 

@@ -89,6 +89,8 @@ typedef struct move_t {
     bool operator==(const move_t &other) const;
 
     bool operator<(const move_t &other) const;
+
+    std::string to_string() const;
 } move_t;
 
 typedef struct bitboard {
@@ -218,6 +220,8 @@ char to_char(piece_t p);
 uint64_t get_ray_between(int square1, int square2);
 
 uint64_t get_ray_between_inclusive(int square1, int square2);
+
+uint64_t vflip_bb(uint64_t);
 
 int get_lsb(uint64_t bb);
 

@@ -652,8 +652,8 @@ void search_t(thread_args_t *args) {
         transposition_table[board.hash_code] = tt_entry;
         pthread_mutex_unlock(&tt_lock);
 
-        if (args->is_main_thread && time_remaining) {
-            std::cout << "Finished depth: " << d << '\n';
+        if (is_main_thread && time_remaining) {
+            std::cout << "Finished depth: " << (d + 1) << '\n';
             result.best_move = pv[0];
             result.score = evaluation;
         }

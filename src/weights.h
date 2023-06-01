@@ -15,6 +15,12 @@ namespace Weights {
     const int32_t POSITIONAL[8] = {2, -20, 20, 20, 5, 16, 15, -10};
 
     /**
+     * Capture strength of a given piece indexed by piece_t coerced to integer.
+     */
+
+    const int8_t GUARD_VALUE[6] = {9, 6, 5, 2, 1, 1};
+
+    /**
      * @Citation
      * The following piece-square table weights were initialized from Tom Kerrigan's TSCP.
      * Original code can be found: https://www.chessprogramming.org/PeSTO%27s_Evaluation_Function
@@ -184,7 +190,7 @@ namespace Weights {
             1, 1, 1, 2, 2, 1, 1, 1,
     };
 
-    const uint8_t PAWN_PHASE = 1;
+    const uint8_t PAWN_PHASE = 0;
 
     const uint8_t KNIGHT_PHASE = 3;
 

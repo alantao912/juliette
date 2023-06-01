@@ -36,6 +36,8 @@ namespace UCI {
 
     void go(const std::vector<std::string> &args);
 
+    void format_data();
+
     void reply();
 
     void set_option(const std::vector<std::string> &args);

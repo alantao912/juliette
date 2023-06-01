@@ -1,4 +1,5 @@
 #include <iostream>
+#include <iomanip>
 #include <pthread.h>
 
 #include "uci.h"
@@ -96,7 +97,9 @@ void play_game() {
 }
 
 /**
- * To compile: g++ src/*.cpp -lpthreads -o juliette -O3
+ * To compile: g++ src/*.cpp -lpthread -o juliette
+ *
+ * ./juliette cli
  */
 
 int main(int argc, char *argv[]) {
@@ -120,7 +123,7 @@ int main(int argc, char *argv[]) {
         std::cout << "juliette:: \"hi, let's play chess!\"" << std::endl;
         /* Engine is set to CLI mode. Sending and receiving commands through stdout and stdin respectively. */
         do {
-            fgets(recvbuf, BUFLEN, stdin);
+            std::cin.getline(recvbuf, BUFLEN);
             if ((strlen(recvbuf) > 0) && (recvbuf[strlen(recvbuf) - 1] == '\n')) {
                 recvbuf[strlen(recvbuf) - 1] = '\0';
             }
@@ -142,21 +145,19 @@ int main(int argc, char *argv[]) {
                  */
 
                 initialize_zobrist();
-                /**
+                uint64_t bb = 1 << 23;
+                std::cout << "BB:\n";
+                print_bitboard(bb);
                 std::cout << "\n\n";
-                print_board();
-                std::cout << "\n\n";
-                Evaluation pos;
-                pos.reset();
-                */
+                print_bitboard(_get_reverse_bb(bb));
 
                 /** Insert dev code below this line */
-
+                /*
                 UCI::initialize_UCI();
                 UCI::parse_UCI_string("ucinewgame");
                 UCI::parse_UCI_string("position 7k/p4p2/3P4/8/1P6/8/8/7K w - - 0 1");
                 UCI::parse_UCI_string("go");
-
+                */
             } else if (strcmp(recvbuf, "perft") == 0) {
                 std::cout << "juliette:: starting performance test..." << std::endl;
                 // TODO: Re-implement performance test

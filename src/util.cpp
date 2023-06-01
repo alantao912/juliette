@@ -120,6 +120,36 @@ bool move_t::operator<(const move_t &other) const {
     return score > other.score;
 }
 
+std::string move_t::to_string() const {
+    std::string out;
+    out += ('a' + (char) file_of(from));
+    out += ('1' + (char) rank_of(from));
+    out += ('a' + (char) file_of(to));
+    out += ('1' + (char) rank_of(to));
+
+    switch (flag) {
+        case PC_QUEEN:
+        case PR_QUEEN:
+            out += 'q';
+            break;
+        case PC_ROOK:
+        case PR_ROOK:
+            out += 'r';
+            break;
+        case PC_BISHOP:
+        case PR_BISHOP:
+            out += 'b';
+            break;
+        case PC_KNIGHT:
+        case PR_KNIGHT:
+            out += 'n';
+            break;
+        default:
+            break;
+    }
+    return out;
+}
+
 piece_t to_enum(char p) {
     switch (p) {
         case 'P':
@@ -189,6 +219,15 @@ uint64_t get_ray_between(int square1, int square2) {
 
 uint64_t get_ray_between_inclusive(int square1, int square2) {
     return BB_RAYS[square1][square2];
+}
+
+uint64_t vflip_bb(uint64_t x) {
+    const uint64_t k1 = uint64_t(0x00FF00FF00FF00FF);
+    const uint64_t k2 = uint64_t(0x0000FFFF0000FFFF);
+    x = ((x >> 8) & k1) | ((x & k1) << 8);
+    x = ((x >> 16) & k2) | ((x & k2) << 16);
+    x = (x >> 32) | (x << 32);
+    return x;
 }
 
 int get_lsb(uint64_t bb) {

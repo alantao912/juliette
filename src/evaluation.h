@@ -17,10 +17,13 @@ private:
     };
 
     uint64_t w_king_vulnerabilities, b_king_vulnerabilities;
+    uint64_t w_pawn_rearspans, b_pawn_rearspans;
 
     int32_t n_open_files;
     int32_t w_space_bonus, b_space_bonus;
     int32_t midgame_score, endgame_score;
+
+    int8_t square_guard_values[64];
 
     double progression;
 
@@ -34,9 +37,9 @@ private:
 
     static uint64_t compute_pawn_frontspans_b(uint64_t pawns_bb, uint64_t occupied_bb);
 
-    static uint64_t compute_pawn_backspans_w(uint64_t pawns_bb, uint64_t occupied_bb);
+    static uint64_t compute_pawn_rearspans_w(uint64_t pawns_bb, uint64_t occupied_bb);
 
-    static uint64_t compute_pawn_backspans_b(uint64_t pawns_bb, uint64_t occupied_bb);
+    static uint64_t compute_pawn_rearspans_b(uint64_t pawns_bb, uint64_t occupied_bb);
 
     static double compute_progression();
 
@@ -67,6 +70,8 @@ private:
     void queen_activity();
 
     void king_placement();
+
+    void evaluate_space();
 
     /** Helper functions below */
 

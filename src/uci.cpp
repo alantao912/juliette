@@ -38,9 +38,13 @@ char sendbuf[BUFLEN];
 
 UCI::info_t result;
 
+thread_args_t main_arg;
+thread_args_t aux_args;
+
 void UCI::info_t::format_data(bool verbose) const {
     if (verbose) {
-        snprintf(sendbuf, BUFLEN, "elapsed time: (%ld)ms\n%s:  %c%d%c%d\nevaluation: %d",
+        std::string format("elapsed time: (%ld)ms\n%s:  %c%d%c%d\nevaluation: %d");
+        snprintf(sendbuf, BUFLEN, format.c_str(),
                  static_cast<long> (elapsed_time.count()), replies[bestmove].c_str(),
                  char(file_of(best_move.from) + 'a'),
                  int(rank_of(best_move.from) + 1), char(file_of(best_move.to) + 'a'),
@@ -115,16 +119,19 @@ void UCI::position(const std::vector<std::string> &args) {
         }
         moves_index = 6;
     }
-    std::all_of(args.begin() + moves_index, args.end(),
-                [](const std::string &arg) {
-                    move_t mv = parse_move(arg);
-                    if (mv == NULL_MOVE) {
-                        return false;
-                    }
-                    push(mv);
-                    return true;
-                });
-    board_initialized = true;
+    bool b = std::all_of(args.begin() + moves_index, args.end(),
+                         [](const std::string &arg) {
+                             move_t mv = parse_move(arg);
+                             if (mv == NULL_MOVE) {
+                                 return false;
+                             }
+                             push(mv);
+                             return true;
+                         });
+    if (!b) {
+        std::cout << "juliette:: board initialization failed!\n";
+    }
+    board_initialized = b;
 }
 
 void UCI::go(const std::vector<std::string> &args) {
@@ -134,11 +141,11 @@ void UCI::go(const std::vector<std::string> &args) {
         return;
     }
     // TODO: Configure function based on provided arguments according to UCI protocol.
-    thread_args_t main_arg = {.main_board = &board, .main_repetition_table = &repetition_table, .is_main_thread = true};
-    thread_args_t aux_args = {.main_board = &board, .main_repetition_table = &repetition_table, .is_main_thread = false};
     int n_threads = stoi(options[UCI::option_t::thread_cnt]);
     pthread_t threads[n_threads];
-    start_timer(1 * 60000);
+    main_arg = {.main_board = &board, .main_repetition_table = &repetition_table, .is_main_thread = true};
+    aux_args = {.main_board = &board, .main_repetition_table = &repetition_table, .is_main_thread = false};
+    start_timer(60 * 1000);
     int status = pthread_create(&threads[0], nullptr, reinterpret_cast<void *(*)(void *)> (search_t),
                                 (void *) &main_arg);
     for (int i = 1; i < n_threads; ++i) {
@@ -149,9 +156,15 @@ void UCI::go(const std::vector<std::string> &args) {
         std::cout << "juliette:: Failed to spawn thread!\n";
         exit(-1);
     }
+    /**
     while (time_remaining);
     result.format_data(options[UCI::option_t::debug] == "on");
     UCI::reply();
+     */
+}
+
+void UCI::format_data() {
+    result.format_data(options[UCI::option_t::debug] == "on");
 }
 
 void UCI::reply() {
