@@ -173,8 +173,8 @@ namespace Weights {
                         -74, -35, -18, -18, -11, 15,  4,   -17,
                 }
         };
-        const int32_t KING_DIST = 4;
-        const int32_t KING_EDGE = 4;
+        const int32_t KING_DIST = 3;
+        const int32_t KING_EDGE = 6;
     }
 
     const int32_t board_ctrl_tb[64] = {
