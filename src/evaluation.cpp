@@ -213,16 +213,8 @@ void Evaluation::pawn_structure() {
     accumulate_characteristic_w(pop_count(pawn_attacks & board.w_pawns),
                                 Evaluation::characteristic_t::PAWN_CHAIN);
 
-    int n = pop_count(pawn_attacks & b_king_vulnerabilities);
-    midgame_score += n * Weights::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
-    endgame_score += n * Weights::Endgame::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
-
     pawn_attacks = get_pawn_attacks_setwise(BLACK);
     accumulate_characteristic_b(pop_count(pawn_attacks & board.b_pawns), Evaluation::characteristic_t::PAWN_CHAIN);
-
-    n = pop_count(pawn_attacks & w_king_vulnerabilities);
-    midgame_score -= n * Weights::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
-    endgame_score -= n * Weights::Endgame::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
 }
 
 void Evaluation::doubled_pawns() {
@@ -312,25 +304,11 @@ void Evaluation::backward_pawns() {
 }
 
 void Evaluation::knight_activity() {
-    uint64_t knights = get_knight_mask_setwise(board.w_knights);
-    accumulate_characteristic_w(pop_count(knights & b_king_vulnerabilities), Evaluation::characteristic_t::KING_THREAT);
 
-    knights = get_knight_mask_setwise(board.b_knights);
-    accumulate_characteristic_b(pop_count(knights & w_king_vulnerabilities), Evaluation::characteristic_t::KING_THREAT);
 }
 
 void Evaluation::bishop_activity() {
-    uint64_t data = get_bishop_rays_setwise(board.w_bishops, ~board.occupied);
 
-    int n = pop_count(data & b_king_vulnerabilities);
-    midgame_score += n * Weights::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
-    endgame_score += n * Weights::Endgame::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
-
-    data = get_bishop_rays_setwise(board.b_bishops, ~board.occupied);
-
-    n = pop_count(data & w_king_vulnerabilities);
-    midgame_score -= n * Weights::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
-    endgame_score -= n * Weights::Endgame::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
 }
 
 void Evaluation::rook_activity() {
@@ -339,18 +317,10 @@ void Evaluation::rook_activity() {
     accumulate_characteristic_w(std::max((pop_count(data & board.w_rooks) - 1), 0),
                                 Evaluation::characteristic_t::CONNECTED_ROOKS);
 
-    int n = pop_count(data & b_king_vulnerabilities);
-    midgame_score += n * Weights::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
-    endgame_score += n * Weights::Endgame::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
-
     /** The following repeats the same score for black*/
     data = get_rook_rays_setwise(board.b_rooks, ~(board.occupied ^ board.b_rooks));
     accumulate_characteristic_b(std::max(pop_count(data & board.b_rooks) - 1, 0),
                                 Evaluation::characteristic_t::CONNECTED_ROOKS);
-
-    n = pop_count(data & w_king_vulnerabilities);
-    midgame_score -= n * Weights::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
-    endgame_score -= n * Weights::Endgame::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
 }
 
 void Evaluation::queen_activity() {
@@ -368,10 +338,6 @@ void Evaluation::queen_activity() {
     accumulate_characteristic_w(std::max(pop_count(data & board.w_bishops) - 1, 0),
                                 Evaluation::characteristic_t::QUEEN_BISHOP);
 
-    int n = pop_count(data & b_king_vulnerabilities);
-    midgame_score += n * Weights::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
-    endgame_score += n * Weights::Endgame::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
-
     /** Evaluates queen placement using piece-square table */
 
     /** Following code duplicates the above functionality for black */
@@ -380,10 +346,6 @@ void Evaluation::queen_activity() {
                                 Evaluation::characteristic_t::QUEEN_ROOK);
     accumulate_characteristic_b(std::max(pop_count(data & board.b_bishops) - 1, 0),
                                 Evaluation::characteristic_t::QUEEN_BISHOP);
-
-    n = pop_count(data & w_king_vulnerabilities);
-    midgame_score -= n * Weights::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
-    endgame_score -= n * Weights::Endgame::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
 }
 
 void Evaluation::king_placement() {
@@ -405,35 +367,60 @@ void Evaluation::king_placement() {
 void Evaluation::evaluate_space() {
     /** Accumulate guard values of white pieces */
     uint64_t attacks = BB_KING_ATTACKS[board.w_king_square];
+    uint64_t king_vulnerabilities = compute_king_vulnerabilities(board.b_king, board.b_pawns);
+    int32_t mg_king_danger = 0;
+    int32_t eg_king_danger = 0;
+    int n_attackers = 0;
+
     while (attacks) {
         int i = pull_lsb(&attacks);
         square_guard_values[i] += Weights::GUARD_VALUE[piece_t::BLACK_KING];
     }
     attacks = get_queen_rays_setwise(board.w_queens, ~board.occupied) & (~board.w_queens);
+    accumulate_king_threats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
+
     while (attacks) {
         int i = pull_lsb(&attacks);
         square_guard_values[i] += Weights::GUARD_VALUE[piece_t::BLACK_QUEEN];
     }
+
     attacks = get_rook_rays_setwise(board.w_rooks, ~board.occupied) & (~board.w_rooks);
+    accumulate_king_threats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
+
     while (attacks) {
         int i = pull_lsb(&attacks);
         square_guard_values[i] += Weights::GUARD_VALUE[piece_t::BLACK_ROOK];
     }
     attacks = get_bishop_rays_setwise(board.w_bishops, ~board.occupied) & (~board.w_bishops);
+    accumulate_king_threats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
+
     while (attacks) {
         int i = pull_lsb(&attacks);
         square_guard_values[i] += Weights::GUARD_VALUE[piece_t::BLACK_BISHOP];
     }
     attacks = get_knight_mask_setwise(board.w_knights);
+    accumulate_king_threats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
+
     while (attacks) {
         int i = pull_lsb(&attacks);
         square_guard_values[i] += Weights::GUARD_VALUE[piece_t::BLACK_KNIGHT];
     }
     attacks = get_pawn_attacks_setwise(WHITE);
+    accumulate_king_threats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
+
+    midgame_score += n_attackers * mg_king_danger;
+    endgame_score += n_attackers * eg_king_danger;
+
     while (attacks) {
         int i = pull_lsb(&attacks);
         square_guard_values[i] += Weights::GUARD_VALUE[piece_t::BLACK_PAWN];
     }
+
+    mg_king_danger = 0;
+    eg_king_danger = 0;
+    n_attackers = 0;
+    king_vulnerabilities = compute_king_vulnerabilities(board.w_king, board.w_pawns);
+
     /** Accumulate guard values of black pieces */
     attacks = BB_KING_ATTACKS[board.b_king_square];
     while (attacks) {
@@ -441,30 +428,44 @@ void Evaluation::evaluate_space() {
         square_guard_values[i] -= Weights::GUARD_VALUE[piece_t::BLACK_KING];
     }
     attacks = get_queen_rays_setwise(board.b_queens, ~board.occupied) & (~board.b_queens);
+    accumulate_king_threats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
+
     while (attacks) {
         int i = pull_lsb(&attacks);
         square_guard_values[i] -= Weights::GUARD_VALUE[piece_t::BLACK_QUEEN];
     }
     attacks = get_rook_rays_setwise(board.b_rooks, ~board.occupied) & (~board.b_rooks);
+    accumulate_king_threats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
+
     while (attacks) {
         int i = pull_lsb(&attacks);
         square_guard_values[i] -= Weights::GUARD_VALUE[piece_t::BLACK_ROOK];
     }
     attacks = get_bishop_rays_setwise(board.b_bishops, ~board.occupied) & (~board.b_bishops);
+    accumulate_king_threats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
+
     while (attacks) {
         int i = pull_lsb(&attacks);
         square_guard_values[i] -= Weights::GUARD_VALUE[piece_t::BLACK_BISHOP];
     }
     attacks = get_knight_mask_setwise(board.b_knights);
+    accumulate_king_threats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
+
     while (attacks) {
         int i = pull_lsb(&attacks);
         square_guard_values[i] -= Weights::GUARD_VALUE[piece_t::BLACK_KNIGHT];
     }
     attacks = get_pawn_attacks_setwise(BLACK);
+    accumulate_king_threats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
+
     while (attacks) {
         int i = pull_lsb(&attacks);
         square_guard_values[i] -= Weights::GUARD_VALUE[piece_t::BLACK_PAWN];
     }
+
+    midgame_score -= n_attackers * mg_king_danger;
+    endgame_score -= n_attackers * eg_king_danger;
+
     /** Determine who has stronger control over each square. */
     /**
      * For each square, if white's guard value exceeds black's guard value. Then that particular square
@@ -473,6 +474,8 @@ void Evaluation::evaluate_space() {
      * Implemented as, guard_values[i] = sgn(guard_values[i]).
      */
 
+    uint64_t w_king_surroundings = compute_king_vulnerabilities(board.w_king, 0ULL);
+    uint64_t b_king_surroundings = compute_king_vulnerabilities(board.b_king, 0ULL);
     uint64_t examined_square = (uint64_t) 1;
     for (int i = 0; i < 64; ++i) {
         /** Sets square_guard_values[i] = sign(square_guard_values[i]) */
@@ -485,9 +488,17 @@ void Evaluation::evaluate_space() {
         /** If the current square being examined is behind opponent's pawns, double the bonus. */
         bonus <<= ((examined_square & opponent_rear) != 0);
         midgame_score += square_guard_values[i] * (Weights::board_ctrl_tb[i] * bonus);
+        midgame_score += square_guard_values[i] * ((examined_square & w_king_surroundings) != 0) * KING_THREAT;
         examined_square <<= 1;
     }
+}
 
+void Evaluation::accumulate_king_threats(int &n_attackers, int32_t &mg_score, int32_t &eg_score, uint64_t attacks,
+                                         uint64_t king) {
+    int pop_cnt = pop_count(attacks & king);
+    mg_score += pop_cnt * Weights::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
+    eg_score += pop_cnt * Weights::Endgame::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
+    n_attackers += (pop_cnt > 0);
 }
 
 void Evaluation::accumulate_psqts() {

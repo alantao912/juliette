@@ -621,14 +621,14 @@ void search_t(thread_args_t *args) {
     memset(h_table, 0, sizeof(int) * HTABLE_LEN);
 
     move_t root_mvs[MAX_MOVE_NUM];
-    int n = gen_legal_moves(root_mvs, board.turn);
+    int n_root_mvs = gen_legal_moves(root_mvs, board.turn);
 
     pthread_mutex_lock(&init_lock);
     int seed = std::random_device()();
     std::mt19937 rng(seed);
     ++active_search_threads;
     pthread_mutex_unlock(&init_lock);
-    std::shuffle(root_mvs, &(root_mvs[n]), rng);
+    std::shuffle(root_mvs, &(root_mvs[n_root_mvs]), rng);
 
     move_t mv_pv[MAX_DEPTH];
 
@@ -636,7 +636,7 @@ void search_t(thread_args_t *args) {
         search_depth = d;
         int32_t evaluation = MIN_SCORE;
 
-        for (int i = 0; i < n; ++i) {
+        for (int i = 0; i < n_root_mvs; ++i) {
             mv_pv[0] = root_mvs[i];
             push(mv_pv[0]);
             int32_t mv_score = -pvs(d, MIN_SCORE, -evaluation, &mv_pv[1]);
@@ -657,6 +657,7 @@ void search_t(thread_args_t *args) {
             result.best_move = pv[0];
             result.score = evaluation;
         }
+        order_moves(root_mvs, n_root_mvs);
     }
 
     /** Thread tear-down code */

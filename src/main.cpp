@@ -145,11 +145,8 @@ int main(int argc, char *argv[]) {
                  */
 
                 initialize_zobrist();
-                uint64_t bb = 1 << 23;
-                std::cout << "BB:\n";
-                print_bitboard(bb);
-                std::cout << "\n\n";
-                print_bitboard(_get_reverse_bb(bb));
+                init_board("8/1k6/8/8/4K3/8/8/8 w - - 0 1");
+                print_bitboard(Evaluation::compute_king_vulnerabilities(board.w_king, 0ULL));
 
                 /** Insert dev code below this line */
                 /*

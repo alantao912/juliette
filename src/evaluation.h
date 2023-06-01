@@ -4,6 +4,10 @@
 #include "util.h"
 
 struct Evaluation {
+/** Determine board characteristics */
+
+    static uint64_t compute_king_vulnerabilities(uint64_t king_bb, uint64_t barriers);
+
 public:
 
     int32_t evaluate();
@@ -28,10 +32,6 @@ private:
     double progression;
 
     int32_t compute_score() const;
-
-    /** Determine board characteristics */
-
-    static uint64_t compute_king_vulnerabilities(uint64_t king_bb, uint64_t barriers);
 
     static uint64_t compute_pawn_frontspans_w(uint64_t pawns_bb, uint64_t occupied_bb);
 
@@ -74,6 +74,9 @@ private:
     void evaluate_space();
 
     /** Helper functions below */
+
+    void
+    accumulate_king_threats(int &n_attackers, int32_t &mg_score, int32_t &eg_score, uint64_t attacks, uint64_t king);
 
     void accumulate_psqts();
 
