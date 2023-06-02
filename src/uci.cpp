@@ -44,6 +44,7 @@ thread_args_t aux_args;
 void UCI::info_t::format_data(bool verbose) const {
     if (verbose) {
         std::string format("elapsed time: (%ld)ms\n%s:  %c%d%c%d\nevaluation: %d");
+        // TODO: If mate score, format to M(n)
         snprintf(sendbuf, BUFLEN, format.c_str(),
                  static_cast<long> (elapsed_time.count()), replies[bestmove].c_str(),
                  char(file_of(best_move.from) + 'a'),

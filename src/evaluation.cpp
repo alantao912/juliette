@@ -45,7 +45,7 @@ void Evaluation::reset() {
 
 int32_t Evaluation::compute_score() const {
     return (1 - 2 * (board.turn == BLACK)) *
-           (int32_t) std::round(midgame_score * (1 - progression) + endgame_score * progression);
+           (int32_t) std::round(midgame_score * progression + endgame_score * (1 - progression));
 }
 
 /**
@@ -116,18 +116,13 @@ uint64_t Evaluation::compute_pawn_rearspans_b(uint64_t pawns_bb, uint64_t occupi
     return compute_pawn_frontspans_w(pawns_bb, occupied_bb);
 }
 
-/**
- * Computes and returns a floating point number representing the game phase. [0, 1] Opening -> Endgame.
- * @return floating point number from [0, 1] describing the phase of the game. 0 -> All pieces are present. 1 -> All pieces are gone
- */
-
 double Evaluation::compute_progression() {
-    uint16_t phase = Weights::TOTAL_PHASE;
-    phase -= pop_count(board.w_pawns | board.b_pawns) * Weights::PAWN_PHASE;
-    phase -= pop_count(board.w_knights | board.b_knights) * Weights::KNIGHT_PHASE;
-    phase -= pop_count(board.w_bishops | board.b_bishops) * Weights::BISHOP_PHASE;
-    phase -= pop_count(board.w_rooks | board.b_rooks) * Weights::ROOK_PHASE;
-    phase -= pop_count(board.w_queens | board.b_queens) * Weights::QUEEN_PHASE;
+    phase = 0;
+    phase += pop_count(board.w_pawns | board.b_pawns) * Weights::PAWN_PHASE;
+    phase += pop_count(board.w_knights | board.b_knights) * Weights::KNIGHT_PHASE;
+    phase += pop_count(board.w_bishops | board.b_bishops) * Weights::BISHOP_PHASE;
+    phase += pop_count(board.w_rooks | board.b_rooks) * Weights::ROOK_PHASE;
+    phase += pop_count(board.w_queens | board.b_queens) * Weights::QUEEN_PHASE;
     return ((double) phase) / Weights::TOTAL_PHASE;
 }
 
@@ -162,13 +157,13 @@ int32_t Evaluation::evaluate() {
     passed_pawns();
     doubled_pawns();
     backward_pawns();
-    knight_activity();
-    bishop_activity();
     rook_activity();
     queen_activity();
-    king_placement();
     evaluate_space();
-    // TODO: New king safety, king placement (distance to pawns, opposition, etc), Space, Outpost Squares,
+    // TODO: New (distance to pawns, opposition, etc), Outpost Squares,
+    if (phase < 6) {
+        king_placement();
+    }
     return compute_score();
 }
 
@@ -303,14 +298,6 @@ void Evaluation::backward_pawns() {
     }
 }
 
-void Evaluation::knight_activity() {
-
-}
-
-void Evaluation::bishop_activity() {
-
-}
-
 void Evaluation::rook_activity() {
     uint64_t data = get_rook_rays_setwise(board.w_rooks, ~(board.occupied ^ board.w_rooks));
     /** Detection of connected rooks */
@@ -349,19 +336,56 @@ void Evaluation::queen_activity() {
 }
 
 void Evaluation::king_placement() {
-    int w_file = board.w_king_square % 8, w_rank = board.w_king_square / 8;
+    /**
+     *  Encourages minimizing king distance toward the endgame, by giving a "bonus" inversely proportional to mutual
+     *  king distance to the side whose king is closer to the center. Award's an additional "bonus" inversely
+     *  proportional to king distance from the edge of the board under the same conditions.
+     *
+     *  The goal is to incentivize juliette to force an opposing king toward the corner during the endgame.
+     */
 
-    w_file = std::min(w_file, 7 - w_file);
-    w_rank = std::min(w_rank, 7 - w_rank);
-    endgame_score += ((w_file * w_file) + (w_rank * w_rank)) * Weights::CENTRALIZED_KING;
+    int w_file = file_of(board.w_king_square), w_rank = rank_of(board.w_king_square / 8);
+    int wEdgeDist = std::min(std::min(w_file, 7 - w_file), std::min(w_rank, 7 - w_rank));
 
-    int b_file = board.b_king_square % 8, b_rank = board.b_king_square / 8;
-    b_file = std::min(b_file, 7 - b_file);
-    b_rank = std::min(b_rank, 7 - b_rank);
-    endgame_score -= ((b_file * b_file) + (b_rank * b_rank)) * Weights::CENTRALIZED_KING;
+    int wCenterDist;
+    {
+        /** Calculates white king's distance to center */
+        int dx = std::min(std::abs(3 - w_rank), w_rank - 4);
+        dx *= dx;
+        int dy = std::min(std::abs(3 - w_file), w_file - 4);
+        dy *= dy;
+        wCenterDist = dx + dy;
+    }
 
+    int b_file = file_of(board.b_king_square), b_rank = rank_of(board.b_king_square);
+    int bEdgeDist = std::min(std::min(b_file, 7 - b_file), std::min(b_rank, 7 - b_rank));
+
+    int bCenterDist;
+    {
+        /** Calculates black king's distance to center */
+        int dx = std::min(std::abs(3 - b_rank), b_rank - 4);
+        dx *= dx;
+        int dy = std::min(std::abs(3 - b_file), b_file - 4);
+        dy *= dy;
+        bCenterDist = dx + dy;
+    }
+
+    int kingVDiff = std::abs(b_rank - w_rank), kingHDiff = std::abs(b_file - w_file);
+    /** King distance bonus. Award bonus inversely proportional to king distance, to side whose king is closer to the center */
+    int kingDistBonus = (8 - std::max(kingVDiff, kingHDiff)) * Weights::Endgame::KING_DIST;
+    /** Difference between black king distance to center, and white king distance to center. */
+    int distDiff = bCenterDist - wCenterDist;
+
+    /** White is closer to the center */
+    int king_edge_bonus = (3 - bEdgeDist) * Weights::Endgame::KING_EDGE;
+    endgame_score += (distDiff > 0) * (kingDistBonus + king_edge_bonus);
+    /* Black is closer to the center */
+    king_edge_bonus = (3 - wEdgeDist) * Weights::Endgame::KING_EDGE;
+    endgame_score -= (distDiff < 0) * (kingDistBonus + king_edge_bonus);
+}
+
+void Evaluation::king_opposition() {
     // TODO: Implement opposition detection. Direct opposition, Distant opposition, Diagonal Opposition
-
 }
 
 void Evaluation::evaluate_space() {
@@ -488,7 +512,8 @@ void Evaluation::evaluate_space() {
         /** If the current square being examined is behind opponent's pawns, double the bonus. */
         bonus <<= ((examined_square & opponent_rear) != 0);
         midgame_score += square_guard_values[i] * (Weights::board_ctrl_tb[i] * bonus);
-        midgame_score += square_guard_values[i] * ((examined_square & w_king_surroundings) != 0) * KING_THREAT;
+        midgame_score += (square_guard_values[i] > 0) * ((examined_square & b_king_surroundings) != 0) * KING_THREAT;
+        midgame_score -= (square_guard_values[i] < 0) * ((examined_square & w_king_surroundings) != 0) * KING_THREAT;
         examined_square <<= 1;
     }
 }

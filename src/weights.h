@@ -172,12 +172,10 @@ namespace Weights {
                         -12, 17,  14,  17,  17,  38,  23,  11,
                         -74, -35, -18, -18, -11, 15,  4,   -17,
                 }
-
-
         };
+        const int32_t KING_DIST = 4;
+        const int32_t KING_EDGE = 4;
     }
-
-    const int16_t CENTRALIZED_KING = 2;
 
     const int32_t board_ctrl_tb[64] = {
             1, 1, 1, 2, 2, 1, 1, 1,

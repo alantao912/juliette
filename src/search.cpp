@@ -43,7 +43,6 @@ thread_local std::unordered_map<uint64_t, RTEntry> repetition_table;
 
 static __thread Evaluation position;
 static __thread std::vector<move_t> *killer_mvs = nullptr;
-static __thread int16_t search_depth;
 static __thread int32_t h_table[HTABLE_LEN];
 
 __thread bitboard board;
@@ -404,7 +403,7 @@ int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) { // NOLINT
         goto CHECK_EVASIONS;
     } else {
         /** Side to move is in check, evasions do not exist. Checkmate :( */
-        return MATE_SCORE(depth + search_depth);
+        return MATE_SCORE(ply);
     }
 
     stand_pat = position.evaluate();
@@ -493,7 +492,7 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
     if (n == 0) {
         if (is_check(board.turn)) {
             /** King is in check, and there are no legal mvs. Checkmate */
-            return MATE_SCORE(depth);
+            return MATE_SCORE(ply);
         }
         /** No legal mvs, yet king is not in check. This is a stalemate, and the game is drawn. */
         return DRAW;
@@ -633,7 +632,6 @@ void search_t(thread_args_t *args) {
     move_t mv_pv[MAX_DEPTH];
 
     for (int16_t d = 0; time_remaining && d < MAX_DEPTH - 1; ++d) {
-        search_depth = d;
         int32_t evaluation = MIN_SCORE;
 
         for (int i = 0; i < n_root_mvs; ++i) {
@@ -682,7 +680,6 @@ UCI::info_t search_fd(int16_t depth) {
 
     int32_t evaluation;
     for (int16_t i = 1; i <= depth; ++i) {
-        search_depth = i;
         evaluation = pvs(i, MIN_SCORE, -MIN_SCORE, pv);
     }
     killer_mvs = nullptr;
@@ -701,7 +698,6 @@ UCI::info_t search_ft(std::chrono::duration<int64_t, std::milli> time) {
     int32_t evaluation;
     std::chrono::time_point<std::chrono::steady_clock> start = std::chrono::steady_clock::now();
     for (int16_t i = 1; time.count() > 0; ++i) {
-        search_depth = i;
         evaluation = pvs(i, MIN_SCORE, -MIN_SCORE, pv);
 
         /** Update time */

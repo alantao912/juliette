@@ -20,6 +20,8 @@ private:
         PAWN_CHAIN, DOUBLED_PAWNS, CONNECTED_ROOKS, QUEEN_ROOK, QUEEN_BISHOP, KING_THREAT, PASSED_PAWN, BACKWARD_PAWN
     };
 
+    uint16_t phase;
+
     uint64_t w_king_vulnerabilities, b_king_vulnerabilities;
     uint64_t w_pawn_rearspans, b_pawn_rearspans;
 
@@ -41,7 +43,7 @@ private:
 
     static uint64_t compute_pawn_rearspans_b(uint64_t pawns_bb, uint64_t occupied_bb);
 
-    static double compute_progression();
+    double compute_progression();
 
     void compute_space_bonus_w();
 
@@ -61,21 +63,19 @@ private:
 
     void backward_pawns();
 
-    void knight_activity();
-
-    void bishop_activity();
-
     void rook_activity();
 
     void queen_activity();
 
     void king_placement();
 
+    void king_opposition();
+
     void evaluate_space();
 
     /** Helper functions below */
 
-    void
+    static void
     accumulate_king_threats(int &n_attackers, int32_t &mg_score, int32_t &eg_score, uint64_t attacks, uint64_t king);
 
     void accumulate_psqts();
