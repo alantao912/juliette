@@ -4,7 +4,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstdint>
 #include <cstring>
 
 /** Global board struct */
@@ -32,8 +31,6 @@ namespace Weights {
 void Evaluation::reset() {
     midgame_score = 0;
     endgame_score = 0;
-    w_king_vulnerabilities = compute_king_vulnerabilities(board.w_king, board.w_pawns);
-    b_king_vulnerabilities = compute_king_vulnerabilities(board.b_king, board.b_pawns);
     w_pawn_rearspans = compute_pawn_rearspans_w(board.w_pawns, 0ULL);
     b_pawn_rearspans = compute_pawn_rearspans_b(board.b_pawns, 0ULL);
     compute_n_open_files();
@@ -267,10 +264,10 @@ void Evaluation::passed_pawns() {
 }
 
 void Evaluation::backward_pawns() {
-    uint64_t backspans = compute_pawn_rearspans_w(board.w_pawns, 0ULL);
+    uint64_t rearspans = compute_pawn_rearspans_w(board.w_pawns, 0ULL);
     uint64_t file_mask = BB_FILE_A;
     for (int i = 0; i < 8; ++i) {
-        uint64_t rear_file = backspans & file_mask;
+        uint64_t rear_file = rearspans & file_mask;
         if (rear_file) {
             /** If there exists a pawn in the file */
             uint64_t left_potential_guards = (rear_file >> 1) & ~BB_FILE_H;
@@ -282,10 +279,10 @@ void Evaluation::backward_pawns() {
         }
         file_mask <<= 1;
     }
-    backspans = compute_pawn_rearspans_b(board.b_pawns, 0ULL);
+    rearspans = compute_pawn_rearspans_b(board.b_pawns, 0ULL);
     file_mask = BB_FILE_A;
     for (int i = 0; i < 8; ++i) {
-        uint64_t rear_file = backspans & file_mask;
+        uint64_t rear_file = rearspans & file_mask;
         if (rear_file) {
             uint64_t left_potential_guards = (rear_file >> 1) & ~BB_FILE_H;
             uint64_t right_potential_guards = (rear_file << 1) & BB_FILE_A;
@@ -500,7 +497,7 @@ void Evaluation::evaluate_space() {
 
     uint64_t w_king_surroundings = compute_king_vulnerabilities(board.w_king, 0ULL);
     uint64_t b_king_surroundings = compute_king_vulnerabilities(board.b_king, 0ULL);
-    uint64_t examined_square = (uint64_t) 1;
+    uint64_t examined_square = 1ULL;
     for (int i = 0; i < 64; ++i) {
         /** Sets square_guard_values[i] = sign(square_guard_values[i]) */
         square_guard_values[i] = (square_guard_values[i] > 0) - (square_guard_values[i] < 0);

@@ -22,7 +22,6 @@ private:
 
     uint16_t phase;
 
-    uint64_t w_king_vulnerabilities, b_king_vulnerabilities;
     uint64_t w_pawn_rearspans, b_pawn_rearspans;
 
     int32_t n_open_files;
