@@ -143,7 +143,7 @@ static inline bool contains_promotions() {
  */
 
 inline size_t h_table_index(const move_t &mv) {
-    return 64 * int(board.mailbox[mv.from]) + mv.to;
+    return 64 * size_t(board.mailbox[mv.from]) + size_t(mv.to);
 }
 
 /**
@@ -257,7 +257,7 @@ int32_t fast_SEE(move_t move) {
     uint64_t from_bb = BB_SQUARES[move.from];
     uint64_t occupied_bb = board.occupied;
     uint64_t attadef = attacks_to(move.to, occupied_bb);
-    gain[d] = piece_value(move.to) + Weights::MATERIAL[piece_t::BLACK_PAWN] * (move.flag == EN_PASSANT);
+    gain[d] = (piece_value(move.to) * move.to != piece_t::EMPTY) + Weights::MATERIAL[piece_t::BLACK_PAWN] * (move.flag == EN_PASSANT);
 
     piece_t attacking_piece = board.mailbox[move.from];
     do {

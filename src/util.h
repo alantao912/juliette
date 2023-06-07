@@ -8,7 +8,7 @@
 #define BLACK 0
 #define INVALID (-1)
 #define START_POSITION "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -"
-#define HTABLE_LEN 784
+#define HTABLE_LEN 768
 
 /**
  * Index enumeration of individual squares on the chess board.
