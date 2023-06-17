@@ -145,16 +145,21 @@ int main(int argc, char *argv[]) {
                  */
 
                 initialize_zobrist();
-                init_board("8/1k6/8/8/4K3/8/8/8 w - - 0 1");
-                print_bitboard(Evaluation::compute_king_vulnerabilities(board.w_king, 0ULL));
 
-                /** Insert dev code below this line */
-                /*
-                UCI::initialize_UCI();
-                UCI::parse_UCI_string("ucinewgame");
-                UCI::parse_UCI_string("position 7k/p4p2/3P4/8/1P6/8/8/7K w - - 0 1");
-                UCI::parse_UCI_string("go");
-                */
+                move_t n, m;
+                n.set_score(move_t::type_t::QUIET, 300);
+                m.set_score(move_t::type_t::QUIET, 200);
+                std::cout << "test: ";
+                print_bitstring32((int32_t) (17));
+                std::cout << "n: ";
+                print_bitstring32(n.score);
+                std::cout << "m: ";
+                print_bitstring32(m.score);
+                if (n < m) {
+                    std::cout << "n is smaller\n";
+                } else {
+                    std::cout << "n is greater than or equal to m\n";
+                }
             } else if (strcmp(recvbuf, "perft") == 0) {
                 std::cout << "juliette:: starting performance test..." << std::endl;
                 // TODO: Re-implement performance test

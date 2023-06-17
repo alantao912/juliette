@@ -60,7 +60,7 @@ void UCI::info_t::format_data(bool verbose) const {
 void UCI::initialize_UCI() {
     options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::own_book, "off"));
     options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::debug, "on"));
-    options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::thread_cnt, "6"));
+    options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::thread_cnt, "1"));
     options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::contempt, "0"));
 }
 

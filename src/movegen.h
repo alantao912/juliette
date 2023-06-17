@@ -35,7 +35,7 @@ int gen_legal_captures(move_t *moves, bool color);
 
 int gen_legal_captures_sq(move_t *moves, bool color, uint64_t square);
 
-int gen_nonquiescent_moves(move_t *moves, bool color, int *n_checks);
+int gen_nonquiescent_moves(move_t *moves, bool color);
 
 int get_flag(piece_t piece, int from, int to);
 

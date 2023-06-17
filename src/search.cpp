@@ -20,12 +20,6 @@
 #define MAX_DEPTH 128
 
 /**
- * Quiescent search_fd max ply count.
- */
-
-const int16_t qsearch_lim = 6;
-
-/**
  * Contempt factor indicates respect for opponent.
  * Positive contempt indicates respect for stronger opponent.
  * Negative contempt indicates perceived weaker opponent
@@ -156,9 +150,10 @@ inline size_t h_table_index(const move_t &mv) {
 
 int16_t compute_reduction(move_t mv, int16_t current_ply, int n) {
     const int16_t no_reduction = 3;
+    const int NO_LMR = 4;
     /** If there are two plies or fewer to horizon, giving check, or in check, do not reduce. */
-    if (current_ply < no_reduction || mv.is_type(move_t::type_t::CHECK_MOVE) ||
-        stack->prev_mv.is_type(move_t::type_t::CHECK_MOVE)) {
+    if (current_ply < no_reduction || n < NO_LMR ||
+        mv.is_type(move_t::type_t::CHECK_MOVE) || stack->prev_mv.is_type(move_t::type_t::CHECK_MOVE)) {
         return 0;
     }
 
@@ -168,14 +163,16 @@ int16_t compute_reduction(move_t mv, int16_t current_ply, int n) {
     }
 
     /** If quiet move has good relative-history, do not reduce. */
+    /*
     if ((mv.is_type(move_t::type_t::QUIET) && mv.normalize_score() > 0) ||
         mv.is_type(move_t::type_t::KILLER_MOVE)) {
         return 0;
     }
+     */
 
     /** int32_t material_loss_rf: Material loss in centi-pawns resulting in one additional ply reduction */
     const int32_t material_loss_rf = 250;
-    int16_t reduction = int16_t(sqrt(current_ply - 1) + sqrt(n - 1));
+    int16_t reduction = 1 + int16_t(sqrt(current_ply - 1) + sqrt(n - 1));
     if (mv.is_type(move_t::LOSING_EXCHANGE)) {
         const int32_t loss = -mv.normalize_score();
         const int16_t inc = (loss - 1) / material_loss_rf + 1;
@@ -310,13 +307,12 @@ int32_t move_value(move_t move) {
     }
 }
 
-void store_cutoff_mv(move_t mv) {
+void store_cutoff_mv(move_t mv, int16_t depth) {
     if (mv.is_type(move_t::type_t::QUIET)) {
-        /** If move is not a check, nor already a killer move since KM_SCORE < CHECK_MOVE.*/
         if (!mv.is_type(move_t::type_t::KILLER_MOVE)) {
             killer_mvs[ply].push_back(mv);
         }
-        h_table[h_table_index(mv)] += ply * ply;
+        h_table[h_table_index(mv)] += depth * depth;
     }
 }
 
@@ -346,9 +342,10 @@ void order_moves(move_t mvs[], int n) {
         }
 
         switch (mv.flag) {
-            case CASTLING:
+            case CASTLING: {
                 mv.set_score(move_t::type_t::QUIET, h_table[h_table_index(mv)]);
                 break;
+            }
             case CAPTURE: {
                 int diff = piece_value(mv.to) - piece_value(mv.from);
                 if (diff > 0) {
@@ -382,24 +379,23 @@ void order_moves(move_t mvs[], int n) {
  * @return
  */
 
-int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) { // NOLINT
-    if (is_drawn()) {
-        return DRAW;
-    }
-    int32_t stand_pat = MIN_SCORE;
+int32_t qsearch(int32_t alpha, int32_t beta) { // NOLINT
+    int32_t stand_pat;
 
-    move_t moves[MAX_MOVE_NUM];
-    int n, n_checks;
+    int n;
+    move_t moves[MAX_CAPTURE_NUM + 8];
+
+    bool in_check = false;
     if (!is_check(board.turn)) {
-        /** Generate non-quiet moves, such as checks, promotions, and captures. */
-        if (depth < 0 || !(n = gen_nonquiescent_moves(moves, board.turn, &n_checks))) {
+        /** Generate non-quiet moves, such as promotions, and captures. */
+        n = gen_nonquiescent_moves(moves, board.turn);
+        if (n == 0) {
             /** Position is quiet, return score. */
             return position.evaluate();
         }
     } else if ((n = gen_legal_moves(moves, board.turn))) {
         /** Side to move is in check, evasions exist. */
-        /** Effectively, this line disables futility pruning. No futility pruning in check. */
-        n_checks = n;
+        in_check = true;
         goto CHECK_EVASIONS;
     } else {
         /** Side to move is in check, evasions do not exist. Checkmate :( */
@@ -418,9 +414,7 @@ int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) { // NOLINT
         }
         /** No move can possibly raise alpha. Prune this node. */
         if (stand_pat < alpha - big_delta) {
-            /** https://www.chessprogramming.org/Delta_Pruning advises to return alpha.
-             *  However, we must still check moves that give check. */
-            n = n_checks;
+            return alpha;
         }
     }
 
@@ -431,12 +425,18 @@ int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) { // NOLINT
     CHECK_EVASIONS:
     for (size_t i = 0; i < n; ++i) {
         move_t candidate_move = moves[i];
-        if (i >= n_checks && move_value(candidate_move) + stand_pat < alpha - Weights::DELTA_MARGIN) {
+        /** Delta pruning */
+        if (!in_check && move_value(candidate_move) + stand_pat < alpha - Weights::DELTA_MARGIN) {
             /** Skip evaluating this move */
             continue;
         }
+
+        if (fast_SEE(candidate_move) < 0) {
+            continue;
+        }
+
         push(candidate_move);
-        int32_t score = -qsearch(depth - 1, -beta, -alpha);
+        int32_t score = -qsearch(-beta, -alpha);
         pop();
         if (score >= beta) {
             return beta;
@@ -458,8 +458,6 @@ int32_t qsearch(int16_t depth, int32_t alpha, int32_t beta) { // NOLINT
 #pragma ide diagnostic ignored "misc-no-recursion"
 
 static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
-    const int32_t original_alpha = alpha;
-
     pthread_mutex_lock(&tt_lock);
     std::unordered_map<uint64_t, TTEntry>::iterator t = transposition_table.find(board.hash_code);
     std::unordered_map<uint64_t, TTEntry>::const_iterator end = transposition_table.end();
@@ -469,8 +467,11 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
         const TTEntry &tt_entry = t->second;
         switch (tt_entry.flag) {
             case EXACT:
-                *mv_hst = tt_entry.best_move;
-                return tt_entry.score;
+                //if (!is_pv) {
+                    *mv_hst = tt_entry.best_move;
+                    return tt_entry.score;
+                //}
+                break;
             case LOWER:
                 alpha = std::max(alpha, tt_entry.score);
                 break;
@@ -478,11 +479,17 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
                 beta = std::min(beta, tt_entry.score);
                 break;
         }
+
+        if (alpha >= beta) {
+            *mv_hst = tt_entry.best_move;
+            return tt_entry.score;
+        }
     }
+    const int32_t original_alpha = alpha;
 
     if (depth <= 0) {
         /** Extend the search_fd until the position is quiet */
-        return qsearch(qsearch_lim, alpha, beta);
+        return qsearch(alpha, beta);
     }
     /** Move generation logic */
     move_t mvs[MAX_MOVE_NUM];
@@ -510,16 +517,16 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
 
     push(mvs[0]);
     variations[0] = mvs[0];
-    int32_t best_score = -pvs(depth - 1, -beta, -alpha, &variations[1]);
+    int32_t mv_score = -pvs(depth - 1, -beta, -alpha, &variations[1]);
     pop();
 
-    if (best_score > alpha) {
-        alpha = best_score;
-        memcpy(mv_hst, variations, depth * sizeof(move_t));
+    if (mv_score > alpha) {
+        alpha = mv_score;
+        std::memcpy(mv_hst, variations, depth * sizeof(move_t));
     }
 
     if (alpha >= beta) {
-        store_cutoff_mv(mvs[0]);
+        store_cutoff_mv(mvs[0], depth);
         goto END;
     }
     /** End PVS check first move */
@@ -528,7 +535,7 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
     for (size_t i = 1; i < n; ++i) {
         const move_t &mv = mvs[i];
         /** Futility pruning */
-        if (use_fprune(mv, depth) && best_score + move_value(mv) < alpha - Weights::DELTA_MARGIN) {
+        if (use_fprune(mv, depth) && mv_score + move_value(mv) < alpha - Weights::DELTA_MARGIN) {
             continue;
         }
         push(mv);
@@ -536,35 +543,31 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
 
         int16_t r = compute_reduction(mv, depth, i);
         /** Zero-Window Search. Assume good move ordering, and all subsequent mvs are worse. */
-        int32_t score = -pvs(depth - 1 - r, -alpha - 1, -alpha, &variations[1]);
+        mv_score = -pvs(depth - 1 - r, -alpha - 1, -alpha, &variations[1]);
         /** If mvs[i] turns out to be better, re-search move with full window */
-        if (alpha < score && score < beta) {
-            score = -pvs(depth - 1, -beta, -score, &variations[1]);
+        if (alpha < mv_score && mv_score < beta) {
+            mv_score = -pvs(depth - 1, -beta, -alpha, &variations[1]);
         }
         pop();
 
-        if (score > best_score) {
-            best_score = score;
+        if (mv_score > alpha) {
+            alpha = mv_score;
             pv_index = i;
-        }
-        /** Found new PV move */
-        if (best_score > alpha) {
-            alpha = score;
-            memcpy(mv_hst, variations, depth * sizeof(move_t));
+            std::memcpy(mv_hst, variations, depth * sizeof(move_t));
         }
 
         /** Beta-Cutoff */
         if (alpha >= beta) {
-            store_cutoff_mv(mv);
+            store_cutoff_mv(mv, depth);
             break;
         }
     }
     END:
     /** Updates the transposition table with the appropriate values */
-    TTEntry tt_entry(best_score, depth, EXACT, mvs[pv_index]);
-    if (best_score <= original_alpha) {
+    TTEntry tt_entry(alpha, depth, EXACT, mvs[pv_index]);
+    if (alpha <= original_alpha) {
         tt_entry.flag = UPPER;
-    } else if (best_score >= beta) {
+    } else if (alpha >= beta) {
         tt_entry.flag = LOWER;
     }
 
@@ -572,7 +575,7 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
     transposition_table[board.hash_code] = tt_entry;
     pthread_mutex_unlock(&tt_lock);
     killer_mvs[ply + 1].clear();
-    return best_score;
+    return alpha;
 }
 
 UCI::info_t generate_reply(int32_t evaluation, move_t best_move) {
@@ -617,7 +620,7 @@ void search_t(thread_args_t *args) {
 
     std::vector<move_t> kmv[MAX_DEPTH];
     killer_mvs = kmv;
-    memset(h_table, 0, sizeof(int) * HTABLE_LEN);
+    std::memset(h_table, 0, sizeof(int) * HTABLE_LEN);
 
     move_t root_mvs[MAX_MOVE_NUM];
     int n_root_mvs = gen_legal_moves(root_mvs, board.turn);
@@ -631,27 +634,27 @@ void search_t(thread_args_t *args) {
 
     move_t mv_pv[MAX_DEPTH];
 
-    for (int16_t d = 0; time_remaining && d < MAX_DEPTH - 1; ++d) {
+    for (int16_t d = 1; time_remaining && d < MAX_DEPTH - 1; ++d) {
         int32_t evaluation = MIN_SCORE;
 
         for (int i = 0; i < n_root_mvs; ++i) {
             mv_pv[0] = root_mvs[i];
             push(mv_pv[0]);
-            int32_t mv_score = -pvs(d, MIN_SCORE, -evaluation, &mv_pv[1]);
+            int32_t mv_score = -pvs(d - 1, MIN_SCORE, -evaluation, &mv_pv[1]);
             pop();
 
             if (mv_score > evaluation) {
                 evaluation = mv_score;
-                memcpy(pv, mv_pv, (d + 1) * sizeof(move_t));
+                std::memcpy(pv, mv_pv, d * sizeof(move_t));
             }
         }
-        TTEntry tt_entry(evaluation, d + 1, EXACT, pv[0]);
+        TTEntry tt_entry(evaluation, d, EXACT, pv[0]);
         pthread_mutex_lock(&tt_lock);
         transposition_table[board.hash_code] = tt_entry;
         pthread_mutex_unlock(&tt_lock);
 
         if (is_main_thread && time_remaining) {
-            std::cout << "Finished depth: " << (d + 1) << '\n';
+            std::cout << "Finished depth: " << d << '\n';
             result.best_move = pv[0];
             result.score = evaluation;
         }
@@ -676,7 +679,7 @@ UCI::info_t search_fd(int16_t depth) {
 
     std::vector<move_t> kmv[depth];
     killer_mvs = kmv;
-    memset(h_table, 0, sizeof(int) * HTABLE_LEN);
+    std::memset(h_table, 0, sizeof(int) * HTABLE_LEN);
 
     int32_t evaluation;
     for (int16_t i = 1; i <= depth; ++i) {
@@ -693,7 +696,7 @@ UCI::info_t search_ft(std::chrono::duration<int64_t, std::milli> time) {
 
     int kmv_len = 8;
     killer_mvs = new std::vector<move_t>[kmv_len];
-    memset(h_table, 0, sizeof(int) * HTABLE_LEN);
+    std::memset(h_table, 0, sizeof(int) * HTABLE_LEN);
 
     int32_t evaluation;
     std::chrono::time_point<std::chrono::steady_clock> start = std::chrono::steady_clock::now();

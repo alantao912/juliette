@@ -104,8 +104,6 @@ void move_t::set_score(move_t::type_t t, int32_t s) {
     score |= (1 << (24 + t));
     s += MAX_MATERIAL_LOSS;
     score |= (s & move_t::SCORE_MASK);
-    // std::cout << "Overall: ";
-    // print_bitstring32(score);
 }
 
 bool move_t::is_type(move_t::type_t t) const {

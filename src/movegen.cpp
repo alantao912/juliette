@@ -666,31 +666,64 @@ int gen_legal_captures_sq(move_t *moves, bool color, uint64_t attack_square) {
     return i;
 }
 
-int gen_nonquiescent_moves(move_t *moves, bool color, int *n_checks) {
-    int n = gen_legal_moves(moves, color);
-    int num_checks = 0, num_proms = 0, num_captures = 0;
-    for (int i = 0; i < n; ++i) {
-        if (is_move_check(moves[i])) {
-            /* move_t puts opponent in check */
-            moves[num_checks + num_proms + num_captures] = moves[num_checks + num_proms];
-            moves[num_checks + num_proms] = moves[num_checks];
-            moves[num_checks] = moves[i];
-            ++num_checks;
-        } else if (moves[i].flag >= PR_KNIGHT) {
-            /* move_t is a promotion */
-            moves[num_checks + num_proms + num_captures] = moves[num_checks + num_proms];
-            moves[num_checks + num_proms] = moves[i];
-            ++num_proms;
-        } else if ((moves[i].flag == CAPTURE && fast_SEE(moves[i]) >= 0) || moves[i].flag == EN_PASSANT) {
-            /**
-             * move_t is a non-losing capture.
-             */
-            moves[num_checks + num_proms + num_captures] = moves[i];
-            ++num_captures;
+int gen_nonquiescent_moves(move_t *moves, bool color) {
+    int num_proms = 0;
+
+    uint64_t pawns, pieces;
+    int king_square;
+    if (color) {
+        pieces = board.w_occupied;
+        king_square = board.w_king_square;
+
+        uint64_t checkmask = _get_checkmask(color);
+        uint64_t pos_pinned = get_queen_moves(BLACK, king_square) & pieces;
+
+        pawns = board.w_pawns & BB_RANK_7;
+        while (pawns) {
+            int from = pull_lsb(&pawns);
+
+            uint64_t pinmask;
+            uint64_t pinned_bb = BB_SQUARES[from] & pos_pinned;
+            if (pinned_bb) {
+                pinmask = _get_pinmask(color, from);
+            } else {
+                pinmask = BB_ALL;
+            }
+            if (!(((BB_SQUARES[from] << 8) & ~board.occupied) & checkmask & pinmask)) continue;
+            moves[num_proms++] = {(unsigned int) from, (unsigned int) from + 8, move_flags::PR_QUEEN, 0};
+            moves[num_proms++] = {(unsigned int) from, (unsigned int) from + 8, move_flags::PR_ROOK, 0};
+            moves[num_proms++] = {(unsigned int) from, (unsigned int) from + 8, move_flags::PR_BISHOP, 0};
+            moves[num_proms++] = {(unsigned int) from, (unsigned int) from + 8, move_flags::PR_KNIGHT, 0};
+        }
+    } else {
+        pieces = board.b_occupied;
+        king_square = board.b_king_square;
+
+        uint64_t checkmask = _get_checkmask(color);
+        uint64_t pos_pinned = get_queen_moves(WHITE, king_square) & pieces;
+
+        pawns = board.b_pawns & BB_RANK_2;
+        while (pawns) {
+            int from = pull_lsb(&pawns);
+
+            uint64_t pinmask;
+            uint64_t pinned_bb = BB_SQUARES[from] & pos_pinned;
+            if (pinned_bb) {
+                pinmask = _get_pinmask(color, from);
+            } else {
+                pinmask = BB_ALL;
+            }
+
+            if (!(((BB_SQUARES[from] >> 8) & ~board.occupied) & checkmask & pinmask)) continue;
+            moves[num_proms++] = {(unsigned int) from, (unsigned int) from - 8, move_flags::PR_QUEEN, 0};
+            moves[num_proms++] = {(unsigned int) from, (unsigned int) from - 8, move_flags::PR_ROOK, 0};
+            moves[num_proms++] = {(unsigned int) from, (unsigned int) from - 8, move_flags::PR_BISHOP, 0};
+            moves[num_proms++] = {(unsigned int) from, (unsigned int) from - 8, move_flags::PR_KNIGHT, 0};
         }
     }
-    *n_checks = num_checks;
-    return num_checks + num_proms + num_captures;
+    int num_captures;
+    num_captures = gen_legal_captures(&(moves[num_proms]), color);
+    return num_proms + num_captures;
 }
 
 /**

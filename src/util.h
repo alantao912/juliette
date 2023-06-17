@@ -84,6 +84,8 @@ typedef struct move_t {
 
     void set_score(type_t t, int32_t score);
 
+    void set_score(int32_t s);
+
     bool is_type(type_t t) const;
 
     bool operator==(const move_t &other) const;
