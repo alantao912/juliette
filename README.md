@@ -5,11 +5,13 @@
 </p>
 
 ### Overview:   
+---
 *juliette* is an open source, UCI compliant **chess engine** that analyzes chess positions and determines strong moves. Currently, *juliette* has an estimated playing strength of ELO.  
 
-*juliette* is a back-end
+This project comes with an associated chess front-end, *romeo*, developed in ElectronJS which provides a user friendly interface for playing against *juliette*.
 
 ### Build
+---
 Requirements:
 
 ```
@@ -25,3 +27,4 @@ To compile and run, navigate to the root project directory and invoke the follow
 ```
 
 ### About
+---
