@@ -13,27 +13,51 @@ enum flag_t {
 };
 
 struct TTEntry {
+    uint64_t key;
+
+    bool initialized;
     flag_t flag;
 
     int32_t score;
     uint16_t depth;
-    move_t best_move{};
+    move_t best_move;
 
-    TTEntry() {
-        flag = EXACT;
-        score = 0;
-        depth = 0;
-        best_move = NULL_MOVE;
-    }
+    TTEntry();
 
-    TTEntry(int32_t e, uint16_t d, flag_t f, move_t m) : score(e), depth(d), flag(f), best_move(m) {};
+    TTEntry(uint64_t hash_code, int32_t score, int16_t depth, flag_t flag, move_t best_move);
 
-    TTEntry(const TTEntry &other) {
-        flag = other.flag;
-        score = other.score;
-        depth = other.depth;
-        best_move = other.best_move;
-    }
+    uint64_t operator()() const;
+
+    TTEntry &operator=(const TTEntry &other);
+};
+
+struct TTable {
+
+    bool hash_full;
+
+    TTable();
+
+    ~TTable();
+
+    void initialize(std::size_t initial_capacity);
+
+    void insert(const TTEntry &entry);
+
+    TTEntry *find(std::uint64_t hash_code);
+
+    void clear();
+
+    /**
+     * Returns pointer to backing array. To be used for debug purposes.
+     * @return Pointer to backing array
+     */
+    TTEntry *get_backing_ptr();
+private:
+
+    static double load_factor;
+
+    std::size_t size, capacity;
+    TTEntry *entries;
 };
 
 struct RTEntry {
@@ -50,3 +74,5 @@ struct RTEntry {
         num_seen = other.num_seen;
     }
 };
+
+void test_transposition_table();

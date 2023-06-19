@@ -16,7 +16,7 @@
 namespace UCI {
 
     enum option_t {
-        contempt, debug, own_book, thread_cnt
+        contempt, debug, own_book, thread_cnt, hash_size
     };
 
     typedef struct info {
@@ -41,4 +41,6 @@ namespace UCI {
     void reply();
 
     void set_option(const std::vector<std::string> &args);
+
+    const std::string &get_option(UCI::option_t);
 };

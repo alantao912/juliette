@@ -96,6 +96,19 @@ const int MAX_ATTACK_NUM = 16;
 /** Maximum amount of material that can be lost in any exchange */
 const int32_t MAX_MATERIAL_LOSS = Weights::MATERIAL[piece_t::BLACK_QUEEN];
 
+uint64_t rand_bitstring()  {
+    uint64_t out = 0;
+    uint64_t mask = 1ULL;
+    uint8_t i = 0;
+    while (i++ < 63) {
+        if (rand() % 2 == 0) {
+            out |= mask;
+        }
+        mask <<= 1;
+    }
+    return out;
+}
+
 int32_t move_t::normalize_score() const {
     return (SCORE_MASK & score) - MAX_MATERIAL_LOSS;
 }

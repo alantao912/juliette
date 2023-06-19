@@ -215,6 +215,9 @@ extern const int MAX_MOVE_NUM;
 extern const int MAX_CAPTURE_NUM;
 extern const int MAX_ATTACK_NUM;
 
+
+uint64_t rand_bitstring();
+
 piece_t to_enum(char p);
 
 char to_char(piece_t p);

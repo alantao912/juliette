@@ -6,19 +6,6 @@
 
 extern __thread bitboard board;
 
-uint64_t rand_bitstring() {
-    uint64_t out = 0;
-    uint64_t mask = 1ULL;
-    uint8_t i = 0;
-    while (i++ < 63) {
-        if (rand() % 2 == 0) {
-            out |= mask;
-        }
-        mask <<= 1;
-    }
-    return out;
-}
-
 void initialize_zobrist() {
     for (int i = 0; i < 781; ++i) {
         ZOBRIST_VALUES[i] = rand_bitstring();

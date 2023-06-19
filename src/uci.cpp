@@ -60,8 +60,9 @@ void UCI::info_t::format_data(bool verbose) const {
 void UCI::initialize_UCI() {
     options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::own_book, "off"));
     options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::debug, "on"));
-    options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::thread_cnt, "1"));
+    options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::thread_cnt, "14"));
     options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::contempt, "0"));
+    options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::hash_size, "10485760"));
 }
 
 void UCI::parse_UCI_string(const char *uci) {
@@ -207,8 +208,19 @@ void UCI::set_option(const std::vector<std::string> &args) {
             snprintf(sendbuf, BUFLEN, "juliette:: thread count must be a number");
             UCI::reply();
         }
+    } else if (args[1] == "hash_size") {
+        if (is_number(args[3])) {
+            options[UCI::option_t::hash_size] = args[3];
+        } else {
+            snprintf(sendbuf, BUFLEN, "juliette:: hash size must be a number");
+            UCI::reply();
+        }
     } else {
         snprintf(sendbuf, BUFLEN, "juliette:: unrecognized option name '%s'", args[1].c_str());
         UCI::reply();
     }
+}
+
+const std::string &get_option(UCI::option_t opt) {
+    return options[opt];
 }

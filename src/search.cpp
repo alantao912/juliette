@@ -11,6 +11,7 @@
 #include "search.h"
 #include "stack.h"
 #include "tables.h"
+#include "uci.h"
 #include "util.h"
 #include "weights.h"
 
@@ -26,8 +27,8 @@
  */
 const int32_t contempt_value = 0;
 
-static std::unordered_map<uint64_t, TTEntry> transposition_table;
-static pthread_mutex_t tt_lock, init_lock;
+static TTable transposition_table;
+static pthread_mutex_t init_lock;
 static volatile size_t active_search_threads = 0;
 
 volatile bool time_remaining = true, block_thread = true;
@@ -161,14 +162,6 @@ int16_t compute_reduction(move_t mv, int16_t current_ply, int n) {
     if (mv.flag >= move_flags::EN_PASSANT && !mv.is_type(move_t::type_t::LOSING_EXCHANGE)) {
         return 0;
     }
-
-    /** If quiet move has good relative-history, do not reduce. */
-    /*
-    if ((mv.is_type(move_t::type_t::QUIET) && mv.normalize_score() > 0) ||
-        mv.is_type(move_t::type_t::KILLER_MOVE)) {
-        return 0;
-    }
-     */
 
     /** int32_t material_loss_rf: Material loss in centi-pawns resulting in one additional ply reduction */
     const int32_t material_loss_rf = 250;
@@ -317,14 +310,13 @@ void store_cutoff_mv(move_t mv, int16_t depth) {
 }
 
 void order_moves(move_t mvs[], int n) {
-    std::unordered_map<uint64_t, TTEntry>::const_iterator it = transposition_table.find(
+    const TTEntry *it = transposition_table.find(
             board.hash_code);
     const std::vector<move_t> &kmvs = killer_mvs[ply];
 
     move_t hash_move = NULL_MOVE;
-    if (it != transposition_table.end()) {
-        const TTEntry &tte = it->second;
-        hash_move = tte.best_move;
+    if (it != nullptr) {
+        hash_move = it->best_move;
     }
 
     for (int i = 0; i < n; ++i) {
@@ -458,31 +450,25 @@ int32_t qsearch(int32_t alpha, int32_t beta) { // NOLINT
 #pragma ide diagnostic ignored "misc-no-recursion"
 
 static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
-    pthread_mutex_lock(&tt_lock);
-    std::unordered_map<uint64_t, TTEntry>::iterator t = transposition_table.find(board.hash_code);
-    std::unordered_map<uint64_t, TTEntry>::const_iterator end = transposition_table.end();
-    pthread_mutex_unlock(&tt_lock);
+    TTEntry *t = transposition_table.find(board.hash_code);
 
-    if (t != end && t->second.depth >= depth) {
-        const TTEntry &tt_entry = t->second;
-        switch (tt_entry.flag) {
+    if (t != nullptr && t->depth >= depth) {
+        switch (t->flag) {
             case EXACT:
-                //if (!is_pv) {
-                    *mv_hst = tt_entry.best_move;
-                    return tt_entry.score;
-                //}
+                *mv_hst = t->best_move;
+                return t->score;
                 break;
             case LOWER:
-                alpha = std::max(alpha, tt_entry.score);
+                alpha = std::max(alpha, t->score);
                 break;
             case UPPER:
-                beta = std::min(beta, tt_entry.score);
+                beta = std::min(beta, t->score);
                 break;
         }
 
         if (alpha >= beta) {
-            *mv_hst = tt_entry.best_move;
-            return tt_entry.score;
+            *mv_hst = t->best_move;
+            return t->score;
         }
     }
     const int32_t original_alpha = alpha;
@@ -564,16 +550,14 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
     }
     END:
     /** Updates the transposition table with the appropriate values */
-    TTEntry tt_entry(alpha, depth, EXACT, mvs[pv_index]);
+    TTEntry tt_entry(board.hash_code, alpha, depth, EXACT, mvs[pv_index]);
     if (alpha <= original_alpha) {
         tt_entry.flag = UPPER;
     } else if (alpha >= beta) {
         tt_entry.flag = LOWER;
     }
 
-    pthread_mutex_lock(&tt_lock);
-    transposition_table[board.hash_code] = tt_entry;
-    pthread_mutex_unlock(&tt_lock);
+    transposition_table.insert(tt_entry);
     killer_mvs[ply + 1].clear();
     return alpha;
 }
@@ -606,8 +590,8 @@ void search_t(thread_args_t *args) {
     if (is_main_thread) {
         /** Main thread initializes shared locks */
         block_thread = true;
-        pthread_mutex_init(&tt_lock, nullptr);
         pthread_mutex_init(&init_lock, nullptr);
+        transposition_table.initialize(1024 * 20);
         block_thread = false;
     } else {
         /** Busy-wait for lock initialization to complete */
@@ -648,10 +632,8 @@ void search_t(thread_args_t *args) {
                 std::memcpy(pv, mv_pv, d * sizeof(move_t));
             }
         }
-        TTEntry tt_entry(evaluation, d, EXACT, pv[0]);
-        pthread_mutex_lock(&tt_lock);
-        transposition_table[board.hash_code] = tt_entry;
-        pthread_mutex_unlock(&tt_lock);
+        TTEntry tt_entry(board.hash_code, evaluation, d, EXACT, pv[0]);
+        transposition_table.insert(tt_entry);
 
         if (is_main_thread && time_remaining) {
             std::cout << "Finished depth: " << d << '\n';
@@ -665,7 +647,6 @@ void search_t(thread_args_t *args) {
     killer_mvs = nullptr;
     if (is_main_thread) {
         while (active_search_threads > 1);
-        pthread_mutex_destroy(&tt_lock);
         pthread_mutex_destroy(&init_lock);
     }
     --active_search_threads;
