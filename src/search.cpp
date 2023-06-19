@@ -591,7 +591,7 @@ void search_t(thread_args_t *args) {
         /** Main thread initializes shared locks */
         block_thread = true;
         pthread_mutex_init(&init_lock, nullptr);
-        transposition_table.initialize(1024 * 20);
+        transposition_table.initialize(strtol(UCI::get_option(UCI::option_t::hash_size).c_str(), nullptr, 10));
         block_thread = false;
     } else {
         /** Busy-wait for lock initialization to complete */

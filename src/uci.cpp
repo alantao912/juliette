@@ -62,7 +62,7 @@ void UCI::initialize_UCI() {
     options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::debug, "on"));
     options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::thread_cnt, "14"));
     options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::contempt, "0"));
-    options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::hash_size, "10485760"));
+    options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::hash_size, "65536"));
 }
 
 void UCI::parse_UCI_string(const char *uci) {
@@ -147,7 +147,7 @@ void UCI::go(const std::vector<std::string> &args) {
     pthread_t threads[n_threads];
     main_arg = {.main_board = &board, .main_repetition_table = &repetition_table, .is_main_thread = true};
     aux_args = {.main_board = &board, .main_repetition_table = &repetition_table, .is_main_thread = false};
-    start_timer(60 * 1000);
+    start_timer(10 * 1000);
     int status = pthread_create(&threads[0], nullptr, reinterpret_cast<void *(*)(void *)> (search_t),
                                 (void *) &main_arg);
     for (int i = 1; i < n_threads; ++i) {
@@ -221,6 +221,6 @@ void UCI::set_option(const std::vector<std::string> &args) {
     }
 }
 
-const std::string &get_option(UCI::option_t opt) {
+const std::string &UCI::get_option(UCI::option_t opt) {
     return options[opt];
 }

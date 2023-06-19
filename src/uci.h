@@ -42,5 +42,5 @@ namespace UCI {
 
     void set_option(const std::vector<std::string> &args);
 
-    const std::string &get_option(UCI::option_t);
+    const std::string &get_option(UCI::option_t opt);
 };
