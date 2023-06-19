@@ -4,12 +4,12 @@
 <img src="https://github.com/alantao912/juliette/blob/main/juliette-logo.png" border-radius="5px"/>  
 </p>
 
-Overview:   
+### Overview:   
 *juliette* is an open source, UCI compliant **chess engine** that analyzes chess positions and determines strong moves. Currently, *juliette* has an estimated playing strength of ELO.  
 
 *juliette* is a back-end
 
-###Build
+### Build
 Requirements:
 
 ```
@@ -24,4 +24,4 @@ To compile and run, navigate to the root project directory and invoke the follow
     - ./juliette cli
 ```
 
-###About
+### About
