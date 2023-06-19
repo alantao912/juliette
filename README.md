@@ -1,7 +1,7 @@
 # juliette
 
 <p align="center">
-<img src="https://github.com/alantao912/juliette/blob/main/juliette-logo.png" border-radius="5px"/>  
+<img src="https://github.com/alantao912/juliette/blob/main/juliette-logo.png" style="border: 2px solid  gray; border-radius: 2px"/>  
 </p>
 
 ### Overview:   
