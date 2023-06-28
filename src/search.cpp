@@ -184,14 +184,39 @@ int32_t piece_value(int square) {
     return (1 - (piece == piece_t::EMPTY)) * piece_value(piece);
 }
 
-uint64_t find_lva(uint64_t attadef, bool turn, piece_t &piece) {
+uint64_t find_lva(uint64_t attadef, piece_t &piece, uint64_t target) {
     int32_t min_piece_value = INT32_MAX;
     uint64_t lva_bb = 0ULL;
+
+    uint64_t pieces;
+    uint64_t king_bb;
+    int king_square;
+    if (board.turn == WHITE) {
+        pieces = board.w_occupied;
+        king_bb = board.w_king;
+        king_square = board.w_king_square;
+    } else {
+        pieces = board.b_occupied;
+        king_bb = board.b_king;
+        king_square = board.b_king_square;
+    }
+
+    uint64_t attackmask = _get_attackmask(!board.turn);
+    uint64_t checkmask = _get_checkmask(board.turn);
+    uint64_t pos_pinned = get_queen_moves(!board.turn, king_square) & pieces;
+
     while (attadef) {
         int i = pull_lsb(&attadef), value;
 
-        if ((static_cast<int> (board.mailbox[i]) / 6) == turn &&
-            (value = piece_value(board.mailbox[i])) < min_piece_value) {
+        uint64_t pinmask;
+        uint64_t pinned_bb = BB_SQUARES[i] & pos_pinned;
+        if (pinned_bb) {
+            pinmask = _get_pinmask(board.turn, i);
+        } else {
+            pinmask = BB_ALL;
+        }
+        if ((static_cast<int> (board.mailbox[i]) / 6) == board.turn &&
+            (value = piece_value(board.mailbox[i])) < min_piece_value && target & checkmask & pinmask) {
             min_piece_value = value;
 
             lva_bb = BB_SQUARES[i];
@@ -201,7 +226,7 @@ uint64_t find_lva(uint64_t attadef, bool turn, piece_t &piece) {
     return lva_bb;
 }
 
-uint64_t consider_xray_attacks(int from, int to, const uint64_t occupied) {
+uint64_t consider_xray_attacks(int from, int to) {
     int shift_amt;
     uint64_t iterator = BB_SQUARES[from], boundary;
     if (from > to) {
@@ -214,7 +239,7 @@ uint64_t consider_xray_attacks(int from, int to, const uint64_t occupied) {
         boundary = ((top_right | right) * BB_FILE_A) + (top_left * BB_FILE_H);
         do {
             iterator = (iterator << shift_amt) & ~boundary;
-            if (iterator & occupied)
+            if (iterator & board.occupied)
                 return iterator;
         } while (iterator);
     } else {
@@ -227,7 +252,7 @@ uint64_t consider_xray_attacks(int from, int to, const uint64_t occupied) {
         boundary = (BB_FILE_A * bottom_right) + (BB_FILE_H * (left | bottom_left));
         do {
             iterator = (iterator >> shift_amt) & ~boundary;
-            if (iterator & occupied)
+            if (iterator & board.occupied)
                 return iterator;
         } while (iterator);
     }
@@ -241,29 +266,44 @@ uint64_t consider_xray_attacks(int from, int to, const uint64_t occupied) {
  */
 
 int32_t fast_SEE(move_t move) {
+    bitboard copy = board;
     int gain[32], d = 0;
     uint64_t may_xray = board.w_pawns | board.b_pawns | board.w_bishops | board.b_bishops | board.w_rooks |
                         board.b_rooks | board.w_queens | board.b_queens;
     uint64_t from_bb = BB_SQUARES[move.from];
     uint64_t occupied_bb = board.occupied;
     uint64_t attadef = attacks_to(move.to, occupied_bb);
-    gain[d] = (piece_value(move.to) * move.to != piece_t::EMPTY) + Weights::MATERIAL[piece_t::BLACK_PAWN] * (move.flag == EN_PASSANT);
-
+    gain[d] = (piece_value(move.to) * (board.mailbox[move.to] != piece_t::EMPTY)) + Weights::MATERIAL[piece_t::BLACK_PAWN] * (move.flag == EN_PASSANT);
+    
     piece_t attacking_piece = board.mailbox[move.from];
     do {
         ++d;
         gain[d] = piece_value(attacking_piece) - gain[d - 1];
         if (std::max(-gain[d - 1], gain[d]) < 0) break;
         attadef ^= from_bb;
-        occupied_bb ^= from_bb;
+        board.occupied &= ~from_bb;
+        board.w_occupied &= ~from_bb;
+        board.b_occupied &= ~from_bb;
+        board.w_pawns &= ~from_bb;
+        board.w_knights &= ~from_bb;
+        board.w_bishops &= ~from_bb;
+        board.w_rooks &= ~from_bb;
+        board.w_queens &= ~from_bb;
+        board.b_pawns &= ~from_bb;
+        board.b_knights &= ~from_bb;
+        board.b_bishops &= ~from_bb;
+        board.b_rooks &= ~from_bb;
+        board.b_queens &= ~from_bb;
         if (from_bb & may_xray) {
-            attadef |= consider_xray_attacks(get_lsb(from_bb), move.to, occupied_bb);
+            attadef |= consider_xray_attacks(get_lsb(from_bb), move.to);
         }
-        from_bb = find_lva(attadef, (bool) ((board.turn + d) % 2), attacking_piece);
+        board.turn = !board.turn;
+        from_bb = find_lva(attadef, attacking_piece, BB_SQUARES[move.to]);
     } while (from_bb);
     while (--d) {
         gain[d - 1] = -std::max(-gain[d - 1], gain[d]);
     }
+    board = copy;
     return gain[0];
 }
 

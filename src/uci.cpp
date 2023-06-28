@@ -62,7 +62,7 @@ void UCI::initialize_UCI() {
     options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::debug, "on"));
     options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::thread_cnt, "14"));
     options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::contempt, "0"));
-    options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::hash_size, "65536"));
+    options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::hash_size, "25165824"));
 }
 
 void UCI::parse_UCI_string(const char *uci) {

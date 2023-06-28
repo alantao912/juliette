@@ -18,7 +18,7 @@ namespace Weights {
      * Capture strength of a given piece indexed by piece_t coerced to integer.
      */
 
-    const int8_t GUARD_VALUE[6] = {9, 6, 5, 2, 1, 1};
+    const int8_t GUARD_VALUE[6] = {9, 6, 7, 2, 1, 1};
 
     /**
      * @Citation

@@ -145,8 +145,20 @@ int main(int argc, char *argv[]) {
                  */
 
                 initialize_zobrist();
+                init_board("6k1/8/8/2r5/4p3/3P4/2B5/2K5 b - - 0 1");
 
-                test_transposition_table();
+                move_t moves[MAX_MOVE_NUM];
+                int n = gen_legal_moves(moves, board.turn);
+                for (int i = 0; i < n; ++i) {
+                    std::cout << i + 1 << ". ";
+                    print_move(moves[i]);
+                    std::cout << '\n';
+                }
+                int m;
+                std::cin >> m;
+                int32_t score = fast_SEE(moves[m - 1]);
+                std::cout << "SEE score: " << score << '\n';
+                //test_transposition_table();
             } else if (strcmp(recvbuf, "perft") == 0) {
                 std::cout << "juliette:: starting performance test..." << std::endl;
                 // TODO: Re-implement performance test

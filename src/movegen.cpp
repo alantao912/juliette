@@ -750,7 +750,7 @@ int get_flag(piece_t piece, int from, int to) {
  * @return the bitboard of squares the king of the color can't go.
  * All squares the color is attacking.
  */
-static uint64_t _get_attackmask(bool color) {
+uint64_t _get_attackmask(bool color) {
     uint64_t occupied;
     uint64_t key;
 
@@ -811,7 +811,7 @@ static uint64_t _get_attackmask(bool color) {
  * the path between the attacking piece and the color's king.
  * Returns empty bitboard if in double or more check.
  */
-static uint64_t _get_checkmask(bool color) {
+uint64_t _get_checkmask(bool color) {
     int num_attackers = 0;
     uint64_t checkmask = 0;
 
@@ -880,7 +880,7 @@ static uint64_t _get_checkmask(bool color) {
  * @param square the square the possibly pinned piece is on.
  * @return a possible pin ray for the piece.
  */
-static uint64_t _get_pinmask(bool color, int square) {
+uint64_t _get_pinmask(bool color, int square) {
     uint64_t pinmask = 0;
 
     int king_square;

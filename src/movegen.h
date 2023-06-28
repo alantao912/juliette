@@ -39,11 +39,11 @@ int gen_nonquiescent_moves(move_t *moves, bool color);
 
 int get_flag(piece_t piece, int from, int to);
 
-static uint64_t _get_attackmask(bool color);
+uint64_t _get_attackmask(bool color);
 
-static uint64_t _get_checkmask(bool color);
+uint64_t _get_checkmask(bool color);
 
-static uint64_t _get_pinmask(bool color, int square);
+uint64_t _get_pinmask(bool color, int square);
 
 uint64_t get_pawn_moves(bool color, int square);
 
