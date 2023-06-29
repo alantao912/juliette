@@ -145,7 +145,7 @@ int main(int argc, char *argv[]) {
                  */
 
                 initialize_zobrist();
-                init_board("6k1/8/8/2r5/4p3/3P4/2B5/2K5 b - - 0 1");
+                init_board("3r3k/3r4/8/8/8/8/8/2KR2R1 b - - 0 1");
 
                 move_t moves[MAX_MOVE_NUM];
                 int n = gen_legal_moves(moves, board.turn);

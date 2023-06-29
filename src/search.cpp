@@ -260,6 +260,27 @@ uint64_t consider_xray_attacks(int from, int to) {
 }
 
 /**
+ * Clears every bitboard field in board.
+ * @param from_bb The square to clear.
+ */
+
+void clear_bb(uint64_t from_bb) {
+    board.occupied &= ~from_bb;
+    board.w_occupied &= ~from_bb;
+    board.b_occupied &= ~from_bb;
+    board.w_pawns &= ~from_bb;
+    board.w_knights &= ~from_bb;
+    board.w_bishops &= ~from_bb;
+    board.w_rooks &= ~from_bb;
+    board.w_queens &= ~from_bb;
+    board.b_pawns &= ~from_bb;
+    board.b_knights &= ~from_bb;
+    board.b_bishops &= ~from_bb;
+    board.b_rooks &= ~from_bb;
+    board.b_queens &= ~from_bb;
+}
+
+/**
  * Static exchange score:
  * @param move a move that captures an opponent's piece
  * @return returns whether or not the capture does not lose material
@@ -271,31 +292,27 @@ int32_t fast_SEE(move_t move) {
     uint64_t may_xray = board.w_pawns | board.b_pawns | board.w_bishops | board.b_bishops | board.w_rooks |
                         board.b_rooks | board.w_queens | board.b_queens;
     uint64_t from_bb = BB_SQUARES[move.from];
-    uint64_t occupied_bb = board.occupied;
-    uint64_t attadef = attacks_to(move.to, occupied_bb);
+    uint64_t attadef = attacks_to(move.to);
     gain[d] = (piece_value(move.to) * (board.mailbox[move.to] != piece_t::EMPTY)) + Weights::MATERIAL[piece_t::BLACK_PAWN] * (move.flag == EN_PASSANT);
     
     piece_t attacking_piece = board.mailbox[move.from];
+    uint64_t bb_to = BB_SQUARES[move.to];
     do {
         ++d;
         gain[d] = piece_value(attacking_piece) - gain[d - 1];
         if (std::max(-gain[d - 1], gain[d]) < 0) break;
         attadef ^= from_bb;
-        board.occupied &= ~from_bb;
-        board.w_occupied &= ~from_bb;
-        board.b_occupied &= ~from_bb;
-        board.w_pawns &= ~from_bb;
-        board.w_knights &= ~from_bb;
-        board.w_bishops &= ~from_bb;
-        board.w_rooks &= ~from_bb;
-        board.w_queens &= ~from_bb;
-        board.b_pawns &= ~from_bb;
-        board.b_knights &= ~from_bb;
-        board.b_bishops &= ~from_bb;
-        board.b_rooks &= ~from_bb;
-        board.b_queens &= ~from_bb;
+        clear_bb(from_bb);
         if (from_bb & may_xray) {
             attadef |= consider_xray_attacks(get_lsb(from_bb), move.to);
+        }
+
+        int king = (!board.turn * board.w_king_square) | (board.turn * board.b_king_square);
+        if (bb_to & BB_KING_ATTACKS[king]) {
+            uint64_t attackmask = _get_attackmask(board.turn);
+            bool king_can_reach = (BB_KING_ATTACKS[king] & bb_to) != 0;
+            bool square_undefended = (bb_to & attackmask) == 0;
+            attadef |= BB_SQUARES[king] * (king_can_reach & square_undefended);
         }
         board.turn = !board.turn;
         from_bb = find_lva(attadef, attacking_piece, BB_SQUARES[move.to]);

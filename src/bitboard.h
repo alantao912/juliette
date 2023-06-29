@@ -16,7 +16,7 @@ bool is_move_check(move_t move);
 
 bool is_attacked(bool color, int square);
 
-uint64_t attacks_to(int target_square, uint64_t occupied_bb);
+uint64_t attacks_to(int target_square);
 
 uint64_t *get_bitboard(piece_t piece);
 

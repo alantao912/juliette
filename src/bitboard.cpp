@@ -372,13 +372,15 @@ bool is_attacked(bool color, int square) {
 /**
  *
  */
-uint64_t attacks_to(int target_square, uint64_t occupied_bb) {
+uint64_t attacks_to(int target_square) {
     uint64_t attacks = 0ULL;
     uint64_t pieces = board.occupied;
 
     const uint64_t target_bb = BB_SQUARES[target_square];
+    const uint64_t attackmasks[2] = { _get_attackmask(BLACK), _get_attackmask(WHITE)};
     while (pieces) {
         int i = pull_lsb(&pieces);
+        int opposite_color = (board.mailbox[i] < 6);
         piece_t piece_type = static_cast<piece_t> ((static_cast<int> (board.mailbox[i]) % 6));
         switch (piece_type) {
             case BLACK_PAWN: {
@@ -400,7 +402,7 @@ uint64_t attacks_to(int target_square, uint64_t occupied_bb) {
                                            BB_ANTI_DIAGONALS[anti_diagonal_of(i)]);
                 uint64_t ray = get_ray_between(i, target_square) & ~BB_SQUARES[i] & ~BB_SQUARES[target_square];
                 bool alignment_exists = (bishop_attacks | target_bb) == bishop_attacks;
-                bool no_obstructions = (ray ^ occupied_bb) == (ray | occupied_bb);
+                bool no_obstructions = (ray ^ board.occupied) == (ray | board.occupied);
                 uint64_t result = alignment_exists & no_obstructions;
                 attacks |= (result << i);
                 break;
@@ -409,7 +411,7 @@ uint64_t attacks_to(int target_square, uint64_t occupied_bb) {
                 uint64_t rook_attacks = (BB_RANKS[rank_of(i)] ^ BB_FILES[file_of(i)]);
                 uint64_t ray = get_ray_between(i, target_square) & ~BB_SQUARES[i] & ~BB_SQUARES[target_square];
                 bool alignment_exists = ((rook_attacks | target_bb) == rook_attacks);
-                bool no_obstructions = (ray ^ occupied_bb) == (ray | occupied_bb);
+                bool no_obstructions = (ray ^ board.occupied) == (ray | board.occupied);
                 uint64_t result = alignment_exists & no_obstructions;
                 attacks |= (result << i);
                 break;
@@ -419,13 +421,13 @@ uint64_t attacks_to(int target_square, uint64_t occupied_bb) {
                 bool alignment_exists = ray != 0;
                 ray &= ~BB_SQUARES[i];
                 ray &= ~BB_SQUARES[target_square];
-                bool no_obstructions = (ray ^ occupied_bb) == (ray | occupied_bb);
+                bool no_obstructions = (ray ^ board.occupied) == (ray | board.occupied);
                 uint64_t result = alignment_exists & no_obstructions;
                 attacks |= (result << i);
                 break;
             }
             case BLACK_KING: {
-                bool can_king_reach = (BB_KING_ATTACKS[i] & target_bb) != 0;
+                bool can_king_reach = (BB_KING_ATTACKS[i] & target_bb & ~attackmasks[opposite_color]) != 0;
                 uint64_t result = can_king_reach;
                 attacks |= (result << i);
                 break;
