@@ -275,11 +275,13 @@ void clear_bb(uint64_t from_bb) {
     board.w_bishops &= ~from_bb;
     board.w_rooks &= ~from_bb;
     board.w_queens &= ~from_bb;
+    board.w_king &= ~from_bb;
     board.b_pawns &= ~from_bb;
     board.b_knights &= ~from_bb;
     board.b_bishops &= ~from_bb;
     board.b_rooks &= ~from_bb;
     board.b_queens &= ~from_bb;
+    board.b_king &= ~from_bb;
 }
 
 /**
@@ -309,13 +311,14 @@ int32_t fast_SEE(move_t move) {
             attadef |= consider_xray_attacks(get_lsb(from_bb), move.to);
         }
 
-        int king = (!board.turn * board.w_king_square) | (board.turn * board.b_king_square);
-        if (bb_to & BB_KING_ATTACKS[king]) {
+        int king = (!board.turn * get_lsb(board.w_king)) + (board.turn * get_lsb(board.b_king));
+        if (king != -1 && (bb_to & BB_KING_ATTACKS[king])) {
             uint64_t attackmask = _get_attackmask(board.turn);
             bool king_can_reach = (BB_KING_ATTACKS[king] & bb_to) != 0;
             bool square_undefended = (bb_to & attackmask) == 0;
             attadef |= BB_SQUARES[king] * (king_can_reach & square_undefended);
         }
+
         board.turn = !board.turn;
         from_bb = find_lva(attadef, attacking_piece, BB_SQUARES[move.to]);
     } while (from_bb);

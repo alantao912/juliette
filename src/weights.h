@@ -7,7 +7,7 @@ namespace Weights {
     /**
      * Centi-pawn valuation of material indexed by piece_t coerced to integer.
      */
-    const int32_t MATERIAL[5] = {100, 300, 325, 500, 975};
+    const int32_t MATERIAL[6] = {100, 300, 325, 500, 975, 0};
 
     /**
      * Centi-pawn valuation of positional characteristics indexed by characteristic_t coerced to integer.
