@@ -6,7 +6,7 @@
 
 ### Overview:   
 ---
-*juliette* is an open source, UCI compliant **chess engine** that analyzes chess positions and determines strong moves. Currently, *juliette* has an estimated playing strength of ELO.  
+*juliette* is a strong, open source, [UCI] (https://wbec-ridderkerk.nl/html/UCIProtocol.html) compliant **chess engine** that analyzes chess positions and determines strong moves. She currently has an estimated playing strength of 1600 ELO.  
 
 This project comes with an associated chess front-end, *romeo*, developed in ElectronJS which provides a user friendly interface for playing against *juliette*.
 

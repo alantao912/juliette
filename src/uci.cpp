@@ -37,6 +37,7 @@ bool board_initialized = false;
 char sendbuf[BUFLEN];
 
 UCI::info_t result;
+TimeManager timeManager;
 
 thread_args_t main_arg;
 thread_args_t aux_args;
@@ -147,7 +148,18 @@ void UCI::go(const std::vector<std::string> &args) {
     pthread_t threads[n_threads];
     main_arg = {.main_board = &board, .main_repetition_table = &repetition_table, .is_main_thread = true};
     aux_args = {.main_board = &board, .main_repetition_table = &repetition_table, .is_main_thread = false};
-    start_timer(10 * 1000);
+
+    // Classical chess time control by default. 90 minutes, 30 second increment per move. 40 move time control
+    int movesToGo = 40;
+    int wTime = 5400000;
+    int bTime = 5400000;
+
+    int wInc = 30000;
+    int bInc = 30000;
+
+    timeManager.initialize_timer(wTime, wInc, bTime, bInc, movesToGo);
+    timeManager.start_timer();
+
     int status = pthread_create(&threads[0], nullptr, reinterpret_cast<void *(*)(void *)> (search_t),
                                 (void *) &main_arg);
     for (int i = 1; i < n_threads; ++i) {
@@ -158,11 +170,6 @@ void UCI::go(const std::vector<std::string> &args) {
         std::cout << "juliette:: Failed to spawn thread!\n";
         exit(-1);
     }
-    /**
-    while (time_remaining);
-    result.format_data(options[UCI::option_t::debug] == "on");
-    UCI::reply();
-     */
 }
 
 void UCI::format_data() {

@@ -11,6 +11,7 @@
 #include "search.h"
 #include "stack.h"
 #include "tables.h"
+#include "timeman.h"
 #include "uci.h"
 #include "util.h"
 #include "weights.h"
@@ -45,6 +46,7 @@ __thread stack_t *stack = nullptr;
 __thread int16_t ply = 0;
 
 extern UCI::info_t result;
+extern TimeManager timeManager;
 
 /**
  * Verifies three-fold repetition claimed by the repetition table.
@@ -696,6 +698,7 @@ void search_t(thread_args_t *args) {
             std::cout << "Finished depth: " << d << '\n';
             result.best_move = pv[0];
             result.score = evaluation;
+            // timeManager.finished_iteration(evaluation);
         }
         order_moves(root_mvs, n_root_mvs);
     }
@@ -705,6 +708,7 @@ void search_t(thread_args_t *args) {
     if (is_main_thread) {
         while (active_search_threads > 1);
         pthread_mutex_destroy(&init_lock);
+        timeManager.reset_timer();
     }
     --active_search_threads;
     pthread_exit(nullptr);
