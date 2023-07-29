@@ -701,7 +701,7 @@ void search_t(thread_args_t *args) {
             std::cout << "Finished depth: " << d << '\n';
             result.best_move = pv[0];
             result.score = evaluation;
-            // timeManager.finished_iteration(evaluation);
+            timeManager.finished_iteration(evaluation);
         }
         order_moves(root_mvs, n_root_mvs);
     }

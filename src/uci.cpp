@@ -137,17 +137,22 @@ void UCI::position(const std::vector<std::string> &args) {
     board_initialized = b;
 }
 
+bool UCI::validate_integer_argument(int *variable, std::string arg) {
+    if (!is_number(arg)) {
+        snprintf(sendbuf, BUFLEN, "juliette: token following %s must be an integer.", arg.c_str());
+        UCI::reply();
+        return false;
+    }
+    *variable = std::stoi(arg);
+    return true;
+}
+
 void UCI::go(const std::vector<std::string> &args) {
     if (!board_initialized) {
         snprintf(sendbuf, BUFLEN, "juliette:: a start position must be specified.");
         UCI::reply();
         return;
     }
-    // TODO: Configure function based on provided arguments according to UCI protocol.
-    int n_threads = stoi(options[UCI::option_t::thread_cnt]);
-    pthread_t threads[n_threads];
-    main_arg = {.main_board = &board, .main_repetition_table = &repetition_table, .is_main_thread = true};
-    aux_args = {.main_board = &board, .main_repetition_table = &repetition_table, .is_main_thread = false};
 
     // Classical chess time control by default. 90 minutes, 30 second increment per move. 40 move time control
     int movesToGo = 40;
@@ -157,7 +162,61 @@ void UCI::go(const std::vector<std::string> &args) {
     int wInc = 30000;
     int bInc = 30000;
 
+    // TODO: Configure function based on provided arguments according to UCI protocol.
+    size_t index = 0;
+    for (std::string s : args) {
+        std::cout << s << '\n';
+    }
+    while (index < args.size()) {
+        if (args[index] == "searchmoves") {
+            // TODO implement after refactoring root shuffling
+            index += 1;
+        } else if (args[index] == "wtime") {
+            if (!validate_integer_argument(&wTime, args[index + 1])) return;
+            index += 2;
+        } else if (args[index] == "btime") {
+            if (!validate_integer_argument(&bTime, args[index + 1])) return;
+            index += 2;
+        } else if (args[index] == "winc") {
+            if (!validate_integer_argument(&wInc, args[index + 1])) return;
+            index += 2;
+        } else if (args[index] == "binc") {
+            if (!validate_integer_argument(&bInc, args[index + 1])) return;
+            index += 2;
+        } else if (args[index] == "movestogo") {
+            if (!validate_integer_argument(&movesToGo, args[index + 1])) return;
+            index += 2;
+        } else if (args[index] == "movetime") {
+            int *variable = nullptr;
+            if (board.turn) {
+                variable = &wTime;
+            } else {
+                variable = &bTime;
+            }
+            if (!validate_integer_argument(variable, args[index + 1])) return;
+            movesToGo = 1;
+            wInc = 0;
+            bInc = 0;
+            index += 2;
+        } else if (args[index] == "infinite" || args[index] == "ponder") {
+            movesToGo = 1;
+            wTime = INT32_MAX;
+            bTime = INT32_MAX;
+            wInc = INT32_MAX;
+            bInc = INT32_MAX;
+        } else {
+            snprintf(sendbuf, BUFLEN, "juliette: '%s' token not supported.", args[index].c_str());
+            UCI::reply();
+            return;
+        }
+    }
     timeManager.initialize_timer(wTime, wInc, bTime, bInc, movesToGo);
+
+    int n_threads = stoi(options[UCI::option_t::thread_cnt]);
+    pthread_t threads[n_threads];
+    main_arg = {.main_board = &board, .main_repetition_table = &repetition_table, .is_main_thread = true};
+    aux_args = {.main_board = &board, .main_repetition_table = &repetition_table, .is_main_thread = false};
+
     timeManager.start_timer();
 
     int status = pthread_create(&threads[0], nullptr, reinterpret_cast<void *(*)(void *)> (search_t),

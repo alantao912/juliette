@@ -34,6 +34,8 @@ namespace UCI {
 
     void position(const std::vector<std::string> &args);
 
+    bool validate_integer_argument(int *variable, std::string arg);
+
     void go(const std::vector<std::string> &args);
 
     void format_data();

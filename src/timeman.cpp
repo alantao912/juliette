@@ -13,6 +13,7 @@
 #include <vector>
 
 extern volatile bool time_remaining;
+extern __thread bitboard board;
 
 void *timer_thread(void *args) {
     time_remaining = true;
@@ -39,7 +40,9 @@ void TimeManager::finished_iteration(int32_t evaluation) {
             denominator += weight * evaluations[i];
         }
         double instability = numerator / denominator;
-        //std::cout << "Instability: " << instability << '\n';
+        if (instability > 1.5) {
+            duration.push_back(this->wInc);
+        }
     }
     evaluations.push_back(evaluation);
     total += evaluations.size();
@@ -53,8 +56,11 @@ void TimeManager::initialize_timer(int wT, int wI, int bT, int bI, int mTG) {
     this->bInc = bI;
 
     this->movesToGo = mTG;
-    duration.push_back(std::round((wTime + (mTG - 1) * wInc) / (float) (this->movesToGo)));
-    std::cout << duration[0] << '\n';
+    if (board.turn) {
+        duration.push_back(std::round((wTime + (this->movesToGo - 1) * wInc) / (float) (this->movesToGo)));
+    } else {
+        duration.push_back(std::round((bTime + (this->movesToGo - 1) * bInc) / (float) (this->movesToGo)));
+    }
 }
 
 void TimeManager::start_timer() {
