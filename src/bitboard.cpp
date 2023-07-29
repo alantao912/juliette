@@ -1,4 +1,5 @@
 #include <cstring>
+#include <thread>
 
 #include "bitboard.h"
 #include "util.h"
@@ -150,6 +151,13 @@ void make_move(const move_t move) {
         board.en_passant_square = INVALID;
     }
     uint64_t *attacker_bb = get_bitboard(attacker);
+    if (!attacker_bb) {
+        print_board();
+        std::cout << "\n\n";
+        print_move(move);
+        std::cout << "attacker is null\n";
+        std::this_thread::sleep_for(std::chrono::milliseconds(10000));
+    }
     clear_bit(attacker_bb, from);
     set_bit(attacker_bb, to);
     board.mailbox[from] = EMPTY;
@@ -310,6 +318,12 @@ void make_move(const move_t move) {
     if (victim != EMPTY) {
         reset_halfmove = true;
         uint64_t *victim_bb = get_bitboard(victim);
+        if (!attacker_bb) {
+            print_board();
+            std::cout << "\n\n";
+            print_move(move);
+            std::cout << "victim is null\n";
+        }
         clear_bit(victim_bb, to);
         board.hash_code ^= ZOBRIST_VALUES[64 * (int) victim + to];
     }

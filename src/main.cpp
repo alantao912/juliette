@@ -143,7 +143,7 @@ int main(int argc, char *argv[]) {
                 /**
                  * To be used for development purposes:
                  */
-
+                std::cout << sizeof(move_t) << '\n';
                 initialize_zobrist();
                 init_board("3r3k/3r4/8/8/8/8/8/2KR2R1 b - - 0 1");
 

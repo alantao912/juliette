@@ -437,12 +437,12 @@ int32_t qsearch(int32_t alpha, int32_t beta) { // NOLINT
     int32_t stand_pat;
 
     int n;
-    move_t moves[MAX_CAPTURE_NUM + 8];
+    move_t moves[MAX_MOVE_NUM];
 
     bool in_check = false;
     if (!is_check(board.turn)) {
         /** Generate non-quiet moves, such as promotions, and captures. */
-        n = gen_nonquiescent_moves(moves, board.turn);
+        n = gen_legal_captures(moves, board.turn);
         if (n == 0) {
             /** Position is quiet, return score. */
             return position.evaluate();
@@ -561,7 +561,7 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
 
     /** Begin PVS check first move */
     size_t pv_index = 0;
-    move_t variations[depth];
+    move_t variations[depth + 1];
 
     push(mvs[0]);
     variations[0] = mvs[0];

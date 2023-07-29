@@ -19,7 +19,7 @@ struct TTEntry {
     flag_t flag;
 
     int32_t score;
-    uint16_t depth;
+    int16_t depth;
     move_t best_move;
 
     TTEntry();
