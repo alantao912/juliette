@@ -15,14 +15,19 @@
 extern volatile bool time_remaining;
 extern __thread bitboard board;
 
+extern UCI::info_t result;
+
 void *timer_thread(void *args) {
     time_remaining = true;
     size_t i = 0;
     std::vector<int> *duration_ptr = (std::vector<int> *) args;
+    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
     while (i < duration_ptr->size()) {
         std::this_thread::sleep_for(std::chrono::milliseconds(duration_ptr->at(i++)));
     }
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
     time_remaining = false;
+    result.elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
     UCI::format_data();
     UCI::reply();
     pthread_exit(nullptr);
