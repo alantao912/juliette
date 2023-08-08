@@ -21,12 +21,6 @@ typedef struct thread_args {
 
 } thread_args_t;
 
-uint64_t consider_xray_attacks(int from, int to, uint64_t occupied);
-
 int32_t fast_SEE(move_t move);
 
 void search_t(thread_args_t *args);
-
-UCI::info_t search_fd(int16_t depth);
-
-UCI::info_t search_ft(std::chrono::duration<int64_t, std::milli> time);

@@ -1,100 +1,13 @@
 #include <iostream>
-#include <iomanip>
-#include <pthread.h>
 
 #include "uci.h"
 #include "stack.h"
 #include "movegen.h"
 #include "bitboard.h"
-#include "weights.h"
-#include "evaluation.h"
 
 #define BUFLEN 512
 
 extern __thread bitboard board;
-
-void play_game() {
-    init_board(START_POSITION);
-    initialize_zobrist();
-    std::string user_input;
-    int depth;
-    do {
-        std::cout << "juliette:: Engine depth? ";
-        try {
-            std::cin >> user_input;
-            trim(user_input);
-            depth = std::stoi(user_input);
-        } catch (const std::invalid_argument &arg) {
-            depth = -1;
-        }
-    } while (depth <= 0);
-
-    do {
-        std::cout << "juliette:: Player Color? (w/b): ";
-        std::cin >> user_input;
-        trim(user_input);
-    } while (user_input != "w" && user_input != "b");
-
-    UCI::info_t reply;
-    std::chrono::steady_clock::time_point start, end;
-    if (user_input == "b") {
-        start = std::chrono::steady_clock::now();
-        reply = search_fd((int16_t) depth);
-        end = std::chrono::steady_clock::now();
-        push(reply.best_move);
-    }
-
-    move_t moves[MAX_MOVE_NUM];
-    int n = gen_legal_moves(moves, board.turn);
-    bool player_turn = true;
-    while (n) {
-        // system("clear");
-        std::cout << "Elapsed Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
-                  << '\n';
-        print_board();
-        if (player_turn) {
-            int i;
-            for (i = 0; i < n; ++i) {
-                std::cout << (i + 1) << ' ';
-                print_move(moves[i]);
-                std::cout << '\n';
-            }
-
-            do {
-                std::cout << "juliette:: move? ";
-                try {
-                    std::cin >> user_input;
-                    trim(user_input);
-                    i = std::stoi(user_input);
-                    if (i == 0) {
-                        std::cout << "Exiting\n";
-                        exit(0);
-                    }
-                } catch (const std::invalid_argument &arg) {
-                    i = -1;
-                }
-            } while (i < 1 || i > n);
-            push(moves[i - 1]);
-        } else {
-            start = std::chrono::steady_clock::now();
-            reply = search_fd((int16_t) depth);
-            end = std::chrono::steady_clock::now();
-            push(reply.best_move);
-        }
-        player_turn = !player_turn;
-        n = gen_legal_moves(moves, board.turn);
-    }
-    if (is_check(board.turn)) {
-        std::cout << "juliette:: Checkmate, ";
-        if (player_turn) {
-            std::cout << "computer wins!\n";
-        } else {
-            std::cout << "player wins!\n";
-        }
-    } else {
-        std::cout << "juliette:: Stalemate, the game is drawn.\n";
-    }
-}
 
 /**
  * To compile: g++ src/*.cpp -lpthread -o juliette
@@ -109,7 +22,7 @@ int main(int argc, char *argv[]) {
     if (argc == 1) {
         std::cout << "juliette:: \"hi, let's play chess!\"" << std::endl;
         /* If no options are provided */
-        play_game();
+
         return 0;
     }
 
@@ -158,67 +71,8 @@ int main(int argc, char *argv[]) {
                         << std::endl;
             }
         } while (strlen(recvbuf));
-    } else if (strcmp(argv[1], "tune") == 0) {
-        initialize_zobrist();
-        init_board(START_POSITION);
-
-        char *move_seq;
-        if (argc < 3) {
-            move_seq = new char;
-            *move_seq = (char) 0;
-        } else {
-            move_seq = argv[2];
-        }
-        const std::size_t len = strlen(move_seq);
-        std::size_t i = 0;
-
-        while (i < len) {
-            move_t moves[MAX_MOVE_NUM];
-            int n = gen_legal_moves(moves, board.turn);
-
-            const char src_file = move_seq[i] - 'a';
-            const char src_rank = move_seq[i + 1] - '1';
-
-            const char dest_file = move_seq[i + 2] - 'a';
-            const char dest_rank = move_seq[i + 3] - '1';
-
-            const char prom = move_seq[i + 4];
-            int j;
-            for (j = 0; j < n; ++j) {
-                move_t mv = moves[j];
-                if (8 * src_rank + src_file != mv.from || 8 * dest_rank + dest_file != mv.to) {
-                    continue;
-                }
-
-                if (prom == 'q' && (mv.flag == PR_QUEEN || mv.flag == PC_QUEEN)) {
-                    push(mv);
-                    break;
-                } else if (prom == 'r' && (mv.flag == PR_ROOK || mv.flag == PC_ROOK)) {
-                    push(mv);
-                    break;
-                } else if (prom == 'b' && (mv.flag == PR_BISHOP || mv.flag == PC_BISHOP)) {
-                    push(mv);
-                    break;
-                } else if (prom == 'n' && (mv.flag == PR_KNIGHT || mv.flag == PC_KNIGHT)) {
-                    push(mv);
-                    break;
-                } else if (prom == 0 || prom == ' ') {
-                    push(mv);
-                    break;
-                }
-            }
-            if (j == n) {
-                std::cout << "Move: [";
-                std::cout << (char) (src_file + 'a') << (int) (src_rank + 1) << (char) (dest_file + 'a')
-                          << (int) (dest_rank + 1);
-                std::cout << "] not found. ";
-                std::cout << i << std::endl;
-                return 0;
-            }
-            i += 5;
-        }
-        UCI::info_t reply = search_fd((int16_t) 2);
-        print_move(reply.best_move);
+    } else {
+        std::cout << "juliette:: please provide at least one argument." << std::endl;
     }
     return 0;
 }

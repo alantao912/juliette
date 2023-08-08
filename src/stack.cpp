@@ -12,15 +12,6 @@ extern thread_local std::unordered_map<uint64_t, RTEntry> repetition_table;
 extern __thread int16_t ply;
 
 /**
- * Initalizes the stack.
- */
-void init_stack() {
-    _free_stack();
-    stack = nullptr;
-}
-
-
-/**
  * Makes the given move and updates the tables.
  * @param move
  */
@@ -49,26 +40,10 @@ void push(move_t move) {
 void pop() {
     RTEntry &rt_pair = repetition_table.find(board.hash_code)->second;
     --rt_pair.num_seen;
-    // TODO: Is this check necessary? Experiment with removal of this part
-    if (!rt_pair.num_seen) {
-        repetition_table.erase(board.hash_code);
-    }
     // Update move stack
     stack_t *temp = stack;
     board = stack->board;
     stack = stack->next;
     --ply;
     delete temp;
-}
-
-
-/**
- * Free every element in the stack.
- */
-static void _free_stack() {
-    while (stack) {
-        stack_t *temp = stack;
-        stack = stack->next;
-        delete temp;
-    }
 }

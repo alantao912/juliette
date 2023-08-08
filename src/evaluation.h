@@ -4,7 +4,7 @@
 #include "util.h"
 
 struct Evaluation {
-/** Determine board characteristics */
+    /** Determine board characteristics */
 
     static uint64_t compute_king_vulnerabilities(uint64_t king_bb, uint64_t barriers);
 
@@ -67,8 +67,6 @@ private:
     void queen_activity();
 
     void king_placement();
-
-    void king_opposition();
 
     void evaluate_space();
 

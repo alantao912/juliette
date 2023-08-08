@@ -1,7 +1,3 @@
-//
-// Created by Alan Tao on 3/23/2023.
-//
-
 #include "timeman.h"
 #include "uci.h"
 
@@ -20,7 +16,7 @@ extern UCI::info_t result;
 void *timer_thread(void *args) {
     time_remaining = true;
     size_t i = 0;
-    std::vector<int> *duration_ptr = (std::vector<int> *) args;
+    std::vector<int> *duration_ptr = reinterpret_cast<std::vector<int> *> (args);
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
     while (i < duration_ptr->size()) {
         std::this_thread::sleep_for(std::chrono::milliseconds(duration_ptr->at(i++)));
@@ -36,7 +32,6 @@ void *timer_thread(void *args) {
 
 void TimeManager::finished_iteration(int32_t evaluation) {
     if (!evaluations.empty()) {
-        /** TODO: Using the history of evaluations, and time remaining, determine whether more time needs to be added. */
         double numerator = 0.0, denominator = 0.0;
         for (size_t i = 0; i < evaluations.size(); ++i) {
             double weight = pow(double(i + 1) / double(total), 2.0);

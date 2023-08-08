@@ -435,7 +435,7 @@ void order_moves(move_t mvs[], int n) {
 
 int32_t qsearch(int32_t alpha, int32_t beta) { // NOLINT
     int32_t stand_pat;
-    // qsearch causes crash: rnbqkbnr/pp3ppp/2p5/3pp3/3P4/2N5/PPP1PPPP/R1BQKBNR b KQkq d3 0 4
+
     int n;
     move_t moves[MAX_MOVE_NUM];
 
@@ -627,21 +627,6 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
     return alpha;
 }
 
-UCI::info_t generate_reply(int32_t evaluation, move_t best_move) {
-    UCI::info_t reply = {.score = (1 - 2 * (board.turn == BLACK)) * evaluation, .best_move = NULL_MOVE};
-    if (!(best_move.from == A1 && best_move.to == A1 && best_move.flag == NONE)) {
-        /** Not stalemate or checkmate */
-        reply.best_move = best_move;
-    } else if (abs(reply.score) == contempt_value) {
-        /** Stalemate */
-        reply.best_move = STALEMATE;
-    } else {
-        /** Checkmate */
-        reply.best_move = CHECKMATE;
-    }
-    return reply;
-}
-
 void search_t(thread_args_t *args) {
     board = *(args->main_board);
 
@@ -653,13 +638,13 @@ void search_t(thread_args_t *args) {
     }
     const bool is_main_thread = args->is_main_thread;
     if (is_main_thread) {
-        /** Main thread initializes shared locks */
+        /** Main thread initializes shared resources */
         block_thread = true;
         pthread_mutex_init(&init_lock, nullptr);
         transposition_table.initialize(strtol(UCI::get_option(UCI::option_t::hash_size).c_str(), nullptr, 10));
         block_thread = false;
     } else {
-        /** Busy-wait for lock initialization to complete */
+        /** Auxiliary threads busy-wait for lock initialization to complete */
         while (block_thread);
     }
 
@@ -701,7 +686,6 @@ void search_t(thread_args_t *args) {
         transposition_table.insert(tt_entry);
 
         if (is_main_thread && time_remaining) {
-            std::cout << "Finished depth: " << d << '\n';
             result.best_move = pv[0];
             result.score = evaluation;
             timeManager.finished_iteration(evaluation);
@@ -718,54 +702,4 @@ void search_t(thread_args_t *args) {
     }
     --active_search_threads;
     pthread_exit(nullptr);
-}
-
-UCI::info_t search_fd(int16_t depth) {
-    move_t pv[depth];
-    pv[0] = NULL_MOVE;
-    ply = 0;
-
-    std::vector<move_t> kmv[depth];
-    killer_mvs = kmv;
-    std::memset(h_table, 0, sizeof(int) * HTABLE_LEN);
-
-    int32_t evaluation;
-    for (int16_t i = 1; i <= depth; ++i) {
-        evaluation = pvs(i, MIN_SCORE, -MIN_SCORE, pv);
-    }
-    killer_mvs = nullptr;
-    return generate_reply(evaluation, pv[0]);
-}
-
-UCI::info_t search_ft(std::chrono::duration<int64_t, std::milli> time) {
-    move_t pv[MAX_DEPTH];
-    pv[0] = NULL_MOVE;
-    ply = 0;
-
-    int kmv_len = 8;
-    killer_mvs = new std::vector<move_t>[kmv_len];
-    std::memset(h_table, 0, sizeof(int) * HTABLE_LEN);
-
-    int32_t evaluation;
-    std::chrono::time_point<std::chrono::steady_clock> start = std::chrono::steady_clock::now();
-    for (int16_t i = 1; time.count() > 0; ++i) {
-        evaluation = pvs(i, MIN_SCORE, -MIN_SCORE, pv);
-
-        /** Update time */
-        std::chrono::time_point<std::chrono::steady_clock> now = std::chrono::steady_clock::now();
-        time -= std::chrono::duration_cast<std::chrono::milliseconds>(now - start);
-        start = now;
-
-        if (i > kmv_len) {
-            /** Resize killer move array */
-            std::vector<move_t> *buff = new std::vector<move_t>[2 * kmv_len];
-            for (size_t j = 0; j < kmv_len; ++j) {
-                buff[j] = killer_mvs[j];
-            }
-            delete[] killer_mvs;
-            killer_mvs = buff;
-        }
-    }
-    delete[] killer_mvs;
-    return generate_reply(evaluation, pv[0]);
 }

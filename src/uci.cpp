@@ -1,7 +1,3 @@
-//
-// Created by Alan Tao on 9/2/2022.
-//
-
 #include <algorithm>
 #include <chrono>
 #include <pthread.h>
@@ -163,7 +159,6 @@ void UCI::go(const std::vector<std::string> &args) {
     int wInc = 30000;
     int bInc = 30000;
 
-    // TODO: Configure function based on provided arguments according to UCI protocol.
     size_t index = 0;
     while (index < args.size()) {
         if (args[index] == "searchmoves") {

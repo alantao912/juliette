@@ -381,10 +381,6 @@ void Evaluation::king_placement() {
     endgame_score -= (distDiff < 0) * (kingDistBonus + king_edge_bonus);
 }
 
-void Evaluation::king_opposition() {
-    // TODO: Implement opposition detection. Direct opposition, Distant opposition, Diagonal Opposition
-}
-
 void Evaluation::evaluate_space() {
     /** Accumulate guard values of white pieces */
     uint64_t attacks = BB_KING_ATTACKS[board.w_king_square];
