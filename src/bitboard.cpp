@@ -126,7 +126,7 @@ void init_board(const char *fen) {
     }
     free(og_rest);
 }
-
+extern __thread stack_t *stack;
 /**
  * Updates the board with the move.
  * @param move
@@ -151,13 +151,6 @@ void make_move(const move_t move) {
         board.en_passant_square = INVALID;
     }
     uint64_t *attacker_bb = get_bitboard(attacker);
-    if (!attacker_bb) {
-        print_board();
-        std::cout << "\n\n";
-        print_move(move);
-        std::cout << "attacker is null\n";
-        std::this_thread::sleep_for(std::chrono::milliseconds(10000));
-    }
     clear_bit(attacker_bb, from);
     set_bit(attacker_bb, to);
     board.mailbox[from] = EMPTY;
@@ -318,14 +311,29 @@ void make_move(const move_t move) {
     if (victim != EMPTY) {
         reset_halfmove = true;
         uint64_t *victim_bb = get_bitboard(victim);
-        if (!attacker_bb) {
-            print_board();
-            std::cout << "\n\n";
-            print_move(move);
-            std::cout << "victim is null\n";
-        }
         clear_bit(victim_bb, to);
         board.hash_code ^= ZOBRIST_VALUES[64 * (int) victim + to];
+        if (board.w_kingside_castling_rights) {
+            if (to == H1) {
+                board.w_kingside_castling_rights = false;
+                board.hash_code ^= ZOBRIST_VALUES[769];
+            }
+        } else if (board.w_queenside_castling_rights) {
+            if (to == A1) {
+                board.w_queenside_castling_rights = false;
+                board.hash_code ^= ZOBRIST_VALUES[770];
+            }
+        } else if (board.b_queenside_castling_rights) {
+            if (to == A8) {
+                board.b_queenside_castling_rights = false;
+                board.hash_code ^= ZOBRIST_VALUES[771];
+            }
+        } else if (board.b_kingside_castling_rights) {
+            if (to == H8) {
+                board.b_kingside_castling_rights = false;
+                board.hash_code ^= ZOBRIST_VALUES[772];
+            }
+        }
     }
     board.w_occupied =
             board.w_pawns | board.w_knights | board.w_bishops | board.w_rooks | board.w_queens | board.w_king;

@@ -74,6 +74,7 @@ void UCI::parse_UCI_string(const char *uci) {
     tokens.erase(tokens.begin(), tokens.begin() + 1);
 
     if (cmd == "uci") {
+        initialize_UCI();
         size_t len = strlen(id_str);
         memcpy(sendbuf, id_str, len); // NOLINT(bugprone-not-null-terminated-result)
         sendbuf[len] = '\n';
@@ -164,9 +165,6 @@ void UCI::go(const std::vector<std::string> &args) {
 
     // TODO: Configure function based on provided arguments according to UCI protocol.
     size_t index = 0;
-    for (std::string s : args) {
-        std::cout << s << '\n';
-    }
     while (index < args.size()) {
         if (args[index] == "searchmoves") {
             // TODO implement after refactoring root shuffling
@@ -211,7 +209,6 @@ void UCI::go(const std::vector<std::string> &args) {
         }
     }
     timeManager.initialize_timer(wTime, wInc, bTime, bInc, movesToGo);
-
     int n_threads = stoi(options[UCI::option_t::thread_cnt]);
     pthread_t threads[n_threads];
     main_arg = {.main_board = &board, .main_repetition_table = &repetition_table, .is_main_thread = true};

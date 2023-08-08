@@ -143,22 +143,12 @@ int main(int argc, char *argv[]) {
                 /**
                  * To be used for development purposes:
                  */
-                std::cout << sizeof(move_t) << '\n';
                 initialize_zobrist();
-                init_board("3r3k/3r4/8/8/8/8/8/2KR2R1 b - - 0 1");
+                UCI::parse_UCI_string("uci");
+                UCI::parse_UCI_string("ucinewgame");
+                UCI::parse_UCI_string("position rnbqkbnr/pp3ppp/2p5/3pp3/3P4/2N5/PPP1PPPP/R1BQKBNR b KQkq d3 0 4 ");
+                UCI::parse_UCI_string("go");
 
-                move_t moves[MAX_MOVE_NUM];
-                int n = gen_legal_moves(moves, board.turn);
-                for (int i = 0; i < n; ++i) {
-                    std::cout << i + 1 << ". ";
-                    print_move(moves[i]);
-                    std::cout << '\n';
-                }
-                int m;
-                std::cin >> m;
-                int32_t score = fast_SEE(moves[m - 1]);
-                std::cout << "SEE score: " << score << '\n';
-                //test_transposition_table();
             } else if (strcmp(recvbuf, "perft") == 0) {
                 std::cout << "juliette:: starting performance test..." << std::endl;
                 // TODO: Re-implement performance test

@@ -57,6 +57,8 @@ uint64_t get_queen_moves(bool color, int square);
 
 uint64_t get_king_moves(bool color, int square);
 
+uint64_t get_king_moves_no_castle(bool color, int square);
+
 uint64_t get_pawn_attacks_setwise(bool color);
 
 uint64_t get_knight_mask_setwise(uint64_t knights);

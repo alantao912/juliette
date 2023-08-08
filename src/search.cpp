@@ -291,7 +291,7 @@ void clear_bb(uint64_t from_bb) {
  */
 
 int32_t fast_SEE(move_t move) {
-    bitboard copy = board;
+    const bitboard copy = board;
     int gain[32], d = 0;
     uint64_t may_xray = board.w_pawns | board.b_pawns | board.w_bishops | board.b_bishops | board.w_rooks |
                         board.b_rooks | board.w_queens | board.b_queens;
@@ -435,14 +435,14 @@ void order_moves(move_t mvs[], int n) {
 
 int32_t qsearch(int32_t alpha, int32_t beta) { // NOLINT
     int32_t stand_pat;
-
+    // qsearch causes crash: rnbqkbnr/pp3ppp/2p5/3pp3/3P4/2N5/PPP1PPPP/R1BQKBNR b KQkq d3 0 4
     int n;
     move_t moves[MAX_MOVE_NUM];
 
     bool in_check = false;
     if (!is_check(board.turn)) {
         /** Generate non-quiet moves, such as promotions, and captures. */
-        n = gen_legal_captures(moves, board.turn);
+        n = gen_nonquiescent_moves(moves, board.turn);
         if (n == 0) {
             /** Position is quiet, return score. */
             return position.evaluate();
@@ -455,6 +455,8 @@ int32_t qsearch(int32_t alpha, int32_t beta) { // NOLINT
         /** Side to move is in check, evasions do not exist. Checkmate :( */
         return MATE_SCORE(ply);
     }
+
+    /** Block: Only runs if not in check, and non-quiet moves exist. */
 
     stand_pat = position.evaluate();
     if (stand_pat >= beta) {
@@ -476,9 +478,11 @@ int32_t qsearch(int32_t alpha, int32_t beta) { // NOLINT
         alpha = stand_pat;
     }
 
+    /** End block */
+
     CHECK_EVASIONS:
     for (size_t i = 0; i < n; ++i) {
-        move_t candidate_move = moves[i];
+        const move_t &candidate_move = moves[i];
         /** Delta pruning */
         if (!in_check && move_value(candidate_move) + stand_pat < alpha - Weights::DELTA_MARGIN) {
             /** Skip evaluating this move */
@@ -519,7 +523,6 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
             case EXACT:
                 *mv_hst = t->best_move;
                 return t->score;
-                break;
             case LOWER:
                 alpha = std::max(alpha, t->score);
                 break;
