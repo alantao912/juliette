@@ -516,6 +516,9 @@ int32_t qsearch(int32_t alpha, int32_t beta) { // NOLINT
 #pragma ide diagnostic ignored "misc-no-recursion"
 
 static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
+    if (!time_remaining) {
+        return 0;
+    }
     TTEntry *t = transposition_table.find(board.hash_code);
 
     if (t != nullptr && t->depth >= depth) {
