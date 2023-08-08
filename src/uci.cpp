@@ -38,7 +38,7 @@ TimeManager timeManager;
 
 
 pthread_t threads[MAX_THD_CNT];
-int n_threads;
+int n_threads = 0;
 
 thread_args_t main_arg;
 thread_args_t aux_args;
@@ -84,6 +84,9 @@ void UCI::parse_UCI_string(const char *uci) {
     } else if (cmd == "ucinewgame") {
         board_initialized = false;
         initialize_zobrist();
+    } else if (cmd == "isready") {
+        snprintf(sendbuf, BUFLEN, "readyok");
+        UCI::reply();
     } else if (cmd == "position") {
         UCI::position(tokens);
     } else if (cmd == "debug") {
