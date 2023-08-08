@@ -10,6 +10,7 @@
 #include "util.h"
 
 #define BUFLEN 512
+#define MAX_THD_CNT 32
 
 std::map<UCI::option_t, std::string> options;
 
@@ -34,6 +35,10 @@ char sendbuf[BUFLEN];
 
 UCI::info_t result;
 TimeManager timeManager;
+
+
+pthread_t threads[MAX_THD_CNT];
+int n_threads;
 
 thread_args_t main_arg;
 thread_args_t aux_args;
@@ -81,12 +86,25 @@ void UCI::parse_UCI_string(const char *uci) {
         initialize_zobrist();
     } else if (cmd == "position") {
         UCI::position(tokens);
+    } else if (cmd == "debug") {
+        if (tokens[0] == "on" || tokens[0] == "off") {
+            options[UCI::option_t::debug] = tokens[0];
+        } else {
+            snprintf(sendbuf, BUFLEN, "juliette:: 'debug' option must be set to 'on' or 'off'");
+            UCI::reply();
+        }
     } else if (cmd == "go") {
         UCI::go(tokens);
     } else if (cmd == "setoption") {
         UCI::set_option(tokens);
+    } else if (cmd == "stop") {
+        time_remaining = false;
+        result.format_data(options[UCI::option_t::debug] == "on");
+        UCI::reply();
+        UCI::join_threads();
     } else if (cmd == "quit") {
         std::cout << "juliette:: bye! i enjoyed playing with you :)" << std::endl;
+        UCI::join_threads();
         exit(0);
     }
 }
@@ -204,8 +222,8 @@ void UCI::go(const std::vector<std::string> &args) {
         }
     }
     timeManager.initialize_timer(wTime, wInc, bTime, bInc, movesToGo);
-    int n_threads = stoi(options[UCI::option_t::thread_cnt]);
-    pthread_t threads[n_threads];
+    n_threads = stoi(options[UCI::option_t::thread_cnt]);
+
     main_arg = {.main_board = &board, .main_repetition_table = &repetition_table, .is_main_thread = true};
     aux_args = {.main_board = &board, .main_repetition_table = &repetition_table, .is_main_thread = false};
 
@@ -281,4 +299,11 @@ void UCI::set_option(const std::vector<std::string> &args) {
 
 const std::string &UCI::get_option(UCI::option_t opt) {
     return options[opt];
+}
+
+void UCI::join_threads() {
+    for (int i = 0; i < n_threads; ++i) {
+        pthread_join(threads[i], nullptr);
+    }
+    n_threads = 0;
 }

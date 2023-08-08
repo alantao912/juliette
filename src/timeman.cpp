@@ -26,6 +26,7 @@ void *timer_thread(void *args) {
     result.elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
     UCI::format_data();
     UCI::reply();
+    UCI::join_threads();
     pthread_exit(nullptr);
     return nullptr;
 }
