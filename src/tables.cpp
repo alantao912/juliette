@@ -53,10 +53,15 @@ TTable::TTable() {
 }
 
 void TTable::initialize(std::size_t initial_capacity) {
-    entries = new TTEntry[initial_capacity];
-    size = 0;
-    capacity = initial_capacity;
-    hash_full = false;
+    if (entries) {
+        clear();
+        hash_full = false;
+    } else {
+        entries = new TTEntry[initial_capacity];
+        size = 0;
+        capacity = initial_capacity;
+        hash_full = false;
+    }
 }
 
 TTable::~TTable() {

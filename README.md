@@ -30,7 +30,7 @@ To compile and run, navigate to the root project directory and invoke the follow
 ### About
 ---
 
-The core of her decision making process is built with an algorithm called <i>Principal Variation Search</i> (PVS); a special flavor of the classic, tried-and-true alpha beta search. Additional heuristics are used for more aggressive pruning of potentially irrelevant subtrees.
+The core of her decision making process is built with an algorithm called <i>Principal Variation Search</i> (PVS); a special flavor of the classic, tried-and-true alpha beta search. Additional heuristics are used for more aggressive pruning of potentially irrelevant subtrees. These methods include razoring (WIP), futility-pruning, and delta-pruning.
 
 
 High-quality evaluations of tactically quiet leaf nodes is done using a hand crafted function.

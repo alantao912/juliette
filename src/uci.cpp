@@ -61,7 +61,7 @@ void UCI::info_t::format_data(bool verbose) const {
 
 void UCI::initialize_UCI() {
     options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::own_book, "off"));
-    options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::debug, "on"));
+    options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::debug, "off"));
     options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::thread_cnt, "14"));
     options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::contempt, "0"));
     options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::hash_size, "25165824"));
@@ -173,7 +173,7 @@ void UCI::go(const std::vector<std::string> &args) {
     }
 
     // Classical chess time control by default. 90 minutes, 30 second increment per move. 40 move time control
-    int movesToGo = 40;
+    int movesToGo = std::max(1, 40 - board.fullmove_number);
     int wTime = 5400000;
     int bTime = 5400000;
 

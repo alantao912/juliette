@@ -66,6 +66,7 @@ int main(int argc, char *argv[]) {
                 std::cout << "juliette:: starting performance test..." << std::endl;
                 // TODO: Re-implement performance test
             } else if (strlen(recvbuf)) {
+                std::cout << "Unrecognized command: " << recvbuf << '\n';
                 std::cout
                         << R"(juliette:: communication format not set, type "uci" to specify UCI communication protocol or type "comm" to see a list of communication protocol.)"
                         << std::endl;

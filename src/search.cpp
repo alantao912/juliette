@@ -17,7 +17,7 @@
 #include "weights.h"
 
 #define MIN_SCORE (INT32_MIN + 1000)
-#define MATE_SCORE(depth) (MIN_SCORE + INT16_MAX - depth)
+#define MATE_SCORE(depth) (MIN_SCORE + INT16_MAX + depth)
 #define DRAW contempt_value
 #define MAX_DEPTH 128
 
