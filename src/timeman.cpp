@@ -8,6 +8,8 @@
 #include <thread>
 #include <vector>
 
+UCI *TimeManager::uciInstance;
+
 void *timerThread(void *args) {
     size_t i = 0;
     TimerArgs *timerArgs = reinterpret_cast<TimerArgs *> (args);

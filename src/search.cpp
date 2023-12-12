@@ -18,7 +18,11 @@
 
 #define MIN_SCORE (INT32_MIN + 1000)
 #define MATE_SCORE(depth) (MIN_SCORE + INT16_MAX + depth)
-#define DRAW contempt_value
+
+
+pthread_mutex_t SearchContext::init_lock;
+TTable SearchContext::transpositionTable;
+const int32_t SearchContext::contempt_value = 0;
 
 const UCI *SearchContext::uciInstance = nullptr;
 
@@ -379,10 +383,10 @@ int32_t SearchContext::pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *m
             return MATE_SCORE(ply);
         }
         // No legal moves, yet king is not in check. Stalemate!
-        return DRAW;
+        return 0;
     }
     if (isDrawn()) {
-        return DRAW;
+        return 0;
     }
 
     /** Move ordering logic */
@@ -487,7 +491,7 @@ void SearchContext::search_t() {
         if (isMainThread && SearchContext::timeRemaining) {
             result.bestMove = this->threadPV[0];
             result.score = evaluation;
-            timeManager.finishedIteration(evaluation);
+            SearchContext::timeManager.finishedIteration(evaluation);
         }
         orderMoves(root_mvs, n_root_mvs);
     }
@@ -496,7 +500,7 @@ void SearchContext::search_t() {
     if (isMainThread) {
         while (SearchContext::nActiveThreads > 1);
         pthread_mutex_destroy(&init_lock);
-        timeManager.resetTimer();
+        SearchContext::timeManager.resetTimer();
     }
     --SearchContext::nActiveThreads;
     pthread_exit(nullptr);

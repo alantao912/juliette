@@ -76,8 +76,6 @@ private:
 
     bool board_initialized;
 
-    struct TimeManager timeManager;
-
     pthread_t threads[MAX_THREAD_CNT];
 
     size_t nThreads;

@@ -137,6 +137,8 @@ const int Bitboard::MAX_MOVE_NUM = 218;
 const int Bitboard::MAX_CAPTURE_NUM = 74;
 const int Bitboard::MAX_ATTACK_NUM = 16;
 
+uint64_t Bitboard::ZOBRIST_VALUES[781];
+
 int Bitboard::fileOf(int square) {
     return square % 8;
 }

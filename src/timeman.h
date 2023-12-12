@@ -16,7 +16,6 @@ struct TimerArgs {
     UCI *uciPtr;
 };
 
-typedef
 struct TimeManager {
 
 private:
@@ -46,4 +45,4 @@ public:
     void startTimer();
 
     void resetTimer();
-} TimeManager;
+};

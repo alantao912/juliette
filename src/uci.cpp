@@ -187,9 +187,9 @@ void UCI::go(const std::vector<std::string> &args) {
             return;
         }
     }
-    timeManager.initializeTimer(mainThread->board.getTurn(), wTime, wInc, bTime, bInc, movesToGo);
+    SearchContext::timeManager.initializeTimer(mainThread->board.getTurn(), wTime, wInc, bTime, bInc, movesToGo);
     this->nThreads = std::stoi(options[option_t::threadCount]);
-    timeManager.startTimer();
+    SearchContext::timeManager.startTimer();
 
     int status = pthread_create(&(this->threads[0]), nullptr, threadFunction, (void *) this->mainThread);
     if (status) {
