@@ -9,14 +9,6 @@
 #include "uci.h"
 #include "util.h"
 
-#define BUFLEN 512
-#define MAX_THD_CNT 32
-
-std::map<UCI::option_t, std::string> options;
-
-const char *id_str = "id name juliette author Alan Tao";
-std::string replies[] = {"id", "uciok", "readyok", "bestmove", "copyprotection", "registration", "info_t", "option"};
-
 #define id 0
 #define uciok 1
 #define readyok 2
@@ -26,101 +18,97 @@ std::string replies[] = {"id", "uciok", "readyok", "bestmove", "copyprotection",
 #define uci_info 6
 #define option 7
 
-extern __thread bitboard board;
-extern thread_local std::unordered_map<uint64_t, RTEntry> repetition_table;
-extern bool time_remaining;
 
-bool board_initialized = false;
-char sendbuf[BUFLEN];
+const std::string UCI::idStr = "id name juliette author Alan Tao";
+const std::string UCI::replies[8] = {"id", "uciok", "readyok", "bestmove", "copyprotection", "registration", "info_t", "option"};
 
-UCI::info_t result;
-TimeManager timeManager;
-
-
-pthread_t threads[MAX_THD_CNT];
-int n_threads = 0;
-
-thread_args_t main_arg;
-thread_args_t aux_args;
-
-void UCI::info_t::format_data(bool verbose) const {
+void info_t::formatData(char buf[], size_t n, bool verbose) const {
     if (verbose) {
         std::string format("elapsed time: (%ld)ms\n%s:  %c%d%c%d\nevaluation: %d");
         // TODO: If mate score, format to M(n)
-        snprintf(sendbuf, BUFLEN, format.c_str(),
-                 static_cast<long> (elapsed_time.count()), replies[bestmove].c_str(),
-                 char(file_of(best_move.from) + 'a'),
-                 int(rank_of(best_move.from) + 1), char(file_of(best_move.to) + 'a'),
-                 int(rank_of(best_move.to) + 1), score);
+        snprintf(buf, BUFLEN, format.c_str(),
+                 static_cast<long> (this->elapsedTime.count()), UCI::replies[bestmove].c_str(),
+                 char(Bitboard::fileOf(this->bestMove.from) + 'a'),
+                 int(Bitboard::rankOf(this->bestMove.from) + 1), char(Bitboard::fileOf(this->bestMove.to) + 'a'),
+                 int(Bitboard::rankOf(this->bestMove.to) + 1), score);
     } else {
-        snprintf(sendbuf, BUFLEN, "%s: %c%d%c%d\n", replies[bestmove].c_str(),
-                 char(file_of(best_move.from) + 'a'), int(rank_of(best_move.from) + 1),
-                 char(file_of(best_move.to) + 'a'), int(rank_of(best_move.to) + 1));
+        snprintf(buf, BUFLEN, "%s: %c%d%c%d\n", UCI::replies[bestmove].c_str(),
+                 char(Bitboard::fileOf(this->bestMove.from) + 'a'), int(Bitboard::rankOf(this->bestMove.from) + 1),
+                 char(Bitboard::fileOf(this->bestMove.to) + 'a'), int(Bitboard::rankOf(this->bestMove.to) + 1));
     }
 }
 
-void UCI::initialize_UCI() {
-    options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::own_book, "off"));
-    options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::debug, "off"));
-    options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::thread_cnt, "14"));
-    options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::contempt, "0"));
-    options.insert(std::pair<UCI::option_t, std::string>(UCI::option_t::hash_size, "25165824"));
+UCI::UCI() {}
+
+void UCI::initializeUCI() {
+    options.insert(std::pair<option_t, std::string>(option_t::ownBook, "off"));
+    options.insert(std::pair<option_t, std::string>(option_t::debug, "off"));
+    options.insert(std::pair<option_t, std::string>(option_t::threadCount, "14"));
+    options.insert(std::pair<option_t, std::string>(option_t::contempt, "0"));
+    options.insert(std::pair<option_t, std::string>(option_t::hashSize, "25165824"));
+    TimeManager::setUCIInstance(this);
 }
 
-void UCI::parse_UCI_string(const char *uci) {
+void UCI::parseUCIString(const char *uci) {
     std::string uci_string(uci);
-    std::vector<std::string> tokens = split(uci_string);
+    std::vector<std::string> tokens = StringUtils::split(uci_string);
 
     const std::string cmd = tokens[0];
     tokens.erase(tokens.begin(), tokens.begin() + 1);
 
     if (cmd == "uci") {
-        initialize_UCI();
-        size_t len = strlen(id_str);
-        memcpy(sendbuf, id_str, len); // NOLINT(bugprone-not-null-terminated-result)
-        sendbuf[len] = '\n';
-        strcpy(&sendbuf[len + 1], replies[uciok].c_str());
-        UCI::reply();
+        this->initializeUCI();
+        size_t len = UCI::idStr.size();
+        std::memcpy(this->sendbuf, UCI::idStr.c_str(), len); // NOLINT(bugprone-not-null-terminated-result)
+        this->sendbuf[len] = '\n';
+        strcpy(&(this->sendbuf[len + 1]), replies[uciok].c_str());
+        this->reply();
     } else if (cmd == "ucinewgame") {
-        board_initialized = false;
-        initialize_zobrist();
+        this->board_initialized = false;
+        // TODO: Initialize zobrist hashes
+        Bitboard::initializeZobrist();
     } else if (cmd == "isready") {
-        snprintf(sendbuf, BUFLEN, "readyok");
-        UCI::reply();
+        snprintf(this->sendbuf, BUFLEN, "readyok");
+        this->reply();
     } else if (cmd == "position") {
         UCI::position(tokens);
     } else if (cmd == "debug") {
         if (tokens[0] == "on" || tokens[0] == "off") {
-            options[UCI::option_t::debug] = tokens[0];
+            options[option_t::debug] = tokens[0];
         } else {
-            snprintf(sendbuf, BUFLEN, "juliette:: 'debug' option must be set to 'on' or 'off'");
-            UCI::reply();
+            snprintf(this->sendbuf, BUFLEN, "juliette:: 'debug' option must be set to 'on' or 'off'");
+            this->reply();
         }
     } else if (cmd == "go") {
         UCI::go(tokens);
     } else if (cmd == "setoption") {
-        UCI::set_option(tokens);
+        UCI::setOption(tokens);
     } else if (cmd == "stop") {
-        time_remaining = false;
-        result.format_data(options[UCI::option_t::debug] == "on");
-        UCI::reply();
-        UCI::join_threads();
+        SearchContext::timeRemaining = false;
+        SearchContext::result.formatData(this->sendbuf, BUFLEN, this->options[option_t::debug] == "on");
+        this->reply();
+        UCI::joinThreads();
     } else if (cmd == "quit") {
         std::cout << "juliette:: bye! i enjoyed playing with you :)" << std::endl;
-        UCI::join_threads();
+        UCI::joinThreads();
         exit(0);
     }
 }
 
 void UCI::position(const std::vector<std::string> &args) {
+    if (this->mainThread) {
+        delete this->mainThread;
+        this->mainThread = nullptr;
+    }
+
     size_t moves_index;
     if (args[0] == "startpos") {
         /** Position will be initialized from the starting position */
-        init_board(START_POSITION);
+        this->mainThread = new SearchContext(START_POSITION);
         moves_index = 1;
     } else if (args.size() < 6) {
         snprintf(sendbuf, BUFLEN, "juliette:: Malformed FEN string");
-        UCI::reply();
+        this->reply();
         return;
     } else {
         /** Recombine FEN that was split apart earlier */
@@ -129,51 +117,31 @@ void UCI::position(const std::vector<std::string> &args) {
             fen += args[i];
             fen += ' ';
         }
-        init_board(fen.c_str());
-        try {
-            board.halfmove_clock = std::stoi(args[4]);
-            board.fullmove_number = std::stoi(args[5]);
-        } catch (const std::invalid_argument &e) {
-            snprintf(sendbuf, BUFLEN, "juliette:: Move counters must be integers");
-            UCI::reply();
-            return;
-        }
+        this->mainThread = new SearchContext(fen);
         moves_index = 6;
     }
-    bool b = std::all_of(args.begin() + moves_index, args.end(),
-                         [](const std::string &arg) {
-                             move_t mv = parse_move(arg);
-                             if (mv == NULL_MOVE) {
-                                 return false;
-                             }
-                             push(mv);
-                             return true;
-                         });
+    bool b = true;
+    for (std::vector<std::string>::const_iterator it = args.begin() + moves_index; it != args.end(); ++it) {
+        move_t move = this->mainThread->board.parseMove(*it);
+        if (move == NULL_MOVE) { b = false; break; }
+        this->mainThread->pushMove(move);
+    }
     if (!b) {
-        std::cout << "juliette:: board initialization failed!\n";
+        snprintf(sendbuf, BUFLEN, "juliette:: board initialization failed!\n");
+        this->reply();
     }
     board_initialized = b;
 }
 
-bool UCI::validate_integer_argument(int *variable, std::string arg) {
-    if (!is_number(arg)) {
-        snprintf(sendbuf, BUFLEN, "juliette: token following %s must be an integer.", arg.c_str());
-        UCI::reply();
-        return false;
-    }
-    *variable = std::stoi(arg);
-    return true;
-}
-
 void UCI::go(const std::vector<std::string> &args) {
-    if (!board_initialized) {
-        snprintf(sendbuf, BUFLEN, "juliette:: a start position must be specified.");
-        UCI::reply();
+    if (!(this->board_initialized)) {
+        snprintf(this->sendbuf, BUFLEN, "juliette:: a start position must be specified.");
+        this->reply();
         return;
     }
 
     // Classical chess time control by default. 90 minutes, 30 second increment per move. 40 move time control
-    int movesToGo = std::max(1, 40 - board.fullmove_number);
+    int movesToGo = std::max(1, 40 - this->mainThread->board.fullmove_number);
     int wTime = 5400000;
     int bTime = 5400000;
 
@@ -186,28 +154,23 @@ void UCI::go(const std::vector<std::string> &args) {
             // TODO implement after refactoring root shuffling
             index += 1;
         } else if (args[index] == "wtime") {
-            if (!validate_integer_argument(&wTime, args[index + 1])) return;
+            if (!StringUtils::isNumber(&wTime, args[index + 1])) return;
             index += 2;
         } else if (args[index] == "btime") {
-            if (!validate_integer_argument(&bTime, args[index + 1])) return;
+            if (!StringUtils::isNumber(&bTime, args[index + 1])) return;
             index += 2;
         } else if (args[index] == "winc") {
-            if (!validate_integer_argument(&wInc, args[index + 1])) return;
+            if (!StringUtils::isNumber(&wInc, args[index + 1])) return;
             index += 2;
         } else if (args[index] == "binc") {
-            if (!validate_integer_argument(&bInc, args[index + 1])) return;
+            if (!StringUtils::isNumber(&bInc, args[index + 1])) return;
             index += 2;
         } else if (args[index] == "movestogo") {
-            if (!validate_integer_argument(&movesToGo, args[index + 1])) return;
+            if (!StringUtils::isNumber(&movesToGo, args[index + 1])) return;
             index += 2;
         } else if (args[index] == "movetime") {
-            int *variable = nullptr;
-            if (board.turn) {
-                variable = &wTime;
-            } else {
-                variable = &bTime;
-            }
-            if (!validate_integer_argument(variable, args[index + 1])) return;
+            int *variable = this->mainThread->board.fullmove_number ? &wTime : &bTime;
+            if (!StringUtils::isNumber(variable, args[index + 1])) return;
             movesToGo = 1;
             wInc = 0;
             bInc = 0;
@@ -219,94 +182,106 @@ void UCI::go(const std::vector<std::string> &args) {
             wInc = INT32_MAX;
             bInc = INT32_MAX;
         } else {
-            snprintf(sendbuf, BUFLEN, "juliette: '%s' token not supported.", args[index].c_str());
-            UCI::reply();
+            snprintf(this->sendbuf, BUFLEN, "juliette: '%s' token not supported.", args[index].c_str());
+            this->reply();
             return;
         }
     }
-    timeManager.initialize_timer(wTime, wInc, bTime, bInc, movesToGo);
-    n_threads = stoi(options[UCI::option_t::thread_cnt]);
+    timeManager.initializeTimer(mainThread->board.getTurn(), wTime, wInc, bTime, bInc, movesToGo);
+    this->nThreads = std::stoi(options[option_t::threadCount]);
+    timeManager.startTimer();
 
-    main_arg = {.main_board = &board, .main_repetition_table = &repetition_table, .is_main_thread = true};
-    aux_args = {.main_board = &board, .main_repetition_table = &repetition_table, .is_main_thread = false};
-
-    timeManager.start_timer();
-
-    int status = pthread_create(&threads[0], nullptr, reinterpret_cast<void *(*)(void *)> (search_t),
-                                (void *) &main_arg);
-    for (int i = 1; i < n_threads; ++i) {
-        status |= pthread_create(&threads[i], nullptr, reinterpret_cast<void *(*)(void *)> (search_t),
-                                 (void *) &aux_args);
-    }
-    if (status != 0) {
+    int status = pthread_create(&(this->threads[0]), nullptr, threadFunction, (void *) this->mainThread);
+    if (status) {
         std::cout << "juliette:: Failed to spawn thread!\n";
+        joinThreads();
         exit(-1);
+    }
+    for (int i = 1; i < nThreads; ++i) {
+        status = pthread_create(&(this->threads[i]), nullptr, threadFunction, (void *) &(this->helperThreads[i - 1]));
+        if (status) {
+            std::cout << "juliette:: Failed to spawn thread!\n";
+            joinThreads();
+            exit(-1);
+        }
     }
 }
 
-void UCI::format_data() {
-    result.format_data(options[UCI::option_t::debug] == "on");
+void UCI::formatData() {
+    SearchContext::getResult().formatData(this->sendbuf, BUFLEN, this->options[option_t::debug] == "on");
 }
 
 void UCI::reply() {
-    std::cout << sendbuf << std::endl;
+    std::cout << this->sendbuf << std::endl;
 }
 
-void UCI::set_option(const std::vector<std::string> &args) {
+void UCI::setOption(const std::vector<std::string> &args) {
     if (args[0] != "name" || args[2] != "value" || args.size() != 4) {
-        snprintf(sendbuf, BUFLEN, "juliette:: syntax: setoption name [name] value [value]");
-        UCI::reply();
+        snprintf(this->sendbuf, BUFLEN, "juliette:: syntax: setoption name [name] value [value]");
+        this->reply();
         return;
     }
 
     if (args[1] == "contempt") {
-        if (is_number(args[3])) {
-            options[UCI::option_t::contempt] = args[3];
+        if (StringUtils::isNumber(args[3])) {
+            options[option_t::contempt] = args[3];
         } else {
-            snprintf(sendbuf, BUFLEN, "juliette:: contempt value must be an integer");
-            UCI::reply();
+            snprintf(this->sendbuf, BUFLEN, "juliette:: contempt value must be an integer");
+            this->reply();
         }
     } else if (args[1] == "debug") {
         if (args[3] == "on" || args[3] == "off") {
-            options[UCI::option_t::debug] = args[3];
+            options[option_t::debug] = args[3];
         } else {
-            snprintf(sendbuf, BUFLEN, "juliette:: 'debug' option must be set to 'on' or 'off'");
-            UCI::reply();
+            snprintf(this->sendbuf, BUFLEN, "juliette:: 'debug' option must be set to 'on' or 'off'");
+            this->reply();
         }
     } else if (args[1] == "own_book") {
         if (args[3] == "on" || args[3] == "off") {
-            options[UCI::option_t::own_book] = args[3];
+            options[option_t::ownBook] = args[3];
         } else {
-            snprintf(sendbuf, BUFLEN, "juliette:: 'own_book' option must be set to 'on' or 'off'");
-            UCI::reply();
+            snprintf(this->sendbuf, BUFLEN, "juliette:: 'own_book' option must be set to 'on' or 'off'");
+            this->reply();
         }
     } else if (args[1] == "thread_cnt") {
-        if (is_number(args[3])) {
-            options[UCI::option_t::thread_cnt] = args[3];
+        if (StringUtils::isNumber(args[3])) {
+            options[option_t::threadCount] = args[3];
         } else {
-            snprintf(sendbuf, BUFLEN, "juliette:: thread count must be a number");
-            UCI::reply();
+            snprintf(this->sendbuf, BUFLEN, "juliette:: thread count must be a number");
+            this->reply();
         }
     } else if (args[1] == "hash_size") {
-        if (is_number(args[3])) {
-            options[UCI::option_t::hash_size] = args[3];
+        if (StringUtils::isNumber(args[3])) {
+            options[option_t::hashSize] = args[3];
         } else {
-            snprintf(sendbuf, BUFLEN, "juliette:: hash size must be a number");
-            UCI::reply();
+            snprintf(this->sendbuf, BUFLEN, "juliette:: hash size must be a number");
+            this->reply();
         }
     } else {
-        snprintf(sendbuf, BUFLEN, "juliette:: unrecognized option name '%s'", args[1].c_str());
-        UCI::reply();
+        snprintf(this->sendbuf, BUFLEN, "juliette:: unrecognized option name '%s'", args[1].c_str());
+        this->reply();
     }
 }
 
-const std::string &UCI::get_option(UCI::option_t opt) {
-    return options[opt];
+const std::string &UCI::getOption(option_t opt) const {
+    std::unordered_map<option_t, std::string>::const_iterator it = options.find(opt);
+    return it->second;
 }
 
-void UCI::join_threads() {
-    for (int i = 0; i < n_threads; ++i) {
+void UCI::setElapsedTime(const std::chrono::milliseconds &elapsedTime) {
+    SearchContext::result.elapsedTime = elapsedTime;
+}
+
+void UCI::joinThreads() {
+    for (int i = 0; i < nThreads; ++i) {
         pthread_join(threads[i], nullptr);
     }
-    n_threads = 0;
+    nThreads = 0;
+}
+
+void *threadFunction(void *arg) 
+{
+    SearchContext *context = reinterpret_cast<SearchContext *> (arg);
+    context->search_t();
+    return nullptr;
 }

@@ -13,7 +13,8 @@
 /**
  * Index enumeration of individual squares on the chess board.
  */
-enum squares {
+enum Squares 
+{
     A1, B1, C1, D1, E1, F1, G1, H1,
     A2, B2, C2, D2, E2, F2, G2, H2,
     A3, B3, C3, D3, E3, F3, G3, H3,
@@ -28,7 +29,8 @@ enum squares {
 /**
  * Special characteristics of a move.
  */
-enum move_flags {
+enum MoveFlags 
+{
     NONE, // No special flag
     PASS, // Null move
     CASTLING,
@@ -48,7 +50,8 @@ enum move_flags {
  * Indexed enumeration of piece types.
  */
 
-enum piece_t {
+enum piece_t 
+{
     BLACK_PAWN, BLACK_KNIGHT, BLACK_BISHOP, BLACK_ROOK, BLACK_QUEEN, BLACK_KING,
     WHITE_PAWN, WHITE_KNIGHT, WHITE_BISHOP, WHITE_ROOK, WHITE_QUEEN, WHITE_KING,
     EMPTY
@@ -57,7 +60,8 @@ enum piece_t {
 /**
  * Representation of a move.
  */
-typedef struct move_t {
+struct move_t 
+{
 
     static const int32_t SCORE_MASK = 0xFFFFFF;
 
@@ -80,133 +84,20 @@ typedef struct move_t {
      */
     int32_t score;
 
-    int32_t normalize_score() const;
+    int32_t normalizeScore() const;
 
-    void set_score(type_t t, int32_t score);
+    void setScore(type_t, int32_t);
 
-    void set_score(int32_t s);
+    bool isType(type_t) const;
 
-    bool is_type(type_t t) const;
+    bool operator==(const move_t &) const;
 
-    bool operator==(const move_t &other) const;
-
-    bool operator<(const move_t &other) const;
+    bool operator<(const move_t &) const;
 
     std::string to_string() const;
-} move_t;
-
-typedef struct bitboard {
-    piece_t mailbox[64]; // piece-centric board representation
-
-    uint64_t w_pawns;
-    uint64_t w_knights;
-    uint64_t w_bishops;
-    uint64_t w_rooks;
-    uint64_t w_queens;
-    uint64_t w_king;
-    uint64_t b_pawns;
-    uint64_t b_knights;
-    uint64_t b_bishops;
-    uint64_t b_rooks;
-    uint64_t b_queens;
-    uint64_t b_king;
-
-    uint64_t occupied;
-    uint64_t w_occupied;
-    uint64_t b_occupied;
-
-    int w_king_square;
-    int b_king_square;
-
-    bool turn;
-
-    bool w_kingside_castling_rights;
-    bool w_queenside_castling_rights;
-    bool b_kingside_castling_rights;
-    bool b_queenside_castling_rights;
-
-    int en_passant_square; // en passant target square, if any
-
-    int halfmove_clock; // number of halfmoves since the last capture or pawn advance
-    int fullmove_number; // number of cycles of a white move and a black move
-
-    uint64_t hash_code; // hash_code hash move_value for the current position
-} bitboard;
-
-/**
- * A stack of all the board positions that's been reached and
- * the moves that got to them.
- */
-typedef struct stack_t {
-    bitboard board;
-    struct stack_t *next;
-
-    move_t prev_mv;
-} stack_t;
+};
 
 extern const uint64_t BB_KNIGHT_ATTACKS[64];
-
-extern const uint64_t BB_SQUARES[64];
-
-extern const uint64_t BB_ALL;
-
-extern const uint64_t BB_FILE_A;
-extern const uint64_t BB_FILE_B;
-extern const uint64_t BB_FILE_C;
-extern const uint64_t BB_FILE_D;
-extern const uint64_t BB_FILE_E;
-extern const uint64_t BB_FILE_F;
-extern const uint64_t BB_FILE_G;
-extern const uint64_t BB_FILE_H;
-extern const uint64_t BB_FILES[8];
-
-extern const uint64_t BB_RANK_1;
-extern const uint64_t BB_RANK_2;
-extern const uint64_t BB_RANK_3;
-extern const uint64_t BB_RANK_4;
-extern const uint64_t BB_RANK_5;
-extern const uint64_t BB_RANK_6;
-extern const uint64_t BB_RANK_7;
-extern const uint64_t BB_RANK_8;
-extern const uint64_t BB_RANKS[8];
-
-extern const uint64_t BB_DIAGONAL_1;
-extern const uint64_t BB_DIAGONAL_2;
-extern const uint64_t BB_DIAGONAL_3;
-extern const uint64_t BB_DIAGONAL_4;
-extern const uint64_t BB_DIAGONAL_5;
-extern const uint64_t BB_DIAGONAL_6;
-extern const uint64_t BB_DIAGONAL_7;
-extern const uint64_t BB_DIAGONAL_8;
-extern const uint64_t BB_DIAGONAL_9;
-extern const uint64_t BB_DIAGONAL_10;
-extern const uint64_t BB_DIAGONAL_11;
-extern const uint64_t BB_DIAGONAL_12;
-extern const uint64_t BB_DIAGONAL_13;
-extern const uint64_t BB_DIAGONAL_14;
-extern const uint64_t BB_DIAGONAL_15;
-extern const uint64_t BB_DIAGONALS[15];
-
-extern const uint64_t BB_ANTI_DIAGONAL_1;
-extern const uint64_t BB_ANTI_DIAGONAL_2;
-extern const uint64_t BB_ANTI_DIAGONAL_3;
-extern const uint64_t BB_ANTI_DIAGONAL_4;
-extern const uint64_t BB_ANTI_DIAGONAL_5;
-extern const uint64_t BB_ANTI_DIAGONAL_6;
-extern const uint64_t BB_ANTI_DIAGONAL_7;
-extern const uint64_t BB_ANTI_DIAGONAL_8;
-extern const uint64_t BB_ANTI_DIAGONAL_9;
-extern const uint64_t BB_ANTI_DIAGONAL_10;
-extern const uint64_t BB_ANTI_DIAGONAL_11;
-extern const uint64_t BB_ANTI_DIAGONAL_12;
-extern const uint64_t BB_ANTI_DIAGONAL_13;
-extern const uint64_t BB_ANTI_DIAGONAL_14;
-extern const uint64_t BB_ANTI_DIAGONAL_15;
-extern const uint64_t BB_ANTI_DIAGONALS[15];
-
-extern uint64_t BB_RAYS[64][64];
-
-extern uint64_t ZOBRIST_VALUES[781];
 
 extern const move_t NULL_MOVE;
 extern const move_t CHECKMATE;
@@ -215,49 +106,57 @@ extern const int MAX_MOVE_NUM;
 extern const int MAX_CAPTURE_NUM;
 extern const int MAX_ATTACK_NUM;
 
+namespace BitUtils 
+{
+    uint64_t getRandomBitstring();
 
-uint64_t rand_bitstring();
+    int getLSB(uint64_t);
 
-piece_t to_enum(char p);
+    int pullLSB(uint64_t *);
 
-char to_char(piece_t p);
+    int popCount(uint64_t);
 
-uint64_t get_ray_between(int square1, int square2);
+    uint64_t flipBitboardVertical(uint64_t);
 
-uint64_t get_ray_between_inclusive(int square1, int square2);
+    uint64_t _get_reverse_bb(uint64_t);
 
-uint64_t vflip_bb(uint64_t);
+    void setBit(uint64_t *, int);
 
-int get_lsb(uint64_t bb);
+    void clearBit(uint64_t *, int);
+}
 
-void set_bit(uint64_t *bb, int square);
+namespace ConversionUtils 
+{
+    piece_t toEnum(char);
 
-void clear_bit(uint64_t *bb, int square);
+    char toChar(const piece_t &);
 
-int pop_count(uint64_t bb);
+    std::string moveToString(const move_t &);
+}
 
-int rank_of(int square);
+namespace StringUtils
+{
+    void ltrim(std::string &);
 
-int file_of(int square);
+    void rtrim(std::string &);
 
-int diagonal_of(int square);
+    void trim(std::string &);
 
-int anti_diagonal_of(int square);
+    bool isNumber(const std::string &);
 
-int pull_lsb(uint64_t *bb);
+    bool isNumber(int *, const std::string &);
 
-int parse_square(const char *square);
+    std::vector<std::string> split(std::string &);
+}
 
-void print_move(move_t move);
 
-void print_bitstring32(const uint32_t);
+namespace IOUtils 
+{
+    int parseSquare(const char *);
 
-void ltrim(std::string &string);
+    void printMove(move_t);
 
-void rtrim(std::string &string);
+    void printBitstring32(const uint32_t);
 
-void trim(std::string &string);
-
-std::vector<std::string> split(std::string &input);
-
-bool is_number(const std::string &input);
+    void printBitboard(uint64_t);
+}

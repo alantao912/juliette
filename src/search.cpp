@@ -19,34 +19,13 @@
 #define MIN_SCORE (INT32_MIN + 1000)
 #define MATE_SCORE(depth) (MIN_SCORE + INT16_MAX + depth)
 #define DRAW contempt_value
-#define MAX_DEPTH 128
 
-/**
- * Contempt factor indicates respect for opponent.
- * Positive contempt indicates respect for stronger opponent.
- * Negative contempt indicates perceived weaker opponent
- */
-const int32_t contempt_value = 0;
+const UCI *SearchContext::uciInstance = nullptr;
 
-static TTable transposition_table;
-static pthread_mutex_t init_lock;
-static volatile size_t active_search_threads = 0;
+volatile size_t SearchContext::nActiveThreads = 0;
 
-volatile bool time_remaining = true, block_thread = true;
-
-/** Following fields are thread local */
-thread_local std::unordered_map<uint64_t, RTEntry> repetition_table;
-
-static __thread Evaluation position;
-static __thread std::vector<move_t> *killer_mvs = nullptr;
-static __thread int32_t h_table[HTABLE_LEN];
-
-__thread bitboard board;
-__thread stack_t *stack = nullptr;
-__thread int16_t ply = 0;
-
-extern UCI::info_t result;
-extern TimeManager timeManager;
+bool SearchContext::timeRemaining = false;
+bool SearchContext::blockHelpers = false;
 
 /**
  * Verifies three-fold repetition claimed by the repetition table.
@@ -54,29 +33,13 @@ extern TimeManager timeManager;
  * @return whether the three-fold repetition of the position provided by the hash-code is valid.
  */
 
-bool verify_repetition(uint64_t hash) {
-    uint8_t num_seen = 0;
-    stack_t *iterator = stack;
+bool SearchContext::verifyRepetition(uint64_t hash) {
+    int numSeen = 0;
+    stack_t *iterator = this->stack;
     while (iterator) {
-        if (iterator->board.hash_code == hash) {
-            /**
-             * When checking if two positions are equal, it could be the case that two positions are equal, but have
-             * different half move and full move number values. Thus, before and after using strncmp, we save and
-             * restore the true values of the two variables.
-             */
-            int t0 = iterator->board.halfmove_clock;
-            int t1 = iterator->board.fullmove_number;
-            iterator->board.halfmove_clock = board.halfmove_clock;
-            iterator->board.fullmove_number = board.fullmove_number;
-            if (strncmp(reinterpret_cast<const char *>(&(iterator->board)),
-                        reinterpret_cast<const char *>(&board), sizeof(bitboard)) == 0) {
-                ++num_seen;
-            }
-            iterator->board.halfmove_clock = t0;
-            iterator->board.fullmove_number = t1;
-            if (num_seen >= 3) {
-                return true;
-            }
+        if (iterator->board.getHashCode() == hash) {
+            numSeen += int(iterator->board == this->board);
+            if (numSeen >= 3) return true;
         }
         iterator = iterator->next;
     }
@@ -89,15 +52,15 @@ bool verify_repetition(uint64_t hash) {
  * @return Whether the game's current state is a draw.
  */
 
-bool is_drawn() {
-    const std::unordered_map<uint64_t, RTEntry>::const_iterator iterator = repetition_table.find(board.hash_code);
-    if (iterator != repetition_table.end()) {
+bool SearchContext::isDrawn() {
+    const std::unordered_map<uint64_t, RTEntry>::const_iterator iterator = this->repetitionTable.find(this->board.getHashCode());
+    if (iterator != repetitionTable.end()) {
         const RTEntry &rt_entry = iterator->second;
         if (rt_entry.num_seen >= 3) {
-            return verify_repetition(board.hash_code);
+            return this->verifyRepetition(this->board.getHashCode());
         }
     }
-    return board.halfmove_clock >= 100;
+    return this->board.getHalfmoveClock() >= 100;
 }
 
 /**
@@ -107,29 +70,8 @@ bool is_drawn() {
  * @return Returns whether depth == 1, candidate move is not a check, and previous move was not a check (we are moving out of check)
  */
 
-inline bool use_fprune(move_t cm, int16_t depth) {
-    return depth == 1 && !cm.is_type(move_t::type_t::CHECK_MOVE) && !stack->prev_mv.is_type(move_t::type_t::CHECK_MOVE);
-}
-
-/**
- * Determines whether the position contains any pawn promotion moves.
- * @return Whether the position contains any pawn promotion moves.
- */
-
-static inline bool contains_promotions() {
-    uint64_t prom_squares;
-    if (board.turn) {
-        /** Checks if white has any pawn promotions */
-        prom_squares = ((board.w_pawns & BB_RANK_7) << 8) & ~board.occupied;
-        prom_squares |= ((((board.w_pawns << 9) & ~BB_FILE_A) | ((board.w_pawns << 7) & ~BB_FILE_H)) & BB_RANK_8) &
-                        board.b_occupied;
-    } else {
-        /** Checks if black has any pawn promotions */
-        prom_squares = ((board.b_pawns & BB_RANK_2) >> 8) & ~board.occupied;
-        prom_squares |= ((((board.b_pawns >> 9) & ~BB_FILE_H) | ((board.b_pawns >> 7) & ~BB_FILE_A)) & BB_RANK_1) &
-                        board.w_occupied;
-    }
-    return pop_count(prom_squares) > 0;
+bool SearchContext::useFutilityPruning(move_t cm, int16_t depth) {
+    return depth == 1 && !cm.isType(move_t::type_t::CHECK_MOVE) && !this->stack->previousMove.isType(move_t::type_t::CHECK_MOVE);
 }
 
 /**
@@ -139,8 +81,12 @@ static inline bool contains_promotions() {
  * @return Index of given move in the history table.
  */
 
-inline size_t h_table_index(const move_t &mv) {
-    return 64 * size_t(board.mailbox[mv.from]) + size_t(mv.to);
+size_t SearchContext::hTableIndex(const move_t &mv) {
+    return 64 * size_t(this->board.lookupMailbox(mv.from)) + size_t(mv.to);
+}
+
+const info_t &SearchContext::getResult() {
+    return SearchContext::result;
 }
 
 /**
@@ -151,196 +97,48 @@ inline size_t h_table_index(const move_t &mv) {
  * @return The amount by which to reduce current ply.
  */
 
-int16_t compute_reduction(move_t mv, int16_t current_ply, int n) {
+int16_t SearchContext::computeReduction(move_t mv, int16_t current_ply, int i) {
     const int16_t no_reduction = 3;
     const int NO_LMR = 4;
     /** If there are two plies or fewer to horizon, giving check, or in check, do not reduce. */
-    if (current_ply < no_reduction || n < NO_LMR ||
-        mv.is_type(move_t::type_t::CHECK_MOVE) || stack->prev_mv.is_type(move_t::type_t::CHECK_MOVE)) {
+    if (current_ply < no_reduction || i < NO_LMR ||
+        mv.isType(move_t::type_t::CHECK_MOVE) || this->stack->previousMove.isType(move_t::type_t::CHECK_MOVE)) {
         return 0;
     }
 
     /** If move is a capture or promotion (tactical possibilities), do not reduce. */
-    if (mv.flag >= move_flags::EN_PASSANT && !mv.is_type(move_t::type_t::LOSING_EXCHANGE)) {
+    if (mv.flag >= MoveFlags::EN_PASSANT && !mv.isType(move_t::type_t::LOSING_EXCHANGE)) {
         return 0;
     }
 
     /** int32_t material_loss_rf: Material loss in centi-pawns resulting in one additional ply reduction */
     const int32_t material_loss_rf = 250;
-    int16_t reduction = 1 + int16_t(sqrt(current_ply - 1) + sqrt(n - 1));
-    if (mv.is_type(move_t::LOSING_EXCHANGE)) {
-        const int32_t loss = -mv.normalize_score();
+    int16_t reduction = 1 + int16_t(sqrt(current_ply - 1) + sqrt(i - 1));
+    if (mv.isType(move_t::LOSING_EXCHANGE)) {
+        const int32_t loss = -mv.normalizeScore();
         const int16_t inc = (loss - 1) / material_loss_rf + 1;
         reduction += inc;
     }
     return reduction;
 }
 
-int32_t piece_value(piece_t p) {
+int32_t SearchContext::pieceValue(piece_t p) {
     size_t index = static_cast<size_t> (p) % 6;
     return Weights::MATERIAL[index];
 }
 
-int32_t piece_value(int square) {
-    piece_t piece = board.mailbox[square];
-    return (1 - (piece == piece_t::EMPTY)) * piece_value(piece);
-}
-
-uint64_t find_lva(uint64_t attadef, piece_t &piece, uint64_t target) {
-    int32_t min_piece_value = INT32_MAX;
-    uint64_t lva_bb = 0ULL;
-
-    uint64_t pieces;
-    uint64_t king_bb;
-    int king_square;
-    if (board.turn == WHITE) {
-        pieces = board.w_occupied;
-        king_bb = board.w_king;
-        king_square = board.w_king_square;
-    } else {
-        pieces = board.b_occupied;
-        king_bb = board.b_king;
-        king_square = board.b_king_square;
-    }
-
-    uint64_t attackmask = _get_attackmask(!board.turn);
-    uint64_t checkmask = _get_checkmask(board.turn);
-    uint64_t pos_pinned = get_queen_moves(!board.turn, king_square) & pieces;
-
-    while (attadef) {
-        int i = pull_lsb(&attadef), value;
-
-        uint64_t pinmask;
-        uint64_t pinned_bb = BB_SQUARES[i] & pos_pinned;
-        if (pinned_bb) {
-            pinmask = _get_pinmask(board.turn, i);
-        } else {
-            pinmask = BB_ALL;
-        }
-        if ((static_cast<int> (board.mailbox[i]) / 6) == board.turn &&
-            (value = piece_value(board.mailbox[i])) < min_piece_value && target & checkmask & pinmask) {
-            min_piece_value = value;
-
-            lva_bb = BB_SQUARES[i];
-            piece = board.mailbox[i];
-        }
-    }
-    return lva_bb;
-}
-
-uint64_t consider_xray_attacks(int from, int to) {
-    int shift_amt;
-    uint64_t iterator = BB_SQUARES[from], boundary;
-    if (from > to) {
-        /** Left-Shift*/
-        bool top_left = file_of(from) < file_of(to);
-        bool top = file_of(from) == file_of(to);
-        bool right = rank_of(from) == rank_of(to);
-        bool top_right = (file_of(from) > file_of(to)) & (rank_of(from) > rank_of(to));
-        shift_amt = 7 * top_left + 8 * top + right + 9 * top_right;
-        boundary = ((top_right | right) * BB_FILE_A) + (top_left * BB_FILE_H);
-        do {
-            iterator = (iterator << shift_amt) & ~boundary;
-            if (iterator & board.occupied)
-                return iterator;
-        } while (iterator);
-    } else {
-        /** Right-Shift */
-        bool bottom_right = file_of(from) > file_of(to);
-        bool bottom = file_of(from) == file_of(to);
-        bool left = rank_of(from) == rank_of(to);
-        bool bottom_left = ((file_of(from) < file_of(to)) & (rank_of(from) < rank_of(to)));
-        shift_amt = left + 7 * bottom_right + 8 * bottom + 9 * bottom_left;
-        boundary = (BB_FILE_A * bottom_right) + (BB_FILE_H * (left | bottom_left));
-        do {
-            iterator = (iterator >> shift_amt) & ~boundary;
-            if (iterator & board.occupied)
-                return iterator;
-        } while (iterator);
-    }
-    return 0ULL;
-}
-
 /**
- * Clears every bitboard field in board.
- * @param from_bb The square to clear.
+ * Returns the move value of the piece moved in centi-pawns.
+ * @param move the move to consider value of
+ * @return the move value of the piece moved in centi-pawns
  */
 
-void clear_bb(uint64_t from_bb) {
-    board.occupied &= ~from_bb;
-    board.w_occupied &= ~from_bb;
-    board.b_occupied &= ~from_bb;
-    board.w_pawns &= ~from_bb;
-    board.w_knights &= ~from_bb;
-    board.w_bishops &= ~from_bb;
-    board.w_rooks &= ~from_bb;
-    board.w_queens &= ~from_bb;
-    board.w_king &= ~from_bb;
-    board.b_pawns &= ~from_bb;
-    board.b_knights &= ~from_bb;
-    board.b_bishops &= ~from_bb;
-    board.b_rooks &= ~from_bb;
-    board.b_queens &= ~from_bb;
-    board.b_king &= ~from_bb;
-}
-
-/**
- * Static exchange score:
- * @param move a move that captures an opponent's piece
- * @return returns whether or not the capture does not lose material
- */
-
-int32_t fast_SEE(move_t move) {
-    const bitboard copy = board;
-    int gain[32], d = 0;
-    uint64_t may_xray = board.w_pawns | board.b_pawns | board.w_bishops | board.b_bishops | board.w_rooks |
-                        board.b_rooks | board.w_queens | board.b_queens;
-    uint64_t from_bb = BB_SQUARES[move.from];
-    uint64_t attadef = attacks_to(move.to);
-    gain[d] = (piece_value(move.to) * (board.mailbox[move.to] != piece_t::EMPTY)) + Weights::MATERIAL[piece_t::BLACK_PAWN] * (move.flag == EN_PASSANT);
-    
-    piece_t attacking_piece = board.mailbox[move.from];
-    uint64_t bb_to = BB_SQUARES[move.to];
-    do {
-        ++d;
-        gain[d] = piece_value(attacking_piece) - gain[d - 1];
-        if (std::max(-gain[d - 1], gain[d]) < 0) break;
-        attadef ^= from_bb;
-        clear_bb(from_bb);
-        if (from_bb & may_xray) {
-            attadef |= consider_xray_attacks(get_lsb(from_bb), move.to);
-        }
-
-        int king = (!board.turn * get_lsb(board.w_king)) + (board.turn * get_lsb(board.b_king));
-        if (king != -1 && (bb_to & BB_KING_ATTACKS[king])) {
-            uint64_t attackmask = _get_attackmask(board.turn);
-            bool king_can_reach = (BB_KING_ATTACKS[king] & bb_to) != 0;
-            bool square_undefended = (bb_to & attackmask) == 0;
-            attadef |= BB_SQUARES[king] * (king_can_reach & square_undefended);
-        }
-
-        board.turn = !board.turn;
-        from_bb = find_lva(attadef, attacking_piece, BB_SQUARES[move.to]);
-    } while (from_bb);
-    while (--d) {
-        gain[d - 1] = -std::max(-gain[d - 1], gain[d]);
-    }
-    board = copy;
-    return gain[0];
-}
-
-/**
- * Returns the move_value of the piece moved in centi-pawns.
- * @param move self-explanatory
- * @return the move_value of the piece moved in centi-pawns
- */
-
-int32_t move_value(move_t move) {
+int32_t SearchContext::moveValue(move_t move) {
     switch (move.flag) {
         case EN_PASSANT:
             return Weights::MATERIAL[piece_t::BLACK_PAWN];
         case CAPTURE:
-            return piece_value(move.to);
+            return this->board.pieceValue(move.to);
         case PR_KNIGHT:
             return Weights::MATERIAL[piece_t::BLACK_KNIGHT];
         case PR_BISHOP:
@@ -350,31 +148,30 @@ int32_t move_value(move_t move) {
         case PR_QUEEN:
             return Weights::MATERIAL[piece_t::BLACK_QUEEN];
         case PC_KNIGHT:
-            return Weights::MATERIAL[piece_t::BLACK_KNIGHT] + piece_value(move.to);
+            return Weights::MATERIAL[piece_t::BLACK_KNIGHT] + this->board.pieceValue(move.to);
         case PC_BISHOP:
-            return Weights::MATERIAL[piece_t::BLACK_BISHOP] + piece_value(move.to);
+            return Weights::MATERIAL[piece_t::BLACK_BISHOP] + this->board.pieceValue(move.to);
         case PC_ROOK:
-            return Weights::MATERIAL[piece_t::BLACK_ROOK] + piece_value(move.to);
+            return Weights::MATERIAL[piece_t::BLACK_ROOK] + this->board.pieceValue(move.to);
         case PC_QUEEN:
-            return Weights::MATERIAL[piece_t::BLACK_QUEEN] + piece_value(move.to);
+            return Weights::MATERIAL[piece_t::BLACK_QUEEN] + this->board.pieceValue(move.to);
         default:
             return 0;
     }
 }
 
-void store_cutoff_mv(move_t mv, int16_t depth) {
-    if (mv.is_type(move_t::type_t::QUIET)) {
-        if (!mv.is_type(move_t::type_t::KILLER_MOVE)) {
-            killer_mvs[ply].push_back(mv);
+void SearchContext::storeCutoffMove(move_t mv, int16_t depth) {
+    if (mv.isType(move_t::type_t::QUIET)) {
+        if (!mv.isType(move_t::type_t::KILLER_MOVE)) {
+            this->killerMoves[ply].push_back(mv);
         }
-        h_table[h_table_index(mv)] += depth * depth;
+        this->historyTable[hTableIndex(mv)] += depth * depth;
     }
 }
 
-void order_moves(move_t mvs[], int n) {
-    const TTEntry *it = transposition_table.find(
-            board.hash_code);
-    const std::vector<move_t> &kmvs = killer_mvs[ply];
+void SearchContext::orderMoves(move_t mvs[], int n) {
+    const TTEntry *it = SearchContext::transpositionTable.find(board.getHashCode());
+    const std::vector<move_t> &kmvs = killerMoves[ply];
 
     move_t hash_move = NULL_MOVE;
     if (it != nullptr) {
@@ -384,41 +181,41 @@ void order_moves(move_t mvs[], int n) {
     for (int i = 0; i < n; ++i) {
         move_t &mv = mvs[i];
         if (mv == hash_move) {
-            mv.set_score(move_t::type_t::HASH_MOVE, 0);
+            mv.setScore(move_t::type_t::HASH_MOVE, 0);
             continue;
         } else if (std::find(kmvs.begin(), kmvs.end(), mv) != kmvs.end()) {
-            mv.set_score(move_t::type_t::KILLER_MOVE, 0);
+            mv.setScore(move_t::type_t::KILLER_MOVE, 0);
             continue;
         }
 
-        if (is_move_check(mv)) {
-            mv.set_score(move_t::type_t::CHECK_MOVE, 0);
+        if (board.isMoveCheck(mv)) {
+            mv.setScore(move_t::type_t::CHECK_MOVE, 0);
         }
 
         switch (mv.flag) {
             case CASTLING: {
-                mv.set_score(move_t::type_t::QUIET, h_table[h_table_index(mv)]);
+                mv.setScore(move_t::type_t::QUIET, this->historyTable[this->hTableIndex(mv)]);
                 break;
             }
             case CAPTURE: {
-                int diff = piece_value(mv.to) - piece_value(mv.from);
+                int diff = this->board.pieceValue(mv.to) - this->board.pieceValue(mv.from);
                 if (diff > 0) {
-                    mv.set_score(move_t::type_t::WINNING_EXCHANGE, diff);
+                    mv.setScore(move_t::type_t::WINNING_EXCHANGE, diff);
                     break;
                 }
             }
             default: {
-                /** fast_SEE determines whether or not the move wins or loses material */
-                int32_t see_score = fast_SEE(mv);
+                /** fastSEE determines whether or not the move wins or loses material */
+                int32_t see_score = this->board.fastSEE(mv);
                 if (see_score < 0) {
                     /** Quiet move that loses material, or losing exchange. */
-                    mv.set_score(move_t::type_t::LOSING_EXCHANGE, see_score);
+                    mv.setScore(move_t::type_t::LOSING_EXCHANGE, see_score);
                 } else if (mv.flag == NONE) {
                     /** Quiet move. Cannot be a move that wins material since that would require capture. */
-                    mv.set_score(move_t::type_t::QUIET, h_table[h_table_index(mv)]);
+                    mv.setScore(move_t::type_t::QUIET, this->historyTable[this->hTableIndex(mv)]);
                 } else {
                     /** Non-quiet move that wins, or maintains equal material */
-                    mv.set_score(move_t::type_t::WINNING_EXCHANGE, see_score);
+                    mv.setScore(move_t::type_t::WINNING_EXCHANGE, see_score);
                 }
             }
         }
@@ -426,28 +223,53 @@ void order_moves(move_t mvs[], int n) {
     std::sort(mvs, mvs + n);
 }
 
+void SearchContext::pushMove(const move_t &mv) {
+    stack_t *node = new stack_t(this->board, mv);
+    node->next = this->stack;
+    this->stack = node;
+    this->board.makeMove(mv);
+    std::unordered_map<uint64_t, RTEntry>::iterator rtPair = repetitionTable.find(this->board.getHashCode());
+    if (rtPair != repetitionTable.end()) {
+        RTEntry &rtEntry = rtPair->second;
+        ++rtEntry.num_seen;
+    } else {
+        repetitionTable.insert(std::pair<uint64_t, RTEntry>(board.getHashCode(), RTEntry(1)));
+    }
+    ++(this->ply);
+}
+
+void SearchContext::popMove() {
+    RTEntry &rtPair = repetitionTable.find(this->board.getHashCode())->second;
+    --rtPair.num_seen;
+    stack_t *head = this->stack;
+    this->board = head->board;
+    this->stack = head->next;
+    --(this->ply);
+    delete head;
+}
+
 /**
  * @brief Extends the search_fd position until a "quiet" position is reached.
  * @param alpha: Minimum score that the maximizing player is assured of.
  * @param beta: Maximum score that the minimizing player is assured of.
- * @return
+ * @return The static evaluation 
  */
 
-int32_t qsearch(int32_t alpha, int32_t beta) { // NOLINT
+int32_t SearchContext::qsearch(int32_t alpha, int32_t beta) { // NOLINT
     int32_t stand_pat;
 
     int n;
     move_t moves[MAX_MOVE_NUM];
 
     bool in_check = false;
-    if (!is_check(board.turn)) {
+    if (!board.isInCheck(board.getTurn())) {
         /** Generate non-quiet moves, such as promotions, and captures. */
-        n = gen_nonquiescent_moves(moves, board.turn);
+        n = this->board.genNonquiescentMoves(moves, this->board.getTurn()); // TODO Refactor movegen
         if (n == 0) {
             /** Position is quiet, return score. */
             return position.evaluate();
         }
-    } else if ((n = gen_legal_moves(moves, board.turn))) {
+    } else if ((n = this->board.genLegalMoves(moves, this->board.getTurn()))) { // TODO Refactor movegen
         /** Side to move is in check, evasions exist. */
         in_check = true;
         goto CHECK_EVASIONS;
@@ -465,7 +287,7 @@ int32_t qsearch(int32_t alpha, int32_t beta) { // NOLINT
 
     {
         int big_delta = Weights::MATERIAL[piece_t::BLACK_QUEEN];
-        if (contains_promotions()) {
+        if (this->board.containsPromotions()) {
             big_delta += 775;
         }
         /** No move can possibly raise alpha. Prune this node. */
@@ -484,18 +306,18 @@ int32_t qsearch(int32_t alpha, int32_t beta) { // NOLINT
     for (size_t i = 0; i < n; ++i) {
         const move_t &candidate_move = moves[i];
         /** Delta pruning */
-        if (!in_check && move_value(candidate_move) + stand_pat < alpha - Weights::DELTA_MARGIN) {
+        if (!in_check && moveValue(candidate_move) + stand_pat < alpha - Weights::DELTA_MARGIN) {
             /** Skip evaluating this move */
             continue;
         }
 
-        if (fast_SEE(candidate_move) < 0) {
+        if (this->board.fastSEE(candidate_move) < 0) {
             continue;
         }
 
-        push(candidate_move);
+        this->pushMove(candidate_move);
         int32_t score = -qsearch(-beta, -alpha);
-        pop();
+        this->popMove();
         if (score >= beta) {
             return beta;
         }
@@ -507,7 +329,7 @@ int32_t qsearch(int32_t alpha, int32_t beta) { // NOLINT
 }
 
 /**
- * @brief Returns an integer move_value, representing the score of the specified turn.
+ * @brief Returns an integer moveValue, representing the score of the specified turn.
  *
  * @param alpha: Minimum score that the maximizing player is assured of.
  * @param beta: Maximum score that the minimizing player is assured of.
@@ -515,12 +337,12 @@ int32_t qsearch(int32_t alpha, int32_t beta) { // NOLINT
 
 #pragma ide diagnostic ignored "misc-no-recursion"
 
-static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
-    if (!time_remaining) {
+int32_t SearchContext::pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
+    if (!SearchContext::timeRemaining) {
         return 0;
     }
-    TTEntry *t = transposition_table.find(board.hash_code);
 
+    TTEntry *t = transpositionTable.find(board.getHashCode());
     if (t != nullptr && t->depth >= depth) {
         switch (t->flag) {
             case EXACT:
@@ -539,40 +361,41 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
             return t->score;
         }
     }
-    const int32_t original_alpha = alpha;
 
+    const int32_t original_alpha = alpha;
     if (depth <= 0) {
-        /** Extend the search_fd until the position is quiet */
+        // Extend the search_fd until the position is quiet
         return qsearch(alpha, beta);
     }
-    /** Move generation logic */
-    move_t mvs[MAX_MOVE_NUM];
-    int n = gen_legal_moves(mvs, board.turn);
 
-    /** Check game-lookahead terminating conditions */
+    // Move generation logic
+    move_t mvs[MAX_MOVE_NUM];
+    int n = this->board.genLegalMoves(mvs, this->board.getTurn());
+
+    // Check lookahead terminating conditions
     if (n == 0) {
-        if (is_check(board.turn)) {
-            /** King is in check, and there are no legal mvs. Checkmate */
+        if (board.isInCheck(board.getTurn())) {
+            // King is in check, and there are no legal moves. Checkmate!
             return MATE_SCORE(ply);
         }
-        /** No legal mvs, yet king is not in check. This is a stalemate, and the game is drawn. */
+        // No legal moves, yet king is not in check. Stalemate!
         return DRAW;
     }
-    if (is_drawn()) {
+    if (isDrawn()) {
         return DRAW;
     }
 
     /** Move ordering logic */
-    order_moves(mvs, n);
+    orderMoves(mvs, n);
 
     /** Begin PVS check first move */
     size_t pv_index = 0;
     move_t variations[depth + 1];
 
-    push(mvs[0]);
+    this->pushMove(mvs[0]);
     variations[0] = mvs[0];
     int32_t mv_score = -pvs(depth - 1, -beta, -alpha, &variations[1]);
-    pop();
+    this->popMove();
 
     if (mv_score > alpha) {
         alpha = mv_score;
@@ -580,7 +403,7 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
     }
 
     if (alpha >= beta) {
-        store_cutoff_mv(mvs[0], depth);
+        storeCutoffMove(mvs[0], depth);
         goto END;
     }
     /** End PVS check first move */
@@ -589,20 +412,20 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
     for (size_t i = 1; i < n; ++i) {
         const move_t &mv = mvs[i];
         /** Futility pruning */
-        if (use_fprune(mv, depth) && mv_score + move_value(mv) < alpha - Weights::DELTA_MARGIN) {
+        if (this->useFutilityPruning(mv, depth) && mv_score + this->moveValue(mv) < alpha - Weights::DELTA_MARGIN) {
             continue;
         }
-        push(mv);
+        this->pushMove(mv);
         variations[0] = mv;
 
-        int16_t r = compute_reduction(mv, depth, i);
+        int16_t r = this->computeReduction(mv, depth, i);
         /** Zero-Window Search. Assume good move ordering, and all subsequent mvs are worse. */
-        mv_score = -pvs(depth - 1 - r, -alpha - 1, -alpha, &variations[1]);
+        mv_score = -1 * this->pvs(depth - 1 - r, -alpha - 1, -alpha, &variations[1]);
         /** If mvs[i] turns out to be better, re-search move with full window */
         if (alpha < mv_score && mv_score < beta) {
-            mv_score = -pvs(depth - 1, -beta, -alpha, &variations[1]);
+            mv_score = -1 * this->pvs(depth - 1, -beta, -alpha, &variations[1]);
         }
-        pop();
+        this->popMove();
 
         if (mv_score > alpha) {
             alpha = mv_score;
@@ -612,97 +435,105 @@ static int32_t pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
 
         /** Beta-Cutoff */
         if (alpha >= beta) {
-            store_cutoff_mv(mv, depth);
+            storeCutoffMove(mv, depth);
             break;
         }
     }
     END:
     /** Updates the transposition table with the appropriate values */
-    TTEntry tt_entry(board.hash_code, alpha, depth, EXACT, mvs[pv_index]);
+    TTEntry tt_entry(this->board.getHashCode(), alpha, depth, EXACT, mvs[pv_index]);
     if (alpha <= original_alpha) {
         tt_entry.flag = UPPER;
     } else if (alpha >= beta) {
         tt_entry.flag = LOWER;
     }
 
-    transposition_table.insert(tt_entry);
-    killer_mvs[ply + 1].clear();
+    transpositionTable.insert(tt_entry);
+    killerMoves[ply + 1].clear();
     return alpha;
 }
 
-void search_t(thread_args_t *args) {
-    board = *(args->main_board);
-
-    std::unordered_map<uint64_t, RTEntry>::const_iterator it = args->main_repetition_table->begin();
-    const std::unordered_map<uint64_t, RTEntry>::const_iterator end = args->main_repetition_table->end();
-    while (it != end) {
-        repetition_table.insert(std::pair<uint64_t, RTEntry>(it->first, it->second));
-        ++it;
-    }
-    const bool is_main_thread = args->is_main_thread;
-    if (is_main_thread) {
-        /** Main thread initializes shared resources */
-        block_thread = true;
-        pthread_mutex_init(&init_lock, nullptr);
-        transposition_table.initialize(strtol(UCI::get_option(UCI::option_t::hash_size).c_str(), nullptr, 10));
-        block_thread = false;
-    } else {
-        /** Auxiliary threads busy-wait for lock initialization to complete */
-        while (block_thread);
-    }
-
-    move_t pv[MAX_DEPTH];
-    pv[0] = NULL_MOVE;
-    ply = 0;
-
-    std::vector<move_t> kmv[MAX_DEPTH];
-    killer_mvs = kmv;
-    std::memset(h_table, 0, sizeof(int) * HTABLE_LEN);
-
+void SearchContext::search_t() {
     move_t root_mvs[MAX_MOVE_NUM];
-    int n_root_mvs = gen_legal_moves(root_mvs, board.turn);
+    int n_root_mvs = this->board.genLegalMoves(root_mvs, this->board.getTurn()); // TODO Refactor move gen
 
     pthread_mutex_lock(&init_lock);
     int seed = std::random_device()();
     std::mt19937 rng(seed);
-    ++active_search_threads;
+    ++SearchContext::nActiveThreads;
     pthread_mutex_unlock(&init_lock);
     std::shuffle(root_mvs, &(root_mvs[n_root_mvs]), rng);
 
-    move_t mv_pv[MAX_DEPTH];
+    move_t pv[MAX_DEPTH];
 
-    for (int16_t d = 1; time_remaining && d < MAX_DEPTH - 1; ++d) {
+    const bool isMainThread = this->threadIndex == 0;
+    for (int16_t d = 1; SearchContext::timeRemaining && d < MAX_DEPTH - 1; ++d) {
         int32_t evaluation = MIN_SCORE;
 
         for (int i = 0; i < n_root_mvs; ++i) {
-            mv_pv[0] = root_mvs[i];
-            push(mv_pv[0]);
-            int32_t mv_score = -pvs(d - 1, MIN_SCORE, -evaluation, &mv_pv[1]);
-            pop();
+            pv[0] = root_mvs[i];
+            this->pushMove(pv[0]);
+            int32_t mvScore = -1 * this->pvs(d - 1, MIN_SCORE, -evaluation, &pv[1]);
+            this->popMove();
 
-            if (mv_score > evaluation) {
-                evaluation = mv_score;
-                std::memcpy(pv, mv_pv, d * sizeof(move_t));
+            if (mvScore > evaluation) {
+                evaluation = mvScore;
+                std::memcpy(this->threadPV, pv, d * sizeof(move_t));
             }
         }
-        TTEntry tt_entry(board.hash_code, evaluation, d, EXACT, pv[0]);
-        transposition_table.insert(tt_entry);
+        TTEntry ttEntry(board.getHashCode(), evaluation, d, EXACT, this->threadPV[0]);
+        transpositionTable.insert(ttEntry);
 
-        if (is_main_thread && time_remaining) {
-            result.best_move = pv[0];
+        if (isMainThread && SearchContext::timeRemaining) {
+            result.bestMove = this->threadPV[0];
             result.score = evaluation;
-            timeManager.finished_iteration(evaluation);
+            timeManager.finishedIteration(evaluation);
         }
-        order_moves(root_mvs, n_root_mvs);
+        orderMoves(root_mvs, n_root_mvs);
     }
 
-    /** Thread tear-down code */
-    killer_mvs = nullptr;
-    if (is_main_thread) {
-        while (active_search_threads > 1);
+    // Thread tear-down code
+    if (isMainThread) {
+        while (SearchContext::nActiveThreads > 1);
         pthread_mutex_destroy(&init_lock);
-        timeManager.reset_timer();
+        timeManager.resetTimer();
     }
-    --active_search_threads;
+    --SearchContext::nActiveThreads;
     pthread_exit(nullptr);
 }
+
+SearchContext::SearchContext(const std::string &fen) : board(fen), position(&(this->board)) {
+    pthread_mutex_init(&SearchContext::init_lock, nullptr);
+    SearchContext::transpositionTable.initialize(strtol(uciInstance->getOption(option_t::hashSize).c_str(), nullptr, 10));
+
+    std::memset(this->historyTable, 0, sizeof(int) * HTABLE_LEN);
+    std::memset(this->threadPV, 0, MAX_DEPTH * sizeof(move_t));
+    this->ply = 0;
+    this->stack = nullptr;
+    this->threadIndex = 0;
+}
+
+SearchContext::SearchContext(size_t threadIndex, const SearchContext &src) : position(&(this->board)) {
+    this->board = src.board;
+
+    std::unordered_map<uint64_t, RTEntry>::const_iterator it = src.repetitionTable.begin();
+    const std::unordered_map<uint64_t, RTEntry>::const_iterator end = src.repetitionTable.end();
+
+    while (it != end) {
+        this->repetitionTable.insert(std::pair<uint64_t, RTEntry> (it->first, it->second));
+        ++it;
+    }
+
+    std::memset(this->historyTable, 0, sizeof(int) * HTABLE_LEN);
+    std::memset(this->threadPV, 0, MAX_DEPTH * sizeof(move_t));
+    this->ply = 0;
+    this->stack = nullptr;
+    this->threadIndex = threadIndex;
+}
+
+void SearchContext::setUCIInstance(const UCI *uciPtr) {
+    if (SearchContext::uciInstance) return;
+    SearchContext::uciInstance = uciPtr;
+}
+
+SearchContext::~SearchContext() {}

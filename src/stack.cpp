@@ -5,45 +5,9 @@
 #include "bitboard.h"
 #include "tables.h"
 
-extern __thread bitboard board;
-extern __thread stack_t *stack;
 
-extern thread_local std::unordered_map<uint64_t, RTEntry> repetition_table;
-extern __thread int16_t ply;
-
-/**
- * Makes the given move and updates the tables.
- * @param move
- */
-void push(move_t move) {
-    // Update move stack
-    stack_t *node = new stack_t;
-    node->board = board;
-    make_move(move);
-    node->next = stack;
-    node->prev_mv = move;
-    stack = node;
-    std::unordered_map<uint64_t, RTEntry>::iterator rt_pair = repetition_table.find(board.hash_code);
-    if (rt_pair != repetition_table.end()) {
-        RTEntry &rt_entry = rt_pair->second;
-        ++rt_entry.num_seen;
-    } else {
-        repetition_table.insert(std::pair<uint64_t, RTEntry>(board.hash_code, RTEntry(1)));
-    }
-    ++ply;
-}
-
-
-/**
- * Unmakes the most recent move and updates the tables.
- */
-void pop() {
-    RTEntry &rt_pair = repetition_table.find(board.hash_code)->second;
-    --rt_pair.num_seen;
-    // Update move stack
-    stack_t *temp = stack;
-    board = stack->board;
-    stack = stack->next;
-    --ply;
-    delete temp;
+stack_t::stack_t(const Bitboard &b, const move_t &previousMove)
+{
+    this->board = b;
+    this->previousMove = previousMove;
 }

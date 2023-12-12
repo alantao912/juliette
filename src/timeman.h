@@ -7,35 +7,43 @@
 #include <cstdint>
 #include <vector>
 
+struct UCI;
+
+void *timerThread(void *args);
+
+struct TimerArgs {
+    std::vector<int> *durationPtr;
+    UCI *uciPtr;
+};
+
+typedef
 struct TimeManager {
 
 private:
-    /** White time */
+
+    static UCI *uciInstance;
+
     int wTime;
-    /** Black time */
     int bTime;
 
-    /** White increment */
-    int wInc;
-    /** Black increment */
-    int bInc;
+    int wIncrement;
+    int bIncrement;
 
-    /** Moves to go until the next time control */
+    // Moves remaining until next time control
     int movesToGo;
 
     std::vector<int> duration;
-
     std::vector<int32_t> evaluations;
     int total;
 
 public:
+    static void setUCIInstance(UCI *);
 
-    void finished_iteration(int32_t evaluation);
+    void finishedIteration(int32_t);
 
-    void initialize_timer(int wTime, int wInc, int bTime, int bInc, int movesToGo);
+    void initializeTimer(bool, int, int, int, int, int);
 
-    void start_timer();
+    void startTimer();
 
-    void reset_timer();
-
-};
+    void resetTimer();
+} TimeManager;

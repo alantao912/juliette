@@ -1,3 +1,4 @@
+#include "bitboard.h"
 #include "evaluation.h"
 #include "movegen.h"
 #include "weights.h"
@@ -7,7 +8,7 @@
 #include <cstring>
 
 /** Global board struct */
-extern __thread bitboard board;
+//extern __thread bitboard board;
 
 namespace Weights {
 
@@ -28,20 +29,24 @@ namespace Weights {
     }
 }
 
+Evaluation::Evaluation(const Bitboard *board) {
+    this->board = board;
+}
+
 void Evaluation::reset() {
     midgame_score = 0;
     endgame_score = 0;
-    w_pawn_rearspans = compute_pawn_rearspans_w(board.w_pawns, 0ULL);
-    b_pawn_rearspans = compute_pawn_rearspans_b(board.b_pawns, 0ULL);
-    compute_n_open_files();
-    compute_space_bonus_w();
-    compute_space_bonus_b();
+    w_pawn_rearspans = whitePawnsRearspan(this->board->wPawns, 0ULL);
+    b_pawn_rearspans = blackPawnsRearspan(this->board->bPawns, 0ULL);
+    countOpenFiles();
+    whiteSpaceBonus();
+    blackSpaceBonus();
     std::memset(square_guard_values, 0, 64 * sizeof(int8_t));
-    progression = compute_progression();
+    progression = gamePhase();
 }
 
-int32_t Evaluation::compute_score() const {
-    return (1 - 2 * (board.turn == BLACK)) *
+int32_t Evaluation::weightedScore() const {
+    return (1 - 2 * (this->board->getTurn() == BLACK)) *
            (int32_t) std::round(midgame_score * progression + endgame_score * (1 - progression));
 }
 
@@ -52,23 +57,23 @@ int32_t Evaluation::compute_score() const {
  * @return a bitboard of vulnerable squares around the king.
  */
 
-uint64_t Evaluation::compute_king_vulnerabilities(uint64_t king, uint64_t barriers) {
+uint64_t Evaluation::kingVulnerabilities(uint64_t king, uint64_t barriers) {
     /** Highlights the squares around the king */
-    uint64_t king_occ = 0, temp = (king << 1) & ~BB_FILE_A;
+    uint64_t king_occ = 0, temp = (king << 1) & ~Bitboard::BB_FILE_A;
     temp |= (temp >> 8) | (temp << 8);
     temp &= ~barriers;
-    temp |= ((temp << 1) & ~BB_FILE_A);
+    temp |= ((temp << 1) & ~Bitboard::BB_FILE_A);
     temp &= ~barriers;
     king_occ |= temp;
-    temp = (king >> 1) & ~BB_FILE_H;
+    temp = (king >> 1) & ~Bitboard::BB_FILE_H;
     temp |= (temp >> 8) | (temp << 8);
     temp &= ~barriers;
-    temp |= ((temp >> 1) & ~BB_FILE_H);
+    temp |= ((temp >> 1) & ~Bitboard::BB_FILE_H);
     temp &= ~barriers;
     king_occ |= temp;
 
     temp = king >> 8;
-    temp |= ((temp << 1) & ~BB_FILE_A) | ((temp >> 1) & ~BB_FILE_H);
+    temp |= ((temp << 1) & ~Bitboard::BB_FILE_A) | ((temp >> 1) & ~Bitboard::BB_FILE_H);
     temp &= ~barriers;
     king_occ |= temp;
     temp >>= 8;
@@ -76,7 +81,7 @@ uint64_t Evaluation::compute_king_vulnerabilities(uint64_t king, uint64_t barrie
     king_occ |= temp;
 
     temp = king << 8;
-    temp |= ((temp << 1) & ~BB_FILE_A) | ((temp >> 1) & ~BB_FILE_H);
+    temp |= ((temp << 1) & ~Bitboard::BB_FILE_A) | ((temp >> 1) & ~Bitboard::BB_FILE_H);
     temp &= ~barriers;
     king_occ |= temp;
     temp <<= 8;
@@ -85,7 +90,7 @@ uint64_t Evaluation::compute_king_vulnerabilities(uint64_t king, uint64_t barrie
     return king_occ;
 }
 
-uint64_t Evaluation::compute_pawn_frontspans_w(uint64_t pawns_bb, uint64_t occupied_bb) {
+uint64_t Evaluation::whitePawnsFrontspan(uint64_t pawns_bb, uint64_t occupied_bb) {
     uint64_t frontspans = 0ULL;
     do {
         pawns_bb <<= 8;
@@ -95,7 +100,7 @@ uint64_t Evaluation::compute_pawn_frontspans_w(uint64_t pawns_bb, uint64_t occup
     return frontspans;
 }
 
-uint64_t Evaluation::compute_pawn_frontspans_b(uint64_t pawns_bb, uint64_t occupied_bb) {
+uint64_t Evaluation::blackPawnsFrontspan(uint64_t pawns_bb, uint64_t occupied_bb) {
     uint64_t frontspans = 0ULL;
     do {
         pawns_bb >>= 8;
@@ -105,41 +110,41 @@ uint64_t Evaluation::compute_pawn_frontspans_b(uint64_t pawns_bb, uint64_t occup
     return frontspans;
 }
 
-uint64_t Evaluation::compute_pawn_rearspans_w(uint64_t pawns_bb, uint64_t occupied_bb) {
-    return compute_pawn_frontspans_b(pawns_bb, occupied_bb);
+uint64_t Evaluation::whitePawnsRearspan(uint64_t pawns_bb, uint64_t occupied_bb) {
+    return blackPawnsFrontspan(pawns_bb, occupied_bb);
 }
 
-uint64_t Evaluation::compute_pawn_rearspans_b(uint64_t pawns_bb, uint64_t occupied_bb) {
-    return compute_pawn_frontspans_w(pawns_bb, occupied_bb);
+uint64_t Evaluation::blackPawnsRearspan(uint64_t pawns_bb, uint64_t occupied_bb) {
+    return whitePawnsFrontspan(pawns_bb, occupied_bb);
 }
 
-double Evaluation::compute_progression() {
+double Evaluation::gamePhase() {
     phase = 0;
-    phase += pop_count(board.w_pawns | board.b_pawns) * Weights::PAWN_PHASE;
-    phase += pop_count(board.w_knights | board.b_knights) * Weights::KNIGHT_PHASE;
-    phase += pop_count(board.w_bishops | board.b_bishops) * Weights::BISHOP_PHASE;
-    phase += pop_count(board.w_rooks | board.b_rooks) * Weights::ROOK_PHASE;
-    phase += pop_count(board.w_queens | board.b_queens) * Weights::QUEEN_PHASE;
+    phase += BitUtils::popCount(this->board->wPawns | this->board->bPawns) * Weights::PAWN_PHASE;
+    phase += BitUtils::popCount(this->board->wKnights | this->board->bKnights) * Weights::KNIGHT_PHASE;
+    phase += BitUtils::popCount(this->board->wBishops | this->board->bBishops) * Weights::BISHOP_PHASE;
+    phase += BitUtils::popCount(this->board->wRooks | this->board->bRooks) * Weights::ROOK_PHASE;
+    phase += BitUtils::popCount(this->board->wQueens | this->board->bQueens) * Weights::QUEEN_PHASE;
     return ((double) phase) / Weights::TOTAL_PHASE;
 }
 
-void Evaluation::compute_space_bonus_w() {
-    int n_pieces = pop_count(board.w_rooks) + pop_count(board.w_knights)
-                   + pop_count(board.w_bishops) + pop_count(board.w_queens);
+void Evaluation::whiteSpaceBonus() {
+    int n_pieces = BitUtils::popCount(this->board->wRooks) + BitUtils::popCount(this->board->wKnights)
+                   + BitUtils::popCount(this->board->wBishops) + BitUtils::popCount(this->board->wQueens);
     w_space_bonus = n_pieces - n_open_files;
 }
 
-void Evaluation::compute_space_bonus_b() {
-    int n_pieces = pop_count(board.b_rooks) + pop_count(board.b_knights) +
-                   pop_count(board.b_bishops) + pop_count(board.b_queens);
+void Evaluation::blackSpaceBonus() {
+    int n_pieces = BitUtils::popCount(this->board->bRooks) + BitUtils::popCount(this->board->bKnights) +
+                   BitUtils::popCount(this->board->bBishops) + BitUtils::popCount(this->board->bQueens);
     b_space_bonus = n_pieces - n_open_files;
 }
 
-void Evaluation::compute_n_open_files() {
-    uint64_t file_mask = BB_FILE_A;
+void Evaluation::countOpenFiles() {
+    uint64_t file_mask = Bitboard::BB_FILE_A;
     int32_t n = 0;
     for (int i = 0; i < 8; ++i) {
-        n += ((file_mask & board.occupied) == 0);
+        n += ((file_mask & this->board->occupied) == 0);
         file_mask <<= 1;
     }
     n_open_files = n;
@@ -147,13 +152,13 @@ void Evaluation::compute_n_open_files() {
 
 int32_t Evaluation::evaluate() {
     reset();
-    material_score();
+    materialScore();
     accumulate_psqts();
 
-    pawn_structure();
-    passed_pawns();
-    doubled_pawns();
-    backward_pawns();
+    pawnStructure();
+    passedPawns();
+    doubledPawns();
+    backwardPawns();
     rook_activity();
     queen_activity();
     evaluate_space();
@@ -161,133 +166,133 @@ int32_t Evaluation::evaluate() {
     if (phase < 6) {
         king_placement();
     }
-    return compute_score();
+    return weightedScore();
 }
 
-void Evaluation::material_score() {
+void Evaluation::materialScore() {
     /** White Material Score */
-    int n = pop_count(board.w_pawns);
+    int n = BitUtils::popCount(this->board->wPawns);
     midgame_score += n * Weights::MATERIAL[static_cast<size_t> (piece_t::BLACK_PAWN)];
     endgame_score += n * Weights::Endgame::MATERIAL[static_cast<size_t> (piece_t::BLACK_PAWN)];
-    n = pop_count(board.w_knights);
+    n = BitUtils::popCount(this->board->wKnights);
     midgame_score += n * Weights::MATERIAL[static_cast<size_t> (piece_t::BLACK_KNIGHT)];
     endgame_score += n * Weights::Endgame::MATERIAL[static_cast<size_t> (piece_t::BLACK_KNIGHT)];
-    n = pop_count(board.w_bishops);
+    n = BitUtils::popCount(this->board->wBishops);
     midgame_score += n * Weights::MATERIAL[static_cast<size_t> (piece_t::BLACK_BISHOP)];
     endgame_score += n * Weights::Endgame::MATERIAL[static_cast<size_t> (piece_t::BLACK_BISHOP)];
-    n = pop_count(board.w_rooks);
+    n = BitUtils::popCount(this->board->wRooks);
     midgame_score += n * Weights::MATERIAL[static_cast<size_t> (piece_t::BLACK_ROOK)];
     endgame_score += n * Weights::Endgame::MATERIAL[static_cast<size_t> (piece_t::BLACK_ROOK)];
-    n = pop_count(board.w_queens);
+    n = BitUtils::popCount(this->board->wQueens);
     midgame_score += n * Weights::MATERIAL[static_cast<size_t> (piece_t::BLACK_QUEEN)];
     endgame_score += n * Weights::Endgame::MATERIAL[static_cast<size_t> (piece_t::BLACK_QUEEN)];
 
     /** Black material score */
-    n = pop_count(board.b_pawns);
+    n = BitUtils::popCount(this->board->bPawns);
     midgame_score -= n * Weights::MATERIAL[static_cast<size_t> (piece_t::BLACK_PAWN)];
     endgame_score -= n * Weights::Endgame::MATERIAL[static_cast<size_t> (piece_t::BLACK_PAWN)];
-    n = pop_count(board.b_knights);
+    n = BitUtils::popCount(this->board->bKnights);
     midgame_score -= n * Weights::MATERIAL[static_cast<size_t> (piece_t::BLACK_KNIGHT)];
     endgame_score -= n * Weights::Endgame::MATERIAL[static_cast<size_t> (piece_t::BLACK_KNIGHT)];
-    n = pop_count(board.b_bishops);
+    n = BitUtils::popCount(this->board->bBishops);
     midgame_score -= n * Weights::MATERIAL[static_cast<size_t> (piece_t::BLACK_BISHOP)];
     endgame_score -= n * Weights::Endgame::MATERIAL[static_cast<size_t> (piece_t::BLACK_BISHOP)];
-    n = pop_count(board.b_rooks);
+    n = BitUtils::popCount(this->board->bRooks);
     midgame_score -= n * Weights::MATERIAL[static_cast<size_t> (piece_t::BLACK_ROOK)];
     endgame_score -= n * Weights::Endgame::MATERIAL[static_cast<size_t> (piece_t::BLACK_ROOK)];
-    n = pop_count(board.b_queens);
+    n = BitUtils::popCount(this->board->bQueens);
     midgame_score -= n * Weights::MATERIAL[static_cast<size_t> (piece_t::BLACK_QUEEN)];
     endgame_score -= n * Weights::Endgame::MATERIAL[static_cast<size_t> (piece_t::BLACK_QUEEN)];
 }
 
-void Evaluation::pawn_structure() {
-    uint64_t pawn_attacks = get_pawn_attacks_setwise(WHITE);
-    accumulate_characteristic_w(pop_count(pawn_attacks & board.w_pawns),
+void Evaluation::pawnStructure() {
+    uint64_t pawn_attacks = MoveGen::get_pawn_attacks_setwise(this->board->wPawns, WHITE);
+    accumulate_characteristic_w(BitUtils::popCount(pawn_attacks & this->board->wPawns),
                                 Evaluation::characteristic_t::PAWN_CHAIN);
 
-    pawn_attacks = get_pawn_attacks_setwise(BLACK);
-    accumulate_characteristic_b(pop_count(pawn_attacks & board.b_pawns), Evaluation::characteristic_t::PAWN_CHAIN);
+    pawn_attacks = MoveGen::get_pawn_attacks_setwise(this->board->bPawns, BLACK);
+    accumulate_characteristic_b(BitUtils::popCount(pawn_attacks & this->board->bPawns), Evaluation::characteristic_t::PAWN_CHAIN);
 }
 
-void Evaluation::doubled_pawns() {
-    uint64_t mask = BB_FILE_A;
+void Evaluation::doubledPawns() {
+    uint64_t mask = Bitboard::BB_FILE_A;
     for (int i = 0; i < 8; ++i) {
         /** Calculates (number of pawns in a file - 1) and penalizes accordingly */
-        accumulate_characteristic_w(std::max(pop_count(board.w_pawns & mask) - 1, 0),
+        accumulate_characteristic_w(std::max(BitUtils::popCount(this->board->wPawns & mask) - 1, 0),
                                     Evaluation::characteristic_t::DOUBLED_PAWNS);
         /** Shifts bitmask one file right */
         mask <<= 1;
     }
-    mask = BB_FILE_A;
+    mask = Bitboard::BB_FILE_A;
     for (int i = 0; i < 8; ++i) {
-        accumulate_characteristic_b(std::max((pop_count(board.b_pawns & mask) - 1), 0),
+        accumulate_characteristic_b(std::max((BitUtils::popCount(this->board->bPawns & mask) - 1), 0),
                                     Evaluation::characteristic_t::DOUBLED_PAWNS);
         mask <<= 1;
     }
 }
 
-void Evaluation::passed_pawns() {
-    uint64_t frontspans = compute_pawn_frontspans_w(board.w_pawns, board.b_pawns);
+void Evaluation::passedPawns() {
+    uint64_t frontspans = whitePawnsFrontspan(this->board->wPawns, this->board->bPawns);
 
-    uint64_t prom_square_mask = BB_FILE_A & BB_RANK_8;
-    uint64_t file_mask = BB_FILE_A;
+    uint64_t promSquare_mask = Bitboard::BB_FILE_A & Bitboard::BB_RANK_8;
+    uint64_t file_mask = Bitboard::BB_FILE_A;
     for (int i = 0; i < 8; ++i) {
-        if (prom_square_mask & frontspans) {
+        if (promSquare_mask & frontspans) {
             int n = 1;
             uint64_t left_file = (frontspans & file_mask) >> 1;
             uint64_t right_file = (frontspans & file_mask) << 1;
 
-            n += ((left_file & (board.b_pawns | BB_FILE_H)) == 0);
-            n += ((right_file & (board.b_pawns | BB_FILE_A)) == 0);
+            n += ((left_file & (this->board->bPawns | Bitboard::BB_FILE_H)) == 0);
+            n += ((right_file & (this->board->bPawns | Bitboard::BB_FILE_A)) == 0);
             accumulate_characteristic_w(n, Evaluation::characteristic_t::PASSED_PAWN);
         }
-        prom_square_mask <<= 1;
+        promSquare_mask <<= 1;
         file_mask <<= 1;
     }
 
-    frontspans = compute_pawn_frontspans_b(board.b_pawns, board.w_pawns);
-    prom_square_mask = BB_FILE_A & BB_RANK_1;
-    file_mask = BB_FILE_A;
+    frontspans = blackPawnsFrontspan(this->board->bPawns, this->board->wPawns);
+    promSquare_mask = Bitboard::BB_FILE_A & Bitboard::BB_RANK_1;
+    file_mask = Bitboard::BB_FILE_A;
     for (int i = 0; i < 8; ++i) {
-        if (prom_square_mask & frontspans) {
+        if (promSquare_mask & frontspans) {
             int n = 1;
             uint64_t left_file = (frontspans & file_mask) >> 1;
             uint64_t right_file = (frontspans & file_mask) << 1;
 
-            n += ((left_file & (board.w_pawns | BB_FILE_H)) == 0);
-            n += ((right_file & (board.w_pawns | BB_FILE_A)) == 0);
+            n += ((left_file & (this->board->wPawns | Bitboard::BB_FILE_H)) == 0);
+            n += ((right_file & (this->board->wPawns | Bitboard::BB_FILE_A)) == 0);
             accumulate_characteristic_b(n, Evaluation::characteristic_t::PASSED_PAWN);
         }
-        prom_square_mask <<= 1;
+        promSquare_mask <<= 1;
         file_mask <<= 1;
     }
 }
 
-void Evaluation::backward_pawns() {
-    uint64_t rearspans = compute_pawn_rearspans_w(board.w_pawns, 0ULL);
-    uint64_t file_mask = BB_FILE_A;
+void Evaluation::backwardPawns() {
+    uint64_t rearspans = whitePawnsRearspan(this->board->wPawns, 0ULL);
+    uint64_t file_mask = Bitboard::BB_FILE_A;
     for (int i = 0; i < 8; ++i) {
         uint64_t rear_file = rearspans & file_mask;
         if (rear_file) {
             /** If there exists a pawn in the file */
-            uint64_t left_potential_guards = (rear_file >> 1) & ~BB_FILE_H;
-            uint64_t right_potential_guards = (rear_file << 1) & BB_FILE_A;
-            bool left_guardless = ((left_potential_guards & board.w_pawns) == 0);
-            bool right_guardless = ((right_potential_guards & board.w_pawns) == 0);
+            uint64_t left_potential_guards = (rear_file >> 1) & ~Bitboard::BB_FILE_H;
+            uint64_t right_potential_guards = (rear_file << 1) & Bitboard::BB_FILE_A;
+            bool left_guardless = ((left_potential_guards & this->board->wPawns) == 0);
+            bool right_guardless = ((right_potential_guards & this->board->wPawns) == 0);
             accumulate_characteristic_w((int) (left_guardless & right_guardless),
                                         Evaluation::characteristic_t::BACKWARD_PAWN);
         }
         file_mask <<= 1;
     }
-    rearspans = compute_pawn_rearspans_b(board.b_pawns, 0ULL);
-    file_mask = BB_FILE_A;
+    rearspans = blackPawnsRearspan(this->board->bPawns, 0ULL);
+    file_mask = Bitboard::BB_FILE_A;
     for (int i = 0; i < 8; ++i) {
         uint64_t rear_file = rearspans & file_mask;
         if (rear_file) {
-            uint64_t left_potential_guards = (rear_file >> 1) & ~BB_FILE_H;
-            uint64_t right_potential_guards = (rear_file << 1) & BB_FILE_A;
-            bool left_guardless = ((left_potential_guards & board.b_pawns) == 0);
-            bool right_guardless = ((right_potential_guards & board.b_pawns) == 0);
+            uint64_t left_potential_guards = (rear_file >> 1) & ~Bitboard::BB_FILE_H;
+            uint64_t right_potential_guards = (rear_file << 1) & Bitboard::BB_FILE_A;
+            bool left_guardless = ((left_potential_guards & this->board->bPawns) == 0);
+            bool right_guardless = ((right_potential_guards & this->board->bPawns) == 0);
             accumulate_characteristic_b((int) (left_guardless & right_guardless),
                                         Evaluation::characteristic_t::BACKWARD_PAWN);
         }
@@ -296,14 +301,14 @@ void Evaluation::backward_pawns() {
 }
 
 void Evaluation::rook_activity() {
-    uint64_t data = get_rook_rays_setwise(board.w_rooks, ~(board.occupied ^ board.w_rooks));
+    uint64_t data = MoveGen::get_rook_rays_setwise(this->board->wRooks, ~(this->board->occupied ^ this->board->wRooks));
     /** Detection of connected rooks */
-    accumulate_characteristic_w(std::max((pop_count(data & board.w_rooks) - 1), 0),
+    accumulate_characteristic_w(std::max((BitUtils::popCount(data & this->board->wRooks) - 1), 0),
                                 Evaluation::characteristic_t::CONNECTED_ROOKS);
 
     /** The following repeats the same score for black*/
-    data = get_rook_rays_setwise(board.b_rooks, ~(board.occupied ^ board.b_rooks));
-    accumulate_characteristic_b(std::max(pop_count(data & board.b_rooks) - 1, 0),
+    data = MoveGen::get_rook_rays_setwise(this->board->bRooks, ~(this->board->occupied ^ this->board->bRooks));
+    accumulate_characteristic_b(std::max(BitUtils::popCount(data & this->board->bRooks) - 1, 0),
                                 Evaluation::characteristic_t::CONNECTED_ROOKS);
 }
 
@@ -311,24 +316,24 @@ void Evaluation::queen_activity() {
     /**
      *  @var uint64_t data Stores a bitboard of all squares hit by any white queen.
      */
-    uint64_t data = get_queen_rays_setwise(board.w_queens,
-                                           ~(board.occupied ^ board.w_queens ^ board.w_rooks ^ board.w_bishops));
+    uint64_t data = MoveGen::get_queen_rays_setwise(this->board->wQueens,
+                                           ~(this->board->occupied ^ this->board->wQueens ^ this->board->wRooks ^ this->board->wBishops));
 
     /** Detects Queen-Rook batteries. */
-    accumulate_characteristic_w(std::max(pop_count(data & board.w_rooks) - 1, 0),
+    accumulate_characteristic_w(std::max(BitUtils::popCount(data & this->board->wRooks) - 1, 0),
                                 Evaluation::characteristic_t::QUEEN_ROOK);
 
     /** Detects Queen-Bishop batteries. */
-    accumulate_characteristic_w(std::max(pop_count(data & board.w_bishops) - 1, 0),
+    accumulate_characteristic_w(std::max(BitUtils::popCount(data & this->board->wBishops) - 1, 0),
                                 Evaluation::characteristic_t::QUEEN_BISHOP);
 
     /** Evaluates queen placement using piece-square table */
 
     /** Following code duplicates the above functionality for black */
-    data = get_queen_rays_setwise(board.b_queens, ~(board.occupied ^ board.b_queens ^ board.b_rooks ^ board.b_bishops));
-    accumulate_characteristic_b(std::max(pop_count(data & board.b_rooks) - 1, 0),
+    data = MoveGen::get_queen_rays_setwise(this->board->bQueens, ~(this->board->occupied ^ this->board->bQueens ^ this->board->bRooks ^ this->board->bBishops));
+    accumulate_characteristic_b(std::max(BitUtils::popCount(data & this->board->bRooks) - 1, 0),
                                 Evaluation::characteristic_t::QUEEN_ROOK);
-    accumulate_characteristic_b(std::max(pop_count(data & board.b_bishops) - 1, 0),
+    accumulate_characteristic_b(std::max(BitUtils::popCount(data & this->board->bBishops) - 1, 0),
                                 Evaluation::characteristic_t::QUEEN_BISHOP);
 }
 
@@ -338,10 +343,10 @@ void Evaluation::king_placement() {
      *  king distance to the side whose king is closer to the center. Award's an additional "bonus" inversely
      *  proportional to king distance from the edge of the board under the same conditions.
      *
-     *  The goal is to incentivize juliette to force an opposing king toward the corner during the endgame.
+     *  The goal is to incentivize the computer to force an opposing king toward the corner during the endgame.
      */
 
-    int w_file = file_of(board.w_king_square), w_rank = rank_of(board.w_king_square / 8);
+    int w_file = Bitboard::fileOf(this->board->wKingSquare), w_rank = Bitboard::rankOf(this->board->wKingSquare / 8);
     int wEdgeDist = std::min(std::min(w_file, 7 - w_file), std::min(w_rank, 7 - w_rank));
 
     int wCenterDist;
@@ -354,7 +359,7 @@ void Evaluation::king_placement() {
         wCenterDist = dx + dy;
     }
 
-    int b_file = file_of(board.b_king_square), b_rank = rank_of(board.b_king_square);
+    int b_file = Bitboard::fileOf(this->board->bKingSquare), b_rank = Bitboard::rankOf(this->board->bKingSquare);
     int bEdgeDist = std::min(std::min(b_file, 7 - b_file), std::min(b_rank, 7 - b_rank));
 
     int bCenterDist;
@@ -383,100 +388,100 @@ void Evaluation::king_placement() {
 
 void Evaluation::evaluate_space() {
     /** Accumulate guard values of white pieces */
-    uint64_t attacks = BB_KING_ATTACKS[board.w_king_square];
-    uint64_t king_vulnerabilities = compute_king_vulnerabilities(board.b_king, board.b_pawns);
+    uint64_t attacks = MoveGen::BB_KING_ATTACKS[this->board->wKingSquare];
+    uint64_t king_vulnerabilities = this->kingVulnerabilities(this->board->bKing, this->board->bPawns);
     int32_t mg_king_danger = 0;
     int32_t eg_king_danger = 0;
     int n_attackers = 0;
 
     while (attacks) {
-        int i = pull_lsb(&attacks);
+        int i = BitUtils::pullLSB(&attacks);
         square_guard_values[i] += Weights::GUARD_VALUE[piece_t::BLACK_KING];
     }
-    attacks = get_queen_rays_setwise(board.w_queens, ~board.occupied) & (~board.w_queens);
-    accumulate_king_threats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
+    attacks = MoveGen::get_queen_rays_setwise(this->board->wQueens, ~this->board->occupied) & (~this->board->wQueens);
+    this->accumulate_king_threats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
 
     while (attacks) {
-        int i = pull_lsb(&attacks);
+        int i = BitUtils::pullLSB(&attacks);
         square_guard_values[i] += Weights::GUARD_VALUE[piece_t::BLACK_QUEEN];
     }
 
-    attacks = get_rook_rays_setwise(board.w_rooks, ~board.occupied) & (~board.w_rooks);
-    accumulate_king_threats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
+    attacks = MoveGen::get_rook_rays_setwise(this->board->wRooks, ~this->board->occupied) & (~this->board->wRooks);
+    this->accumulate_king_threats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
 
     while (attacks) {
-        int i = pull_lsb(&attacks);
+        int i = BitUtils::pullLSB(&attacks);
         square_guard_values[i] += Weights::GUARD_VALUE[piece_t::BLACK_ROOK];
     }
-    attacks = get_bishop_rays_setwise(board.w_bishops, ~board.occupied) & (~board.w_bishops);
-    accumulate_king_threats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
+    attacks = MoveGen::get_bishop_rays_setwise(this->board->wBishops, ~this->board->occupied) & (~this->board->wBishops);
+    this->accumulate_king_threats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
 
     while (attacks) {
-        int i = pull_lsb(&attacks);
+        int i = BitUtils::pullLSB(&attacks);
         square_guard_values[i] += Weights::GUARD_VALUE[piece_t::BLACK_BISHOP];
     }
-    attacks = get_knight_mask_setwise(board.w_knights);
-    accumulate_king_threats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
+    attacks = MoveGen::get_knight_mask_setwise(this->board->wKnights);
+    this->accumulate_king_threats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
 
     while (attacks) {
-        int i = pull_lsb(&attacks);
+        int i = BitUtils::pullLSB(&attacks);
         square_guard_values[i] += Weights::GUARD_VALUE[piece_t::BLACK_KNIGHT];
     }
-    attacks = get_pawn_attacks_setwise(WHITE);
+    attacks = MoveGen::get_pawn_attacks_setwise(board->wPawns, WHITE);
     accumulate_king_threats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
 
     midgame_score += n_attackers * mg_king_danger;
     endgame_score += n_attackers * eg_king_danger;
 
     while (attacks) {
-        int i = pull_lsb(&attacks);
+        int i = BitUtils::pullLSB(&attacks);
         square_guard_values[i] += Weights::GUARD_VALUE[piece_t::BLACK_PAWN];
     }
 
     mg_king_danger = 0;
     eg_king_danger = 0;
     n_attackers = 0;
-    king_vulnerabilities = compute_king_vulnerabilities(board.w_king, board.w_pawns);
+    king_vulnerabilities = kingVulnerabilities(this->board->wKing, this->board->wPawns);
 
     /** Accumulate guard values of black pieces */
-    attacks = BB_KING_ATTACKS[board.b_king_square];
+    attacks = MoveGen::BB_KING_ATTACKS[this->board->bKingSquare];
     while (attacks) {
-        int i = pull_lsb(&attacks);
+        int i = BitUtils::pullLSB(&attacks);
         square_guard_values[i] -= Weights::GUARD_VALUE[piece_t::BLACK_KING];
     }
-    attacks = get_queen_rays_setwise(board.b_queens, ~board.occupied) & (~board.b_queens);
+    attacks = MoveGen::get_queen_rays_setwise(this->board->bQueens, ~this->board->occupied) & (~this->board->bQueens);
     accumulate_king_threats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
 
     while (attacks) {
-        int i = pull_lsb(&attacks);
+        int i = BitUtils::pullLSB(&attacks);
         square_guard_values[i] -= Weights::GUARD_VALUE[piece_t::BLACK_QUEEN];
     }
-    attacks = get_rook_rays_setwise(board.b_rooks, ~board.occupied) & (~board.b_rooks);
+    attacks = MoveGen::get_rook_rays_setwise(this->board->bRooks, ~this->board->occupied) & (~this->board->bRooks);
     accumulate_king_threats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
 
     while (attacks) {
-        int i = pull_lsb(&attacks);
+        int i = BitUtils::pullLSB(&attacks);
         square_guard_values[i] -= Weights::GUARD_VALUE[piece_t::BLACK_ROOK];
     }
-    attacks = get_bishop_rays_setwise(board.b_bishops, ~board.occupied) & (~board.b_bishops);
+    attacks = MoveGen::get_bishop_rays_setwise(this->board->bBishops, ~this->board->occupied) & (~this->board->bBishops);
     accumulate_king_threats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
 
     while (attacks) {
-        int i = pull_lsb(&attacks);
+        int i = BitUtils::pullLSB(&attacks);
         square_guard_values[i] -= Weights::GUARD_VALUE[piece_t::BLACK_BISHOP];
     }
-    attacks = get_knight_mask_setwise(board.b_knights);
+    attacks = MoveGen::get_knight_mask_setwise(this->board->bKnights);
     accumulate_king_threats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
 
     while (attacks) {
-        int i = pull_lsb(&attacks);
+        int i = BitUtils::pullLSB(&attacks);
         square_guard_values[i] -= Weights::GUARD_VALUE[piece_t::BLACK_KNIGHT];
     }
-    attacks = get_pawn_attacks_setwise(BLACK);
+    attacks = MoveGen::get_pawn_attacks_setwise(this->board->bPawns, BLACK);
     accumulate_king_threats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
 
     while (attacks) {
-        int i = pull_lsb(&attacks);
+        int i = BitUtils::pullLSB(&attacks);
         square_guard_values[i] -= Weights::GUARD_VALUE[piece_t::BLACK_PAWN];
     }
 
@@ -491,9 +496,9 @@ void Evaluation::evaluate_space() {
      * Implemented as, guard_values[i] = sgn(guard_values[i]).
      */
 
-    uint64_t w_king_surroundings = compute_king_vulnerabilities(board.w_king, 0ULL);
-    uint64_t b_king_surroundings = compute_king_vulnerabilities(board.b_king, 0ULL);
-    uint64_t examined_square = 1ULL;
+    uint64_t w_king_surroundings = kingVulnerabilities(this->board->wKing, 0ULL);
+    uint64_t b_king_surroundings = kingVulnerabilities(this->board->bKing, 0ULL);
+    uint64_t examinedSquare = 1ULL;
     for (int i = 0; i < 64; ++i) {
         /** Sets square_guard_values[i] = sign(square_guard_values[i]) */
         square_guard_values[i] = (square_guard_values[i] > 0) - (square_guard_values[i] < 0);
@@ -503,41 +508,41 @@ void Evaluation::evaluate_space() {
         uint64_t opponent_rear = ((square_guard_values[i] > 0) * b_pawn_rearspans) |
                                  ((square_guard_values[i] < 0) * w_pawn_rearspans);
         /** If the current square being examined is behind opponent's pawns, double the bonus. */
-        bonus <<= ((examined_square & opponent_rear) != 0);
+        bonus <<= ((examinedSquare & opponent_rear) != 0);
         midgame_score += square_guard_values[i] * (Weights::board_ctrl_tb[i] * bonus);
-        midgame_score += (square_guard_values[i] > 0) * ((examined_square & b_king_surroundings) != 0) * KING_THREAT;
-        midgame_score -= (square_guard_values[i] < 0) * ((examined_square & w_king_surroundings) != 0) * KING_THREAT;
-        examined_square <<= 1;
+        midgame_score += (square_guard_values[i] > 0) * ((examinedSquare & b_king_surroundings) != 0) * KING_THREAT;
+        midgame_score -= (square_guard_values[i] < 0) * ((examinedSquare & w_king_surroundings) != 0) * KING_THREAT;
+        examinedSquare <<= 1;
     }
 }
 
 void Evaluation::accumulate_king_threats(int &n_attackers, int32_t &mg_score, int32_t &eg_score, uint64_t attacks,
                                          uint64_t king) {
-    int pop_cnt = pop_count(attacks & king);
+    int pop_cnt = BitUtils::popCount(attacks & king);
     mg_score += pop_cnt * Weights::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
     eg_score += pop_cnt * Weights::Endgame::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
     n_attackers += (pop_cnt > 0);
 }
 
 void Evaluation::accumulate_psqts() {
-    evaluate_psqt_w(board.w_pawns, Weights::PAWN_PSQT, Weights::Endgame::PAWN_PSQT);
-    evaluate_psqt_w(board.w_knights, Weights::KNIGHT_PSQT, Weights::Endgame::KNIGHT_PSQT);
-    evaluate_psqt_w(board.w_bishops, Weights::BISHOP_PSQT, Weights::Endgame::BISHOP_PSQT);
-    evaluate_psqt_w(board.w_rooks, Weights::ROOK_PSQT, Weights::Endgame::ROOK_PSQT);
-    evaluate_psqt_w(board.w_queens, Weights::QUEEN_PSQT, Weights::Endgame::QUEEN_PSQT);
-    evaluate_psqt_w(board.w_king, Weights::KING_PSQT, Weights::Endgame::KING_PSQT);
+    evaluate_psqt_w(this->board->wPawns, Weights::PAWN_PSQT, Weights::Endgame::PAWN_PSQT);
+    evaluate_psqt_w(this->board->wKnights, Weights::KNIGHT_PSQT, Weights::Endgame::KNIGHT_PSQT);
+    evaluate_psqt_w(this->board->wBishops, Weights::BISHOP_PSQT, Weights::Endgame::BISHOP_PSQT);
+    evaluate_psqt_w(this->board->wRooks, Weights::ROOK_PSQT, Weights::Endgame::ROOK_PSQT);
+    evaluate_psqt_w(this->board->wQueens, Weights::QUEEN_PSQT, Weights::Endgame::QUEEN_PSQT);
+    evaluate_psqt_w(this->board->wKing, Weights::KING_PSQT, Weights::Endgame::KING_PSQT);
 
-    evaluate_psqt_b(vflip_bb(board.b_pawns), Weights::PAWN_PSQT, Weights::Endgame::PAWN_PSQT);
-    evaluate_psqt_b(vflip_bb(board.b_knights), Weights::KNIGHT_PSQT, Weights::Endgame::KNIGHT_PSQT);
-    evaluate_psqt_b(vflip_bb(board.b_bishops), Weights::BISHOP_PSQT, Weights::Endgame::BISHOP_PSQT);
-    evaluate_psqt_b(vflip_bb(board.b_rooks), Weights::ROOK_PSQT, Weights::Endgame::ROOK_PSQT);
-    evaluate_psqt_b(vflip_bb(board.b_queens), Weights::QUEEN_PSQT, Weights::Endgame::QUEEN_PSQT);
-    evaluate_psqt_b(vflip_bb(board.b_king), Weights::KING_PSQT, Weights::Endgame::KING_PSQT);
+    evaluate_psqt_b(BitUtils::flipBitboardVertical(this->board->bPawns), Weights::PAWN_PSQT, Weights::Endgame::PAWN_PSQT);
+    evaluate_psqt_b(BitUtils::flipBitboardVertical(this->board->bKnights), Weights::KNIGHT_PSQT, Weights::Endgame::KNIGHT_PSQT);
+    evaluate_psqt_b(BitUtils::flipBitboardVertical(this->board->bBishops), Weights::BISHOP_PSQT, Weights::Endgame::BISHOP_PSQT);
+    evaluate_psqt_b(BitUtils::flipBitboardVertical(this->board->bRooks), Weights::ROOK_PSQT, Weights::Endgame::ROOK_PSQT);
+    evaluate_psqt_b(BitUtils::flipBitboardVertical(this->board->bQueens), Weights::QUEEN_PSQT, Weights::Endgame::QUEEN_PSQT);
+    evaluate_psqt_b(BitUtils::flipBitboardVertical(this->board->bKing), Weights::KING_PSQT, Weights::Endgame::KING_PSQT);
 }
 
 void Evaluation::evaluate_psqt_w(uint64_t bb, const int32_t mg_psqt[64], const int32_t eg_psqt[64]) {
     while (bb) {
-        int i = pull_lsb(&bb);
+        int i = BitUtils::pullLSB(&bb);
         midgame_score += mg_psqt[i];
         endgame_score += eg_psqt[i];
     }
@@ -545,7 +550,7 @@ void Evaluation::evaluate_psqt_w(uint64_t bb, const int32_t mg_psqt[64], const i
 
 void Evaluation::evaluate_psqt_b(uint64_t bb, const int32_t mg_psqt[64], const int32_t eg_psqt[64]) {
     while (bb) {
-        int i = pull_lsb(&bb);
+        int i = BitUtils::pullLSB(&bb);
         midgame_score -= mg_psqt[i];
         endgame_score -= eg_psqt[i];
     }

@@ -15,12 +15,13 @@ enum flag_t {
 struct TTEntry {
     uint64_t key;
 
-    bool initialized;
     flag_t flag;
 
     int32_t score;
     int16_t depth;
     move_t best_move;
+
+    bool initialized;
 
     TTEntry();
 
@@ -33,7 +34,7 @@ struct TTEntry {
 
 struct TTable {
 
-    bool hash_full;
+    bool hashFull;
 
     TTable();
 
@@ -47,14 +48,9 @@ struct TTable {
 
     void clear();
 
-    /**
-     * Returns pointer to backing array. To be used for debug purposes.
-     * @return Pointer to backing array
-     */
-    TTEntry *get_backing_ptr();
 private:
 
-    static double load_factor;
+    static double loadFactor;
 
     std::size_t size, capacity;
     TTEntry *entries;

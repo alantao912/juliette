@@ -6,7 +6,7 @@
 struct Evaluation {
     /** Determine board characteristics */
 
-    static uint64_t compute_king_vulnerabilities(uint64_t king_bb, uint64_t barriers);
+    static uint64_t kingVulnerabilities(uint64_t king_bb, uint64_t barriers);
 
 public:
 
@@ -14,11 +14,15 @@ public:
 
     void reset();
 
+    Evaluation(const Bitboard *);
+
 private:
 
     enum characteristic_t {
         PAWN_CHAIN, DOUBLED_PAWNS, CONNECTED_ROOKS, QUEEN_ROOK, QUEEN_BISHOP, KING_THREAT, PASSED_PAWN, BACKWARD_PAWN
     };
+
+    const Bitboard *board;
 
     uint16_t phase;
 
@@ -32,35 +36,35 @@ private:
 
     double progression;
 
-    int32_t compute_score() const;
+    int32_t weightedScore() const;
 
-    static uint64_t compute_pawn_frontspans_w(uint64_t pawns_bb, uint64_t occupied_bb);
+    static uint64_t whitePawnsFrontspan(uint64_t pawns_bb, uint64_t occupied_bb);
 
-    static uint64_t compute_pawn_frontspans_b(uint64_t pawns_bb, uint64_t occupied_bb);
+    static uint64_t blackPawnsFrontspan(uint64_t pawns_bb, uint64_t occupied_bb);
 
-    static uint64_t compute_pawn_rearspans_w(uint64_t pawns_bb, uint64_t occupied_bb);
+    static uint64_t whitePawnsRearspan(uint64_t pawns_bb, uint64_t occupied_bb);
 
-    static uint64_t compute_pawn_rearspans_b(uint64_t pawns_bb, uint64_t occupied_bb);
+    static uint64_t blackPawnsRearspan(uint64_t pawns_bb, uint64_t occupied_bb);
 
-    double compute_progression();
+    double gamePhase();
 
-    void compute_space_bonus_w();
+    void whiteSpaceBonus();
 
-    void compute_space_bonus_b();
+    void blackSpaceBonus();
 
-    void compute_n_open_files();
+    void countOpenFiles();
 
     /** Determine score of position */
 
-    void material_score();
+    void materialScore();
 
-    void pawn_structure();
+    void pawnStructure();
 
-    void doubled_pawns();
+    void doubledPawns();
 
-    void passed_pawns();
+    void passedPawns();
 
-    void backward_pawns();
+    void backwardPawns();
 
     void rook_activity();
 

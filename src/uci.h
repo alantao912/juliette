@@ -4,47 +4,85 @@
 
 #pragma once
 
-#include <map>
-#include <vector>
+#include <cinttypes>
 #include <cstring>
 #include <iostream>
-#include <cinttypes>
+#include <pthread.h>
+#include <map>
+#include <unordered_map>
+#include <vector>
 
 #include "search.h"
 #include "tables.h"
+#include "timeman.h"
 
-namespace UCI {
+#define BUFLEN 512
+#define MAX_THREAD_CNT 32
 
-    enum option_t {
-        contempt, debug, own_book, thread_cnt, hash_size
-    };
+struct SearchContext;
 
-    typedef struct info {
-        int32_t score;
+enum option_t 
+{
+    contempt, debug, ownBook, threadCount, hashSize
+};
 
-        move_t best_move;
-        std::chrono::milliseconds elapsed_time;
+struct info_t 
+{
+    int32_t score;
 
-        void format_data(bool verbose) const;
-    } info_t;
+    move_t bestMove;
+    std::chrono::milliseconds elapsedTime;
 
-    void initialize_UCI();
+    void formatData(char *, size_t, bool) const;
+};
 
-    void parse_UCI_string(const char *uci);
+void *threadFunction(void *);
 
-    void position(const std::vector<std::string> &args);
+struct UCI {
 
-    bool validate_integer_argument(int *variable, std::string arg);
+public:
 
-    void go(const std::vector<std::string> &args);
+    static const std::string idStr;
 
-    void format_data();
+    static const std::string replies[8];
+
+    UCI();
+
+    void initializeUCI();
+
+    void parseUCIString(const char *);
+
+    void position(const std::vector<std::string> &);
+
+    void go(const std::vector<std::string> &);
+
+    void formatData();
 
     void reply();
 
-    void set_option(const std::vector<std::string> &args);
+    void setOption(const std::vector<std::string> &);
 
-    const std::string &get_option(UCI::option_t opt);
+    const std::string &getOption(option_t) const;
 
-    void join_threads();
+    void setElapsedTime(const std::chrono::milliseconds &);
+
+    void joinThreads();
+
+private:
+
+    std::unordered_map<option_t, std::string> options;
+
+    char sendbuf[BUFLEN];
+
+    bool board_initialized;
+
+    struct TimeManager timeManager;
+
+    pthread_t threads[MAX_THREAD_CNT];
+
+    size_t nThreads;
+
+    SearchContext *mainThread;
+
+    SearchContext *helperThreads;
 };
