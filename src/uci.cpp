@@ -213,7 +213,7 @@ void UCI::go(const std::vector<std::string> &args) {
         exit(-1);
     }
     for (size_t i = 1; i < this->nThreads; ++i) {
-        status = pthread_create(&(this->threads[i]), nullptr, threadFunction, (void *) &(this->helperThreads[i - 1]));
+        status = pthread_create(&(this->threads[i]), nullptr, threadFunction, (void *) (this->helperThreads[i - 1]));
         if (status) {
             std::cout << "juliette:: Failed to spawn thread!\n";
             joinThreads();

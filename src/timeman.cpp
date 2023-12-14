@@ -18,7 +18,7 @@ void *timerThread(void *args) {
     std::vector<int> *durationPtr = timerArgs->durationPtr;
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
     while (i < durationPtr->size()) {
-        std::this_thread::sleep_for(durationPtr->at(i++));
+        std::this_thread::sleep_for(std::chrono::milliseconds(durationPtr->at(i++)));
     }
     std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
     SearchContext::timeRemaining = false;
