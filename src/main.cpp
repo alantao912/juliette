@@ -37,14 +37,16 @@ int main(int argc, char *argv[]) {
         
         do {
             std::cin.getline(recvbuf, BUFLEN);
-            if ((strlen(recvbuf) > 0) && (recvbuf[strlen(recvbuf) - 1] == '\n')) {
-                recvbuf[strlen(recvbuf) - 1] = '\0';
+
+            size_t inputLen = strlen(recvbuf);
+            if ((inputLen > 0) && (recvbuf[inputLen - 1] == '\n')) {
+                recvbuf[inputLen - 1] = '\0';
             }
+
             if (mode == CommunicationMode::UniformChessInterface) {
                 io.parseUCIString(recvbuf);
             } else if (strcmp(recvbuf, "uci") == 0) {
                 mode = CommunicationMode::UniformChessInterface;
-                io.initializeUCI();
                 io.parseUCIString(recvbuf);
             } else if (strcmp(recvbuf, "comm") == 0) {
                 std::cout << "juliette:: to select a communication protocol, enter it's name:" << std::endl;
@@ -58,6 +60,27 @@ int main(int argc, char *argv[]) {
                 //
 
                 // [insert dev code here]
+                /*
+                move_t moves[Bitboard::MAX_MOVE_NUM];
+                Bitboard board(START_POSITION);
+                while (1) {
+                    board.printBoard();
+                    int n = board.genLegalMoves(moves, board.getTurn());
+                    for (int i = 0; i < n; ++i) {
+                        std::cout << i + 1 << ". ";
+                        IOUtils::printMove(moves[i]);
+                        std::cout << '\n';
+                    }
+                    int i;
+                    std::cin >> i;
+                    board.makeMove(moves[i - 1]);
+                }
+                */
+               io.parseUCIString("uci");
+               io.parseUCIString("setoption name threadCount value 1");
+               io.parseUCIString("ucinewgame");
+               io.parseUCIString("position startpos");
+               io.parseUCIString("go movetime 2000");
             } else if (strcmp(recvbuf, "perft") == 0) {
                 std::cout << "juliette:: starting performance test..." << std::endl;
                 //

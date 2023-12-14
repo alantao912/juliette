@@ -22,6 +22,10 @@ const uint64_t MoveGen::BB_KNIGHT_ATTACKS[64] = {
         0x44280000000000, 0x88500000000000, 0x10a00000000000, 0x20400000000000
 };
 
+uint64_t MoveGen::BB_BISHOP_ATTACKS[64][512];
+
+uint64_t MoveGen::BB_ROOK_ATTACKS[64][4096];
+
 const uint64_t MoveGen::BB_KING_ATTACKS[64] = {
         0x302, 0x705, 0xe0a, 0x1c14, 0x3828,
         0x7050, 0xe0a0, 0xc040, 0x30203, 0x70507,
@@ -71,6 +75,11 @@ const uint64_t MoveGen::ROOK_MAGICS[64] = {
         0x800041000080, 0xfffcddfced714a, 0x7ffcddfced714a, 0x3fffcdffd88096, 0x40810002101,
         0x1000204080011, 0x1000204000801, 0x1000082000401, 0x1fffaabfad1a2
 };
+
+uint64_t MoveGen::BB_BISHOP_ATTACK_MASKS[64];
+uint64_t MoveGen::BB_ROOK_ATTACK_MASKS[64];
+uint64_t MoveGen::ROOK_ATTACK_SHIFTS[64];
+uint64_t MoveGen::BISHOP_ATTACK_SHIFTS[64];
 
 void MoveGen::initMoveGenData() {
     MoveGen::init_bishop_attacks();

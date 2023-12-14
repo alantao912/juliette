@@ -17,7 +17,7 @@
 #include "timeman.h"
 
 #define BUFLEN 512
-#define MAX_THREAD_CNT 32
+#define MAX_THREAD_COUNT 32
 
 struct SearchContext;
 
@@ -48,6 +48,8 @@ public:
 
     UCI();
 
+    ~UCI();
+
     void initializeUCI();
 
     void parseUCIString(const char *);
@@ -74,13 +76,15 @@ private:
 
     char sendbuf[BUFLEN];
 
-    bool board_initialized;
+    bool boardInitialized;
 
-    pthread_t threads[MAX_THREAD_CNT];
+    pthread_t threads[MAX_THREAD_COUNT];
 
     size_t nThreads;
 
     SearchContext *mainThread;
 
-    SearchContext *helperThreads;
+    SearchContext **helperThreads;
+
+    void synchronizeSearchContexts();
 };

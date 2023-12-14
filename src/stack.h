@@ -7,14 +7,14 @@
  * A stack of all the board positions that's been reached and
  * the moves that got to them.
  */
-struct stack_t 
+struct LinkedStack 
 {
     Bitboard board;
-    stack_t *next;
+    LinkedStack *next;
 
     move_t previousMove;
 
 public:
 
-    stack_t(const Bitboard &, const move_t &);
+    LinkedStack(const Bitboard &, const move_t &);
 };

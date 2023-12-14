@@ -14,16 +14,16 @@ TTEntry::TTEntry() {
     score = 0;
     depth = 0;
 
-    best_move = NULL_MOVE;
+    bestMove = move_t::NULL_MOVE;
 }
 
-TTEntry::TTEntry(uint64_t hash_code, int32_t score, int16_t depth, flag_t flag, move_t best_move) {
+TTEntry::TTEntry(uint64_t hash_code, int32_t score, int16_t depth, BoundType flag, move_t best_move) {
     this->key = hash_code;
 
     this->score = score;
     this->depth = depth;
     this->flag = flag;
-    this->best_move = best_move;
+    this->bestMove = best_move;
     initialized = true;
 }
 
@@ -33,7 +33,7 @@ uint64_t TTEntry::operator()() const {
 
 TTEntry &TTEntry::operator=(const TTEntry &other) {
     depth = other.depth;
-    best_move = other.best_move;
+    bestMove = other.bestMove;
     score = other.score;
     flag = other.flag;
     key = other.key ^ depth ^ score ^ flag;

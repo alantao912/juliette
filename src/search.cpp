@@ -24,11 +24,14 @@ pthread_mutex_t SearchContext::init_lock;
 TTable SearchContext::transpositionTable;
 const int32_t SearchContext::contempt_value = 0;
 
+info_t SearchContext::result;
+TimeManager SearchContext::timeManager;
+
 const UCI *SearchContext::uciInstance = nullptr;
 
 volatile size_t SearchContext::nActiveThreads = 0;
 
-bool SearchContext::timeRemaining = false;
+volatile bool SearchContext::timeRemaining = false;
 bool SearchContext::blockHelpers = false;
 
 /**
@@ -39,7 +42,7 @@ bool SearchContext::blockHelpers = false;
 
 bool SearchContext::verifyRepetition(uint64_t hash) {
     int numSeen = 0;
-    stack_t *iterator = this->stack;
+    LinkedStack *iterator = this->stack;
     while (iterator) {
         if (iterator->board.getHashCode() == hash) {
             numSeen += int(iterator->board == this->board);
@@ -101,11 +104,11 @@ const info_t &SearchContext::getResult() {
  * @return The amount by which to reduce current ply.
  */
 
-int16_t SearchContext::computeReduction(move_t mv, int16_t current_ply, int i) {
-    const int16_t no_reduction = 3;
+int16_t SearchContext::computeReduction(move_t mv, int16_t currentPly, int i) {
+    const int16_t noReduction = 3;
     const int NO_LMR = 4;
     /** If there are two plies or fewer to horizon, giving check, or in check, do not reduce. */
-    if (current_ply < no_reduction || i < NO_LMR ||
+    if (currentPly < noReduction || i < NO_LMR ||
         mv.isType(move_t::type_t::CHECK_MOVE) || this->stack->previousMove.isType(move_t::type_t::CHECK_MOVE)) {
         return 0;
     }
@@ -116,11 +119,11 @@ int16_t SearchContext::computeReduction(move_t mv, int16_t current_ply, int i) {
     }
 
     /** int32_t material_loss_rf: Material loss in centi-pawns resulting in one additional ply reduction */
-    const int32_t material_loss_rf = 250;
-    int16_t reduction = 1 + int16_t(sqrt(current_ply - 1) + sqrt(i - 1));
+    const int32_t materialLossRf = 250;
+    int16_t reduction = 1 + int16_t(sqrt(currentPly - 1) + sqrt(i - 1));
     if (mv.isType(move_t::LOSING_EXCHANGE)) {
         const int32_t loss = -mv.normalizeScore();
-        const int16_t inc = (loss - 1) / material_loss_rf + 1;
+        const int16_t inc = (loss - 1) / materialLossRf + 1;
         reduction += inc;
     }
     return reduction;
@@ -177,9 +180,9 @@ void SearchContext::orderMoves(move_t mvs[], int n) {
     const TTEntry *it = SearchContext::transpositionTable.find(board.getHashCode());
     const std::vector<move_t> &kmvs = killerMoves[ply];
 
-    move_t hash_move = NULL_MOVE;
-    if (it != nullptr) {
-        hash_move = it->best_move;
+    move_t hash_move = move_t::NULL_MOVE;
+    if (it) {
+        hash_move = it->bestMove;
     }
 
     for (int i = 0; i < n; ++i) {
@@ -228,7 +231,7 @@ void SearchContext::orderMoves(move_t mvs[], int n) {
 }
 
 void SearchContext::pushMove(const move_t &mv) {
-    stack_t *node = new stack_t(this->board, mv);
+    LinkedStack *node = new LinkedStack(this->board, mv);
     node->next = this->stack;
     this->stack = node;
     this->board.makeMove(mv);
@@ -237,15 +240,15 @@ void SearchContext::pushMove(const move_t &mv) {
         RTEntry &rtEntry = rtPair->second;
         ++rtEntry.num_seen;
     } else {
-        repetitionTable.insert(std::pair<uint64_t, RTEntry>(board.getHashCode(), RTEntry(1)));
+        this->repetitionTable.insert(std::pair<uint64_t, RTEntry>(this->board.getHashCode(), RTEntry(1)));
     }
     ++(this->ply);
 }
 
 void SearchContext::popMove() {
-    RTEntry &rtPair = repetitionTable.find(this->board.getHashCode())->second;
+    RTEntry &rtPair = this->repetitionTable.find(this->board.getHashCode())->second;
     --rtPair.num_seen;
-    stack_t *head = this->stack;
+    LinkedStack *head = this->stack;
     this->board = head->board;
     this->stack = head->next;
     --(this->ply);
@@ -263,7 +266,7 @@ int32_t SearchContext::qsearch(int32_t alpha, int32_t beta) { // NOLINT
     int32_t stand_pat;
 
     int n;
-    move_t moves[MAX_MOVE_NUM];
+    move_t moves[Bitboard::MAX_MOVE_NUM];
 
     bool in_check = false;
     if (!board.isInCheck(board.getTurn())) {
@@ -320,7 +323,7 @@ int32_t SearchContext::qsearch(int32_t alpha, int32_t beta) { // NOLINT
         }
 
         this->pushMove(candidate_move);
-        int32_t score = -qsearch(-beta, -alpha);
+        int32_t score = -1 * qsearch(-beta, -alpha);
         this->popMove();
         if (score >= beta) {
             return beta;
@@ -341,141 +344,139 @@ int32_t SearchContext::qsearch(int32_t alpha, int32_t beta) { // NOLINT
 
 #pragma ide diagnostic ignored "misc-no-recursion"
 
-int32_t SearchContext::pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *mv_hst) {
+int32_t SearchContext::pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *moveHistory) {
     if (!SearchContext::timeRemaining) {
         return 0;
     }
 
-    TTEntry *t = transpositionTable.find(board.getHashCode());
+    TTEntry *t = SearchContext::transpositionTable.find(this->board.getHashCode());
     if (t != nullptr && t->depth >= depth) {
         switch (t->flag) {
-            case EXACT:
-                *mv_hst = t->best_move;
+            case BoundType::EXACT:
+                *moveHistory = t->bestMove;
                 return t->score;
-            case LOWER:
+            case BoundType::LOWER:
                 alpha = std::max(alpha, t->score);
                 break;
-            case UPPER:
+            case BoundType::UPPER:
                 beta = std::min(beta, t->score);
                 break;
         }
 
         if (alpha >= beta) {
-            *mv_hst = t->best_move;
+            *moveHistory = t->bestMove;
             return t->score;
         }
     }
 
-    const int32_t original_alpha = alpha;
+    const int32_t originalAlpha = alpha;
     if (depth <= 0) {
         // Extend the search_fd until the position is quiet
-        return qsearch(alpha, beta);
+        return this->qsearch(alpha, beta);
     }
 
     // Move generation logic
-    move_t mvs[MAX_MOVE_NUM];
+    move_t mvs[Bitboard::MAX_MOVE_NUM];
     int n = this->board.genLegalMoves(mvs, this->board.getTurn());
 
     // Check lookahead terminating conditions
     if (n == 0) {
-        if (board.isInCheck(board.getTurn())) {
+        if (this->board.isInCheck(this->board.getTurn())) {
             // King is in check, and there are no legal moves. Checkmate!
             return MATE_SCORE(ply);
         }
         // No legal moves, yet king is not in check. Stalemate!
         return 0;
     }
-    if (isDrawn()) {
+    if (this->isDrawn()) {
         return 0;
     }
 
-    /** Move ordering logic */
-    orderMoves(mvs, n);
+    // Move ordering logic
+    this->orderMoves(mvs, n);
 
-    /** Begin PVS check first move */
-    size_t pv_index = 0;
+    // Begin PVS check first move
+    size_t pvIndex = 0;
     move_t variations[depth + 1];
 
     this->pushMove(mvs[0]);
     variations[0] = mvs[0];
-    int32_t mv_score = -pvs(depth - 1, -beta, -alpha, &variations[1]);
+    int32_t mvScore = -pvs(depth - 1, -beta, -alpha, &variations[1]);
     this->popMove();
 
-    if (mv_score > alpha) {
-        alpha = mv_score;
-        std::memcpy(mv_hst, variations, depth * sizeof(move_t));
+    if (mvScore > alpha) {
+        alpha = mvScore;
+        std::memcpy(moveHistory, variations, depth * sizeof(move_t));
     }
 
     if (alpha >= beta) {
         storeCutoffMove(mvs[0], depth);
         goto END;
     }
-    /** End PVS check first move */
+    // End PVS check first move
 
-    /** PVS check subsequent moves */
+    // PVS check subsequent moves
     for (size_t i = 1; i < n; ++i) {
         const move_t &mv = mvs[i];
-        /** Futility pruning */
-        if (this->useFutilityPruning(mv, depth) && mv_score + this->moveValue(mv) < alpha - Weights::DELTA_MARGIN) {
+        // Futility pruning
+        if (this->useFutilityPruning(mv, depth) && mvScore + this->moveValue(mv) < alpha - Weights::DELTA_MARGIN) {
             continue;
         }
         this->pushMove(mv);
         variations[0] = mv;
 
         int16_t r = this->computeReduction(mv, depth, i);
-        /** Zero-Window Search. Assume good move ordering, and all subsequent mvs are worse. */
-        mv_score = -1 * this->pvs(depth - 1 - r, -alpha - 1, -alpha, &variations[1]);
-        /** If mvs[i] turns out to be better, re-search move with full window */
-        if (alpha < mv_score && mv_score < beta) {
-            mv_score = -1 * this->pvs(depth - 1, -beta, -alpha, &variations[1]);
+        // Zero-Window Search. Assume good move ordering, and all subsequent mvs are worse.
+        mvScore = -1 * this->pvs(depth - 1 - r, -alpha - 1, -alpha, &variations[1]);
+        // If mvs[i] turns out to be better, re-search move with full window
+        if (alpha < mvScore && mvScore < beta) {
+            mvScore = -1 * this->pvs(depth - 1, -beta, -alpha, &variations[1]);
         }
         this->popMove();
 
-        if (mv_score > alpha) {
-            alpha = mv_score;
-            pv_index = i;
-            std::memcpy(mv_hst, variations, depth * sizeof(move_t));
+        if (mvScore > alpha) {
+            alpha = mvScore;
+            pvIndex = i;
+            std::memcpy(moveHistory, variations, depth * sizeof(move_t));
         }
 
         /** Beta-Cutoff */
         if (alpha >= beta) {
-            storeCutoffMove(mv, depth);
+            this->storeCutoffMove(mv, depth);
             break;
         }
     }
     END:
     /** Updates the transposition table with the appropriate values */
-    TTEntry tt_entry(this->board.getHashCode(), alpha, depth, EXACT, mvs[pv_index]);
-    if (alpha <= original_alpha) {
-        tt_entry.flag = UPPER;
+    TTEntry ttEntry(this->board.getHashCode(), alpha, depth, BoundType::EXACT, mvs[pvIndex]);
+    if (alpha <= originalAlpha) {
+        ttEntry.flag = BoundType::UPPER;
     } else if (alpha >= beta) {
-        tt_entry.flag = LOWER;
+        ttEntry.flag = BoundType::LOWER;
     }
 
-    transpositionTable.insert(tt_entry);
+    transpositionTable.insert(ttEntry);
     killerMoves[ply + 1].clear();
     return alpha;
 }
 
 void SearchContext::search_t() {
-    move_t root_mvs[MAX_MOVE_NUM];
-    int n_root_mvs = this->board.genLegalMoves(root_mvs, this->board.getTurn()); // TODO Refactor move gen
-
+    move_t rootMoves[Bitboard::MAX_MOVE_NUM];
+    int nRootMoves = this->board.genLegalMoves(rootMoves, this->board.getTurn()); // TODO Refactor move gen
     pthread_mutex_lock(&init_lock);
     int seed = std::random_device()();
     std::mt19937 rng(seed);
     ++SearchContext::nActiveThreads;
     pthread_mutex_unlock(&init_lock);
-    std::shuffle(root_mvs, &(root_mvs[n_root_mvs]), rng);
+    std::shuffle(rootMoves, &(rootMoves[nRootMoves]), rng);
 
     move_t pv[MAX_DEPTH];
 
     const bool isMainThread = this->threadIndex == 0;
     for (int16_t d = 1; SearchContext::timeRemaining && d < MAX_DEPTH - 1; ++d) {
         int32_t evaluation = MIN_SCORE;
-
-        for (int i = 0; i < n_root_mvs; ++i) {
-            pv[0] = root_mvs[i];
+        for (int i = 0; i < nRootMoves; ++i) {
+            pv[0] = rootMoves[i];
             this->pushMove(pv[0]);
             int32_t mvScore = -1 * this->pvs(d - 1, MIN_SCORE, -evaluation, &pv[1]);
             this->popMove();
@@ -485,15 +486,15 @@ void SearchContext::search_t() {
                 std::memcpy(this->threadPV, pv, d * sizeof(move_t));
             }
         }
-        TTEntry ttEntry(board.getHashCode(), evaluation, d, EXACT, this->threadPV[0]);
-        transpositionTable.insert(ttEntry);
+        TTEntry ttEntry(this->board.getHashCode(), evaluation, d, BoundType::EXACT, this->threadPV[0]);
+        SearchContext::transpositionTable.insert(ttEntry);
 
         if (isMainThread && SearchContext::timeRemaining) {
-            result.bestMove = this->threadPV[0];
-            result.score = evaluation;
+            SearchContext::result.bestMove = this->threadPV[0];
+            SearchContext::result.score = evaluation;
             SearchContext::timeManager.finishedIteration(evaluation);
         }
-        orderMoves(root_mvs, n_root_mvs);
+        this->orderMoves(rootMoves, nRootMoves);
     }
 
     // Thread tear-down code
@@ -502,8 +503,9 @@ void SearchContext::search_t() {
         pthread_mutex_destroy(&init_lock);
         SearchContext::timeManager.resetTimer();
     }
+    if (!isMainThread) pthread_mutex_lock(&init_lock);
     --SearchContext::nActiveThreads;
-    pthread_exit(nullptr);
+    if (!isMainThread) pthread_mutex_unlock(&init_lock);
 }
 
 SearchContext::SearchContext(const std::string &fen) : board(fen), position(&(this->board)) {
@@ -540,4 +542,15 @@ void SearchContext::setUCIInstance(const UCI *uciPtr) {
     SearchContext::uciInstance = uciPtr;
 }
 
-SearchContext::~SearchContext() {}
+SearchContext::~SearchContext() {
+    // Frees the move stack
+    LinkedStack *iterator = this->stack;
+    LinkedStack *previous;
+
+    while (iterator) {
+        previous = iterator;
+        iterator = iterator->next;
+        delete previous;
+    }
+    this->stack = nullptr;
+}

@@ -38,8 +38,22 @@ void info_t::formatData(char buf[], size_t n, bool verbose) const {
     }
 }
 
-UCI::UCI() {}
+UCI::UCI() {
+    this->mainThread = nullptr;
+    this->helperThreads = nullptr;
+    this->nThreads = 0;
+    this->boardInitialized = false;
+}
 
+UCI::~UCI() {
+    delete mainThread;
+    if (helperThreads) {
+        for (size_t i = 1; i < this->nThreads; ++i) {
+            delete helperThreads[i - 1];
+        }
+        delete[] helperThreads;
+    }
+}
 void UCI::initializeUCI() {
     options.insert(std::pair<option_t, std::string>(option_t::ownBook, "off"));
     options.insert(std::pair<option_t, std::string>(option_t::debug, "off"));
@@ -50,22 +64,22 @@ void UCI::initializeUCI() {
 }
 
 void UCI::parseUCIString(const char *uci) {
-    std::string uci_string(uci);
-    std::vector<std::string> tokens = StringUtils::split(uci_string);
+    std::string uciString(uci);
+    std::vector<std::string> tokens = StringUtils::split(uciString);
 
     const std::string cmd = tokens[0];
     tokens.erase(tokens.begin(), tokens.begin() + 1);
 
     if (cmd == "uci") {
         this->initializeUCI();
+
         size_t len = UCI::idStr.size();
         std::memcpy(this->sendbuf, UCI::idStr.c_str(), len); // NOLINT(bugprone-not-null-terminated-result)
         this->sendbuf[len] = '\n';
         strcpy(&(this->sendbuf[len + 1]), replies[uciok].c_str());
         this->reply();
     } else if (cmd == "ucinewgame") {
-        this->board_initialized = false;
-        // TODO: Initialize zobrist hashes
+        this->boardInitialized = false;
         Bitboard::initializeZobrist();
     } else if (cmd == "isready") {
         snprintf(this->sendbuf, BUFLEN, "readyok");
@@ -80,17 +94,17 @@ void UCI::parseUCIString(const char *uci) {
             this->reply();
         }
     } else if (cmd == "go") {
-        UCI::go(tokens);
+        this->go(tokens);
     } else if (cmd == "setoption") {
-        UCI::setOption(tokens);
+        this->setOption(tokens);
     } else if (cmd == "stop") {
         SearchContext::timeRemaining = false;
         SearchContext::result.formatData(this->sendbuf, BUFLEN, this->options[option_t::debug] == "on");
         this->reply();
-        UCI::joinThreads();
+        this->joinThreads();
     } else if (cmd == "quit") {
         std::cout << "juliette:: bye! i enjoyed playing with you :)" << std::endl;
-        UCI::joinThreads();
+        this->joinThreads();
         exit(0);
     }
 }
@@ -123,18 +137,19 @@ void UCI::position(const std::vector<std::string> &args) {
     bool b = true;
     for (std::vector<std::string>::const_iterator it = args.begin() + moves_index; it != args.end(); ++it) {
         move_t move = this->mainThread->board.parseMove(*it);
-        if (move == NULL_MOVE) { b = false; break; }
+        if (move == move_t::NULL_MOVE) { b = false; break; }
         this->mainThread->pushMove(move);
     }
     if (!b) {
         snprintf(sendbuf, BUFLEN, "juliette:: board initialization failed!\n");
         this->reply();
     }
-    board_initialized = b;
+    boardInitialized = b;
+    this->synchronizeSearchContexts();
 }
 
 void UCI::go(const std::vector<std::string> &args) {
-    if (!(this->board_initialized)) {
+    if (!(this->boardInitialized)) {
         snprintf(this->sendbuf, BUFLEN, "juliette:: a start position must be specified.");
         this->reply();
         return;
@@ -169,8 +184,10 @@ void UCI::go(const std::vector<std::string> &args) {
             if (!StringUtils::isNumber(&movesToGo, args[index + 1])) return;
             index += 2;
         } else if (args[index] == "movetime") {
-            int *variable = this->mainThread->board.fullmove_number ? &wTime : &bTime;
-            if (!StringUtils::isNumber(variable, args[index + 1])) return;
+            int *variable = (this->mainThread->board.fullmove_number % 2) ? &wTime : &bTime;
+            if (!StringUtils::isNumber(variable, args[index + 1])) { 
+                return; 
+            }
             movesToGo = 1;
             wInc = 0;
             bInc = 0;
@@ -188,16 +205,14 @@ void UCI::go(const std::vector<std::string> &args) {
         }
     }
     SearchContext::timeManager.initializeTimer(mainThread->board.getTurn(), wTime, wInc, bTime, bInc, movesToGo);
-    this->nThreads = std::stoi(options[option_t::threadCount]);
     SearchContext::timeManager.startTimer();
-
     int status = pthread_create(&(this->threads[0]), nullptr, threadFunction, (void *) this->mainThread);
     if (status) {
         std::cout << "juliette:: Failed to spawn thread!\n";
         joinThreads();
         exit(-1);
     }
-    for (int i = 1; i < nThreads; ++i) {
+    for (size_t i = 1; i < this->nThreads; ++i) {
         status = pthread_create(&(this->threads[i]), nullptr, threadFunction, (void *) &(this->helperThreads[i - 1]));
         if (status) {
             std::cout << "juliette:: Failed to spawn thread!\n";
@@ -216,7 +231,7 @@ void UCI::reply() {
 }
 
 void UCI::setOption(const std::vector<std::string> &args) {
-    if (args[0] != "name" || args[2] != "value" || args.size() != 4) {
+    if (args.size() != 4 || args[0] != "name" || args[2] != "value") {
         snprintf(this->sendbuf, BUFLEN, "juliette:: syntax: setoption name [name] value [value]");
         this->reply();
         return;
@@ -236,21 +251,26 @@ void UCI::setOption(const std::vector<std::string> &args) {
             snprintf(this->sendbuf, BUFLEN, "juliette:: 'debug' option must be set to 'on' or 'off'");
             this->reply();
         }
-    } else if (args[1] == "own_book") {
+    } else if (args[1] == "ownBook") {
         if (args[3] == "on" || args[3] == "off") {
             options[option_t::ownBook] = args[3];
         } else {
             snprintf(this->sendbuf, BUFLEN, "juliette:: 'own_book' option must be set to 'on' or 'off'");
             this->reply();
         }
-    } else if (args[1] == "thread_cnt") {
-        if (StringUtils::isNumber(args[3])) {
+    } else if (args[1] == "threadCount") {
+        int threadCount;
+
+        if (this->boardInitialized) {
+            snprintf(this->sendbuf, BUFLEN, "juliette:: thread count must be set prior to board initialization");
+        } else if (StringUtils::isNumber(&threadCount, args[3]) && IOUtils::withinRange(threadCount, 0, MAX_THREAD_COUNT)) {
             options[option_t::threadCount] = args[3];
+            snprintf(this->sendbuf, BUFLEN, "juliette:: thread count set to %d", threadCount);
         } else {
-            snprintf(this->sendbuf, BUFLEN, "juliette:: thread count must be a number");
-            this->reply();
+            snprintf(this->sendbuf, BUFLEN, "juliette:: thread count must be a number greater than 0");
         }
-    } else if (args[1] == "hash_size") {
+        this->reply();
+    } else if (args[1] == "hashSize") {
         if (StringUtils::isNumber(args[3])) {
             options[option_t::hashSize] = args[3];
         } else {
@@ -277,6 +297,19 @@ void UCI::joinThreads() {
         pthread_join(threads[i], nullptr);
     }
     nThreads = 0;
+}
+
+void UCI::synchronizeSearchContexts() {
+    if (this->helperThreads) {
+        for (size_t i = 1; i < this->nThreads; ++i) delete this->helperThreads[i - 1];
+        delete this->helperThreads;
+        this->helperThreads = nullptr;
+    }
+    this->nThreads = (size_t) std::stoi(this->options[option_t::threadCount]);
+    if (this->nThreads == 1) return;
+
+    this->helperThreads = new SearchContext*[this->nThreads - 1];
+    for (size_t i = 1; i < this->nThreads; ++i) this->helperThreads[i - 1] = new SearchContext(i, *(this->mainThread));
 }
 
 void *threadFunction(void *arg) 

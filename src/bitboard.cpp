@@ -133,6 +133,8 @@ const uint64_t Bitboard::BB_ANTI_DIAGONALS[15] =
     Bitboard::BB_ANTI_DIAGONAL_15
 };
 
+uint64_t Bitboard::BB_RAYS[64][64];
+
 const int Bitboard::MAX_MOVE_NUM = 218;
 const int Bitboard::MAX_CAPTURE_NUM = 74;
 const int Bitboard::MAX_ATTACK_NUM = 16;
@@ -190,7 +192,7 @@ Bitboard::Bitboard(const std::string &fen) {
     for (int rank = 7; rank >= 0; --rank) {
         char *fen_board = strtok_r(token, "/", &token);
         int file = 0;
-        const size_t len = strlen(fen_board);
+        const std::size_t len = strlen(fen_board);
         for (int j = 0; j < len; ++j) {
             if (file >= 8) break;
 
@@ -845,7 +847,7 @@ void Bitboard::makeMove(const move_t &move) {
 
 move_t Bitboard::parseMove(const std::string &mv_str) {
     if (mv_str.size() < 4) {
-        return NULL_MOVE;
+        return move_t::NULL_MOVE;
     }
     move_t moves[MAX_MOVE_NUM];
     int n = this->genLegalMoves(moves, this->turn);
@@ -874,7 +876,7 @@ move_t Bitboard::parseMove(const std::string &mv_str) {
             }
         }
     }
-    return NULL_MOVE;
+    return move_t::NULL_MOVE;
 }
 
 bool Bitboard::isInCheck(bool color) {
@@ -1001,7 +1003,7 @@ uint64_t Bitboard::_get_attackmask(bool color) {
         piece_t piece = static_cast<piece_t> (this->mailbox[square] % 6);
         switch (piece) {
             case piece_t::BLACK_KNIGHT:
-                moves_bb |= BB_KNIGHT_ATTACKS[square];
+                moves_bb |= MoveGen::BB_KNIGHT_ATTACKS[square];
                 break;
             case piece_t::BLACK_BISHOP:
                 occupied = this->occupied & MoveGen::BB_BISHOP_ATTACK_MASKS[square];
@@ -1194,7 +1196,7 @@ uint64_t Bitboard::get_bishop_moves(bool color, int square) {
 }
 
 uint64_t Bitboard::get_knight_moves(bool color, int square) {
-    uint64_t moves = BB_KNIGHT_ATTACKS[square];
+    uint64_t moves = MoveGen::BB_KNIGHT_ATTACKS[square];
     return moves & ~(this->wOccupied * color + this->bOccupied * !color);
 }
 
@@ -1346,7 +1348,7 @@ uint64_t Bitboard::attacksTo(int targetSquare) {
                 break;
             }
             case BLACK_KNIGHT: {
-                bool isAttacking = (BB_KNIGHT_ATTACKS[i] & targetBb) != 0;
+                bool isAttacking = (MoveGen::BB_KNIGHT_ATTACKS[i] & targetBb) != 0;
                 attacks |= (uint64_t(isAttacking) << i);
                 break;
             }

@@ -7,7 +7,7 @@
 #define WHITE 1
 #define BLACK 0
 #define INVALID (-1)
-#define START_POSITION "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -"
+#define START_POSITION "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 "
 #define HTABLE_LEN 768
 
 /**
@@ -63,6 +63,10 @@ enum piece_t
 struct move_t 
 {
 
+    static const move_t NULL_MOVE;
+    static const move_t CHECKMATE;
+    static const move_t STALEMATE;
+
     static const int32_t SCORE_MASK = 0xFFFFFF;
 
     enum type_t {
@@ -96,15 +100,6 @@ struct move_t
 
     std::string to_string() const;
 };
-
-extern const uint64_t BB_KNIGHT_ATTACKS[64];
-
-extern const move_t NULL_MOVE;
-extern const move_t CHECKMATE;
-extern const move_t STALEMATE;
-extern const int MAX_MOVE_NUM;
-extern const int MAX_CAPTURE_NUM;
-extern const int MAX_ATTACK_NUM;
 
 namespace BitUtils 
 {
@@ -152,6 +147,8 @@ namespace StringUtils
 
 namespace IOUtils 
 {
+    bool withinRange(int input, int lower, int upper);
+
     int parseSquare(const char *);
 
     void printMove(move_t);

@@ -51,7 +51,7 @@ private:
 
     Bitboard board;
 
-    stack_t *stack;
+    LinkedStack *stack;
 
     int16_t ply;
 
@@ -83,7 +83,7 @@ private:
 
 public:
 
-    static bool timeRemaining;
+    static volatile bool timeRemaining;
 
     static int32_t pieceValue(piece_t);
 

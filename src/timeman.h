@@ -22,6 +22,8 @@ private:
 
     static UCI *uciInstance;
 
+    TimerArgs args;
+
     int wTime;
     int bTime;
 

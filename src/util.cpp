@@ -6,9 +6,9 @@
 #include "util.h"
 #include "weights.h"
 
-const move_t NULL_MOVE = {A1, A1, PASS};
-const move_t CHECKMATE = {A1, A1, PASS};
-const move_t STALEMATE = {H8, H8, PASS};
+const move_t move_t::NULL_MOVE = {A1, A1, PASS};
+const move_t move_t::CHECKMATE = {A1, A1, PASS};
+const move_t move_t::STALEMATE = {H8, H8, PASS};
 
 // Maximum amount of material that can be lost in any exchange
 const int32_t MAX_MATERIAL_LOSS = Weights::MATERIAL[piece_t::BLACK_QUEEN];
@@ -210,6 +210,10 @@ int BitUtils::pullLSB(uint64_t *bb) {
     int square = BitUtils::getLSB(*bb);
     *bb &= *bb - 1;
     return square;
+}
+
+bool IOUtils::withinRange(int input, int lower, int upper) {
+    return lower < input && input <= upper;
 }
 
 int IOUtils::parseSquare(const char *square) {

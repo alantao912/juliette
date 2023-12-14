@@ -8,24 +8,24 @@
 
 #include "util.h"
 
-enum flag_t {
+enum BoundType {
     EXACT, LOWER, UPPER
 };
 
 struct TTEntry {
     uint64_t key;
 
-    flag_t flag;
+    BoundType flag;
 
     int32_t score;
     int16_t depth;
-    move_t best_move;
+    move_t bestMove;
 
     bool initialized;
 
     TTEntry();
 
-    TTEntry(uint64_t hash_code, int32_t score, int16_t depth, flag_t flag, move_t best_move);
+    TTEntry(uint64_t hash_code, int32_t score, int16_t depth, BoundType flag, move_t best_move);
 
     uint64_t operator()() const;
 

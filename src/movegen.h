@@ -15,11 +15,11 @@ public:
 
     static uint64_t BB_ROOK_ATTACKS[64][4096];
 
+    static const uint64_t BB_KING_ATTACKS[64];
+
     static const uint64_t BISHOP_MAGICS[64];
 
     static const uint64_t ROOK_MAGICS[64];
-    
-    static const uint64_t BB_KING_ATTACKS[64];
 
     static void initMoveGenData();
 

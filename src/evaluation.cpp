@@ -7,9 +7,6 @@
 #include <cmath>
 #include <cstring>
 
-/** Global board struct */
-//extern __thread bitboard board;
-
 namespace Weights {
 
     const int32_t (&PAWN_PSQT)[64] = Weights::PSQTs[piece_t::BLACK_PAWN];
@@ -153,7 +150,7 @@ void Evaluation::countOpenFiles() {
 int32_t Evaluation::evaluate() {
     reset();
     materialScore();
-    accumulate_psqts();
+    PSQTs();
 
     pawnStructure();
     passedPawns();
@@ -161,12 +158,14 @@ int32_t Evaluation::evaluate() {
     backwardPawns();
     rook_activity();
     queen_activity();
-    evaluate_space();
+    evaluateSpace();
     // TODO: New (distance to pawns, opposition, etc), Outpost Squares,
     if (phase < 6) {
         king_placement();
     }
-    return weightedScore();
+    int32_t s = weightedScore();
+    //std::cout << "score: " << s << '\n';
+    return s;
 }
 
 void Evaluation::materialScore() {
@@ -207,25 +206,25 @@ void Evaluation::materialScore() {
 
 void Evaluation::pawnStructure() {
     uint64_t pawn_attacks = MoveGen::get_pawn_attacks_setwise(this->board->wPawns, WHITE);
-    accumulate_characteristic_w(BitUtils::popCount(pawn_attacks & this->board->wPawns),
+    whiteCharacteristic(BitUtils::popCount(pawn_attacks & this->board->wPawns),
                                 Evaluation::characteristic_t::PAWN_CHAIN);
 
     pawn_attacks = MoveGen::get_pawn_attacks_setwise(this->board->bPawns, BLACK);
-    accumulate_characteristic_b(BitUtils::popCount(pawn_attacks & this->board->bPawns), Evaluation::characteristic_t::PAWN_CHAIN);
+    blackCharacteristic(BitUtils::popCount(pawn_attacks & this->board->bPawns), Evaluation::characteristic_t::PAWN_CHAIN);
 }
 
 void Evaluation::doubledPawns() {
     uint64_t mask = Bitboard::BB_FILE_A;
     for (int i = 0; i < 8; ++i) {
         /** Calculates (number of pawns in a file - 1) and penalizes accordingly */
-        accumulate_characteristic_w(std::max(BitUtils::popCount(this->board->wPawns & mask) - 1, 0),
+        whiteCharacteristic(std::max(BitUtils::popCount(this->board->wPawns & mask) - 1, 0),
                                     Evaluation::characteristic_t::DOUBLED_PAWNS);
         /** Shifts bitmask one file right */
         mask <<= 1;
     }
     mask = Bitboard::BB_FILE_A;
     for (int i = 0; i < 8; ++i) {
-        accumulate_characteristic_b(std::max((BitUtils::popCount(this->board->bPawns & mask) - 1), 0),
+        blackCharacteristic(std::max((BitUtils::popCount(this->board->bPawns & mask) - 1), 0),
                                     Evaluation::characteristic_t::DOUBLED_PAWNS);
         mask <<= 1;
     }
@@ -244,7 +243,7 @@ void Evaluation::passedPawns() {
 
             n += ((left_file & (this->board->bPawns | Bitboard::BB_FILE_H)) == 0);
             n += ((right_file & (this->board->bPawns | Bitboard::BB_FILE_A)) == 0);
-            accumulate_characteristic_w(n, Evaluation::characteristic_t::PASSED_PAWN);
+            whiteCharacteristic(n, Evaluation::characteristic_t::PASSED_PAWN);
         }
         promSquare_mask <<= 1;
         file_mask <<= 1;
@@ -261,7 +260,7 @@ void Evaluation::passedPawns() {
 
             n += ((left_file & (this->board->wPawns | Bitboard::BB_FILE_H)) == 0);
             n += ((right_file & (this->board->wPawns | Bitboard::BB_FILE_A)) == 0);
-            accumulate_characteristic_b(n, Evaluation::characteristic_t::PASSED_PAWN);
+            blackCharacteristic(n, Evaluation::characteristic_t::PASSED_PAWN);
         }
         promSquare_mask <<= 1;
         file_mask <<= 1;
@@ -279,7 +278,7 @@ void Evaluation::backwardPawns() {
             uint64_t right_potential_guards = (rear_file << 1) & Bitboard::BB_FILE_A;
             bool left_guardless = ((left_potential_guards & this->board->wPawns) == 0);
             bool right_guardless = ((right_potential_guards & this->board->wPawns) == 0);
-            accumulate_characteristic_w((int) (left_guardless & right_guardless),
+            whiteCharacteristic((int) (left_guardless & right_guardless),
                                         Evaluation::characteristic_t::BACKWARD_PAWN);
         }
         file_mask <<= 1;
@@ -293,7 +292,7 @@ void Evaluation::backwardPawns() {
             uint64_t right_potential_guards = (rear_file << 1) & Bitboard::BB_FILE_A;
             bool left_guardless = ((left_potential_guards & this->board->bPawns) == 0);
             bool right_guardless = ((right_potential_guards & this->board->bPawns) == 0);
-            accumulate_characteristic_b((int) (left_guardless & right_guardless),
+            blackCharacteristic((int) (left_guardless & right_guardless),
                                         Evaluation::characteristic_t::BACKWARD_PAWN);
         }
         file_mask <<= 1;
@@ -303,12 +302,12 @@ void Evaluation::backwardPawns() {
 void Evaluation::rook_activity() {
     uint64_t data = MoveGen::get_rook_rays_setwise(this->board->wRooks, ~(this->board->occupied ^ this->board->wRooks));
     /** Detection of connected rooks */
-    accumulate_characteristic_w(std::max((BitUtils::popCount(data & this->board->wRooks) - 1), 0),
+    whiteCharacteristic(std::max((BitUtils::popCount(data & this->board->wRooks) - 1), 0),
                                 Evaluation::characteristic_t::CONNECTED_ROOKS);
 
     /** The following repeats the same score for black*/
     data = MoveGen::get_rook_rays_setwise(this->board->bRooks, ~(this->board->occupied ^ this->board->bRooks));
-    accumulate_characteristic_b(std::max(BitUtils::popCount(data & this->board->bRooks) - 1, 0),
+    blackCharacteristic(std::max(BitUtils::popCount(data & this->board->bRooks) - 1, 0),
                                 Evaluation::characteristic_t::CONNECTED_ROOKS);
 }
 
@@ -320,20 +319,20 @@ void Evaluation::queen_activity() {
                                            ~(this->board->occupied ^ this->board->wQueens ^ this->board->wRooks ^ this->board->wBishops));
 
     /** Detects Queen-Rook batteries. */
-    accumulate_characteristic_w(std::max(BitUtils::popCount(data & this->board->wRooks) - 1, 0),
+    whiteCharacteristic(std::max(BitUtils::popCount(data & this->board->wRooks) - 1, 0),
                                 Evaluation::characteristic_t::QUEEN_ROOK);
 
     /** Detects Queen-Bishop batteries. */
-    accumulate_characteristic_w(std::max(BitUtils::popCount(data & this->board->wBishops) - 1, 0),
+    whiteCharacteristic(std::max(BitUtils::popCount(data & this->board->wBishops) - 1, 0),
                                 Evaluation::characteristic_t::QUEEN_BISHOP);
 
     /** Evaluates queen placement using piece-square table */
 
     /** Following code duplicates the above functionality for black */
     data = MoveGen::get_queen_rays_setwise(this->board->bQueens, ~(this->board->occupied ^ this->board->bQueens ^ this->board->bRooks ^ this->board->bBishops));
-    accumulate_characteristic_b(std::max(BitUtils::popCount(data & this->board->bRooks) - 1, 0),
+    blackCharacteristic(std::max(BitUtils::popCount(data & this->board->bRooks) - 1, 0),
                                 Evaluation::characteristic_t::QUEEN_ROOK);
-    accumulate_characteristic_b(std::max(BitUtils::popCount(data & this->board->bBishops) - 1, 0),
+    blackCharacteristic(std::max(BitUtils::popCount(data & this->board->bBishops) - 1, 0),
                                 Evaluation::characteristic_t::QUEEN_BISHOP);
 }
 
@@ -386,7 +385,7 @@ void Evaluation::king_placement() {
     endgame_score -= (distDiff < 0) * (kingDistBonus + king_edge_bonus);
 }
 
-void Evaluation::evaluate_space() {
+void Evaluation::evaluateSpace() {
     /** Accumulate guard values of white pieces */
     uint64_t attacks = MoveGen::BB_KING_ATTACKS[this->board->wKingSquare];
     uint64_t king_vulnerabilities = this->kingVulnerabilities(this->board->bKing, this->board->bPawns);
@@ -399,7 +398,7 @@ void Evaluation::evaluate_space() {
         square_guard_values[i] += Weights::GUARD_VALUE[piece_t::BLACK_KING];
     }
     attacks = MoveGen::get_queen_rays_setwise(this->board->wQueens, ~this->board->occupied) & (~this->board->wQueens);
-    this->accumulate_king_threats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
+    this->accumulateKingThreats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
 
     while (attacks) {
         int i = BitUtils::pullLSB(&attacks);
@@ -407,28 +406,28 @@ void Evaluation::evaluate_space() {
     }
 
     attacks = MoveGen::get_rook_rays_setwise(this->board->wRooks, ~this->board->occupied) & (~this->board->wRooks);
-    this->accumulate_king_threats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
+    this->accumulateKingThreats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
 
     while (attacks) {
         int i = BitUtils::pullLSB(&attacks);
         square_guard_values[i] += Weights::GUARD_VALUE[piece_t::BLACK_ROOK];
     }
     attacks = MoveGen::get_bishop_rays_setwise(this->board->wBishops, ~this->board->occupied) & (~this->board->wBishops);
-    this->accumulate_king_threats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
+    this->accumulateKingThreats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
 
     while (attacks) {
         int i = BitUtils::pullLSB(&attacks);
         square_guard_values[i] += Weights::GUARD_VALUE[piece_t::BLACK_BISHOP];
     }
     attacks = MoveGen::get_knight_mask_setwise(this->board->wKnights);
-    this->accumulate_king_threats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
+    this->accumulateKingThreats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
 
     while (attacks) {
         int i = BitUtils::pullLSB(&attacks);
         square_guard_values[i] += Weights::GUARD_VALUE[piece_t::BLACK_KNIGHT];
     }
     attacks = MoveGen::get_pawn_attacks_setwise(board->wPawns, WHITE);
-    accumulate_king_threats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
+    accumulateKingThreats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
 
     midgame_score += n_attackers * mg_king_danger;
     endgame_score += n_attackers * eg_king_danger;
@@ -450,35 +449,35 @@ void Evaluation::evaluate_space() {
         square_guard_values[i] -= Weights::GUARD_VALUE[piece_t::BLACK_KING];
     }
     attacks = MoveGen::get_queen_rays_setwise(this->board->bQueens, ~this->board->occupied) & (~this->board->bQueens);
-    accumulate_king_threats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
+    accumulateKingThreats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
 
     while (attacks) {
         int i = BitUtils::pullLSB(&attacks);
         square_guard_values[i] -= Weights::GUARD_VALUE[piece_t::BLACK_QUEEN];
     }
     attacks = MoveGen::get_rook_rays_setwise(this->board->bRooks, ~this->board->occupied) & (~this->board->bRooks);
-    accumulate_king_threats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
+    accumulateKingThreats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
 
     while (attacks) {
         int i = BitUtils::pullLSB(&attacks);
         square_guard_values[i] -= Weights::GUARD_VALUE[piece_t::BLACK_ROOK];
     }
     attacks = MoveGen::get_bishop_rays_setwise(this->board->bBishops, ~this->board->occupied) & (~this->board->bBishops);
-    accumulate_king_threats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
+    accumulateKingThreats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
 
     while (attacks) {
         int i = BitUtils::pullLSB(&attacks);
         square_guard_values[i] -= Weights::GUARD_VALUE[piece_t::BLACK_BISHOP];
     }
     attacks = MoveGen::get_knight_mask_setwise(this->board->bKnights);
-    accumulate_king_threats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
+    accumulateKingThreats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
 
     while (attacks) {
         int i = BitUtils::pullLSB(&attacks);
         square_guard_values[i] -= Weights::GUARD_VALUE[piece_t::BLACK_KNIGHT];
     }
     attacks = MoveGen::get_pawn_attacks_setwise(this->board->bPawns, BLACK);
-    accumulate_king_threats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
+    accumulateKingThreats(n_attackers, mg_king_danger, eg_king_danger, attacks, king_vulnerabilities);
 
     while (attacks) {
         int i = BitUtils::pullLSB(&attacks);
@@ -516,7 +515,7 @@ void Evaluation::evaluate_space() {
     }
 }
 
-void Evaluation::accumulate_king_threats(int &n_attackers, int32_t &mg_score, int32_t &eg_score, uint64_t attacks,
+void Evaluation::accumulateKingThreats(int &n_attackers, int32_t &mg_score, int32_t &eg_score, uint64_t attacks,
                                          uint64_t king) {
     int pop_cnt = BitUtils::popCount(attacks & king);
     mg_score += pop_cnt * Weights::POSITIONAL[Evaluation::characteristic_t::KING_THREAT];
@@ -524,23 +523,23 @@ void Evaluation::accumulate_king_threats(int &n_attackers, int32_t &mg_score, in
     n_attackers += (pop_cnt > 0);
 }
 
-void Evaluation::accumulate_psqts() {
-    evaluate_psqt_w(this->board->wPawns, Weights::PAWN_PSQT, Weights::Endgame::PAWN_PSQT);
-    evaluate_psqt_w(this->board->wKnights, Weights::KNIGHT_PSQT, Weights::Endgame::KNIGHT_PSQT);
-    evaluate_psqt_w(this->board->wBishops, Weights::BISHOP_PSQT, Weights::Endgame::BISHOP_PSQT);
-    evaluate_psqt_w(this->board->wRooks, Weights::ROOK_PSQT, Weights::Endgame::ROOK_PSQT);
-    evaluate_psqt_w(this->board->wQueens, Weights::QUEEN_PSQT, Weights::Endgame::QUEEN_PSQT);
-    evaluate_psqt_w(this->board->wKing, Weights::KING_PSQT, Weights::Endgame::KING_PSQT);
+void Evaluation::PSQTs() {
+    whitePSQT(this->board->wPawns, Weights::PAWN_PSQT, Weights::Endgame::PAWN_PSQT);
+    whitePSQT(this->board->wKnights, Weights::KNIGHT_PSQT, Weights::Endgame::KNIGHT_PSQT);
+    whitePSQT(this->board->wBishops, Weights::BISHOP_PSQT, Weights::Endgame::BISHOP_PSQT);
+    whitePSQT(this->board->wRooks, Weights::ROOK_PSQT, Weights::Endgame::ROOK_PSQT);
+    whitePSQT(this->board->wQueens, Weights::QUEEN_PSQT, Weights::Endgame::QUEEN_PSQT);
+    whitePSQT(this->board->wKing, Weights::KING_PSQT, Weights::Endgame::KING_PSQT);
 
-    evaluate_psqt_b(BitUtils::flipBitboardVertical(this->board->bPawns), Weights::PAWN_PSQT, Weights::Endgame::PAWN_PSQT);
-    evaluate_psqt_b(BitUtils::flipBitboardVertical(this->board->bKnights), Weights::KNIGHT_PSQT, Weights::Endgame::KNIGHT_PSQT);
-    evaluate_psqt_b(BitUtils::flipBitboardVertical(this->board->bBishops), Weights::BISHOP_PSQT, Weights::Endgame::BISHOP_PSQT);
-    evaluate_psqt_b(BitUtils::flipBitboardVertical(this->board->bRooks), Weights::ROOK_PSQT, Weights::Endgame::ROOK_PSQT);
-    evaluate_psqt_b(BitUtils::flipBitboardVertical(this->board->bQueens), Weights::QUEEN_PSQT, Weights::Endgame::QUEEN_PSQT);
-    evaluate_psqt_b(BitUtils::flipBitboardVertical(this->board->bKing), Weights::KING_PSQT, Weights::Endgame::KING_PSQT);
+    blackPSQT(BitUtils::flipBitboardVertical(this->board->bPawns), Weights::PAWN_PSQT, Weights::Endgame::PAWN_PSQT);
+    blackPSQT(BitUtils::flipBitboardVertical(this->board->bKnights), Weights::KNIGHT_PSQT, Weights::Endgame::KNIGHT_PSQT);
+    blackPSQT(BitUtils::flipBitboardVertical(this->board->bBishops), Weights::BISHOP_PSQT, Weights::Endgame::BISHOP_PSQT);
+    blackPSQT(BitUtils::flipBitboardVertical(this->board->bRooks), Weights::ROOK_PSQT, Weights::Endgame::ROOK_PSQT);
+    blackPSQT(BitUtils::flipBitboardVertical(this->board->bQueens), Weights::QUEEN_PSQT, Weights::Endgame::QUEEN_PSQT);
+    blackPSQT(BitUtils::flipBitboardVertical(this->board->bKing), Weights::KING_PSQT, Weights::Endgame::KING_PSQT);
 }
 
-void Evaluation::evaluate_psqt_w(uint64_t bb, const int32_t mg_psqt[64], const int32_t eg_psqt[64]) {
+void Evaluation::whitePSQT(uint64_t bb, const int32_t mg_psqt[64], const int32_t eg_psqt[64]) {
     while (bb) {
         int i = BitUtils::pullLSB(&bb);
         midgame_score += mg_psqt[i];
@@ -548,7 +547,7 @@ void Evaluation::evaluate_psqt_w(uint64_t bb, const int32_t mg_psqt[64], const i
     }
 }
 
-void Evaluation::evaluate_psqt_b(uint64_t bb, const int32_t mg_psqt[64], const int32_t eg_psqt[64]) {
+void Evaluation::blackPSQT(uint64_t bb, const int32_t mg_psqt[64], const int32_t eg_psqt[64]) {
     while (bb) {
         int i = BitUtils::pullLSB(&bb);
         midgame_score -= mg_psqt[i];
@@ -556,12 +555,12 @@ void Evaluation::evaluate_psqt_b(uint64_t bb, const int32_t mg_psqt[64], const i
     }
 }
 
-void Evaluation::accumulate_characteristic_w(int n, Evaluation::characteristic_t type) {
+void Evaluation::whiteCharacteristic(int n, Evaluation::characteristic_t type) {
     midgame_score += (n * Weights::POSITIONAL[static_cast<size_t> (type)]);
     endgame_score += (n * Weights::Endgame::POSITIONAL[static_cast<size_t> (type)]);
 }
 
-void Evaluation::accumulate_characteristic_b(int n, Evaluation::characteristic_t type) {
+void Evaluation::blackCharacteristic(int n, Evaluation::characteristic_t type) {
     midgame_score -= (n * Weights::POSITIONAL[static_cast<size_t> (type)]);
     endgame_score -= (n * Weights::Endgame::POSITIONAL[static_cast<size_t> (type)]);
 }

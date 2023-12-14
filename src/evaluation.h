@@ -72,20 +72,20 @@ private:
 
     void king_placement();
 
-    void evaluate_space();
+    void evaluateSpace();
 
     /** Helper functions below */
 
     static void
-    accumulate_king_threats(int &n_attackers, int32_t &mg_score, int32_t &eg_score, uint64_t attacks, uint64_t king);
+    accumulateKingThreats(int &n_attackers, int32_t &mg_score, int32_t &eg_score, uint64_t attacks, uint64_t king);
 
-    void accumulate_psqts();
+    void PSQTs();
 
-    void evaluate_psqt_w(uint64_t bb, const int32_t psqt[64], const int32_t eg_psqt[64]);
+    void whitePSQT(uint64_t bb, const int32_t psqt[64], const int32_t eg_psqt[64]);
 
-    void evaluate_psqt_b(uint64_t bb, const int32_t psqt[64], const int32_t eg_psqt[64]);
+    void blackPSQT(uint64_t bb, const int32_t psqt[64], const int32_t eg_psqt[64]);
 
-    void accumulate_characteristic_w(int n, Evaluation::characteristic_t type);
+    void whiteCharacteristic(int n, Evaluation::characteristic_t type);
 
-    void accumulate_characteristic_b(int n, Evaluation::characteristic_t type);
+    void blackCharacteristic(int n, Evaluation::characteristic_t type);
 };
