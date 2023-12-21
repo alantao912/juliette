@@ -20,6 +20,7 @@ struct SearchContext
 {
 
     friend struct UCI;
+
 private:
     static const UCI *uciInstance;
 
@@ -29,7 +30,7 @@ private:
 
     static TTable transpositionTable;
 
-    static pthread_mutex_t init_lock;
+    static pthread_mutex_t serviceLock;
 
     static const int32_t contempt_value; // TODO: Initialize Later
 

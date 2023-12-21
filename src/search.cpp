@@ -20,7 +20,7 @@
 #define MATE_SCORE(depth) (MIN_SCORE + INT16_MAX + depth)
 
 
-pthread_mutex_t SearchContext::init_lock;
+pthread_mutex_t SearchContext::serviceLock;
 TTable SearchContext::transpositionTable;
 const int32_t SearchContext::contempt_value = 0;
 
@@ -107,20 +107,20 @@ const info_t &SearchContext::getResult() {
 int16_t SearchContext::computeReduction(move_t mv, int16_t currentPly, int i) {
     const int16_t noReduction = 3;
     const int NO_LMR = 4;
-    /** If there are two plies or fewer to horizon, giving check, or in check, do not reduce. */
+    // If there are two plies or fewer to horizon, giving check, or in check, do not reduce.
     if (currentPly < noReduction || i < NO_LMR ||
         mv.isType(move_t::type_t::CHECK_MOVE) || this->stack->previousMove.isType(move_t::type_t::CHECK_MOVE)) {
         return 0;
     }
 
-    /** If move is a capture or promotion (tactical possibilities), do not reduce. */
+    // If move is a capture or promotion (tactical possibilities), do not reduce.
     if (mv.flag >= MoveFlags::EN_PASSANT && !mv.isType(move_t::type_t::LOSING_EXCHANGE)) {
         return 0;
     }
 
-    /** int32_t material_loss_rf: Material loss in centi-pawns resulting in one additional ply reduction */
+    // int32_t material_loss_rf: Material loss in centi-pawns resulting in one additional ply reduction
     const int32_t materialLossRf = 250;
-    int16_t reduction = 1 + int16_t(sqrt(currentPly - 1) + sqrt(i - 1));
+    int16_t reduction = 1 + int16_t(std::sqrt(currentPly - 1) + std::sqrt(i - 1));
     if (mv.isType(move_t::LOSING_EXCHANGE)) {
         const int32_t loss = -mv.normalizeScore();
         const int16_t inc = (loss - 1) / materialLossRf + 1;
@@ -212,16 +212,16 @@ void SearchContext::orderMoves(move_t mvs[], int n) {
                 }
             }
             default: {
-                /** fastSEE determines whether or not the move wins or loses material */
+                // fastSEE determines whether or not the move wins or loses material 
                 int32_t see_score = this->board.fastSEE(mv);
                 if (see_score < 0) {
-                    /** Quiet move that loses material, or losing exchange. */
+                    // Quiet move that loses material, or losing exchange. 
                     mv.setScore(move_t::type_t::LOSING_EXCHANGE, see_score);
                 } else if (mv.flag == NONE) {
-                    /** Quiet move. Cannot be a move that wins material since that would require capture. */
+                    // Quiet move. Cannot be a move that wins material since that would require capture. 
                     mv.setScore(move_t::type_t::QUIET, this->historyTable[this->hTableIndex(mv)]);
                 } else {
-                    /** Non-quiet move that wins, or maintains equal material */
+                    // Non-quiet move that wins, or maintains equal material 
                     mv.setScore(move_t::type_t::WINNING_EXCHANGE, see_score);
                 }
             }
@@ -263,66 +263,66 @@ void SearchContext::popMove() {
  */
 
 int32_t SearchContext::qsearch(int32_t alpha, int32_t beta) { // NOLINT
-    int32_t stand_pat;
+    int32_t standPat;
 
     int n;
     move_t moves[Bitboard::MAX_MOVE_NUM];
 
-    bool in_check = false;
+    bool inCheck = false;
     if (!board.isInCheck(board.getTurn())) {
-        /** Generate non-quiet moves, such as promotions, and captures. */
-        n = this->board.genNonquiescentMoves(moves, this->board.getTurn()); // TODO Refactor movegen
+        // Generate non-quiet moves, such as promotions, and captures.
+        n = this->board.genNonquiescentMoves(moves, this->board.getTurn());
         if (n == 0) {
-            /** Position is quiet, return score. */
+            // Position is quiet, return score.
             return position.evaluate();
         }
-    } else if ((n = this->board.genLegalMoves(moves, this->board.getTurn()))) { // TODO Refactor movegen
-        /** Side to move is in check, evasions exist. */
-        in_check = true;
+    } else if ((n = this->board.genLegalMoves(moves, this->board.getTurn()))) {
+        // Side to move is in check, evasions exist.
+        inCheck = true;
         goto CHECK_EVASIONS;
     } else {
-        /** Side to move is in check, evasions do not exist. Checkmate :( */
+        // Side to move is in check, evasions do not exist. Checkmate :(
         return MATE_SCORE(ply);
     }
 
-    /** Block: Only runs if not in check, and non-quiet moves exist. */
+    // Block: Only runs if not in check, and non-quiet moves exist.
 
-    stand_pat = position.evaluate();
-    if (stand_pat >= beta) {
+    standPat = position.evaluate();
+    if (standPat >= beta) {
         return beta;
     }
 
     {
-        int big_delta = Weights::MATERIAL[piece_t::BLACK_QUEEN];
+        int bigDelta = Weights::MATERIAL[piece_t::BLACK_QUEEN];
         if (this->board.containsPromotions()) {
-            big_delta += 775;
+            bigDelta += 775;
         }
-        /** No move can possibly raise alpha. Prune this node. */
-        if (stand_pat < alpha - big_delta) {
+        // No move can possibly raise alpha. Prune this node.
+        if (standPat < alpha - bigDelta) {
             return alpha;
         }
     }
 
-    if (stand_pat > alpha) {
-        alpha = stand_pat;
+    if (standPat > alpha) {
+        alpha = standPat;
     }
 
-    /** End block */
+    // End block
 
     CHECK_EVASIONS:
     for (size_t i = 0; i < n; ++i) {
-        const move_t &candidate_move = moves[i];
-        /** Delta pruning */
-        if (!in_check && moveValue(candidate_move) + stand_pat < alpha - Weights::DELTA_MARGIN) {
-            /** Skip evaluating this move */
+        const move_t &candidateMove = moves[i];
+        // Delta pruning
+        if (!inCheck && moveValue(candidateMove) + standPat < alpha - Weights::DELTA_MARGIN) {
+            // Skip evaluating this move
             continue;
         }
 
-        if (this->board.fastSEE(candidate_move) < 0) {
+        if (this->board.fastSEE(candidateMove) < 0) {
             continue;
         }
 
-        this->pushMove(candidate_move);
+        this->pushMove(candidateMove);
         int32_t score = -1 * qsearch(-beta, -alpha);
         this->popMove();
         if (score >= beta) {
@@ -341,7 +341,6 @@ int32_t SearchContext::qsearch(int32_t alpha, int32_t beta) { // NOLINT
  * @param alpha: Minimum score that the maximizing player is assured of.
  * @param beta: Maximum score that the minimizing player is assured of.
  */
-
 #pragma ide diagnostic ignored "misc-no-recursion"
 
 int32_t SearchContext::pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *moveHistory) {
@@ -440,14 +439,14 @@ int32_t SearchContext::pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *m
             std::memcpy(moveHistory, variations, depth * sizeof(move_t));
         }
 
-        /** Beta-Cutoff */
+        // Beta-Cutoff
         if (alpha >= beta) {
             this->storeCutoffMove(mv, depth);
             break;
         }
     }
     END:
-    /** Updates the transposition table with the appropriate values */
+    // Updates the transposition table with the appropriate values
     TTEntry ttEntry(this->board.getHashCode(), alpha, depth, BoundType::EXACT, mvs[pvIndex]);
     if (alpha <= originalAlpha) {
         ttEntry.flag = BoundType::UPPER;
@@ -456,6 +455,7 @@ int32_t SearchContext::pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *m
     }
 
     transpositionTable.insert(ttEntry);
+    
     killerMoves[ply + 1].clear();
     return alpha;
 }
@@ -463,17 +463,17 @@ int32_t SearchContext::pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *m
 void SearchContext::search_t() {
     move_t rootMoves[Bitboard::MAX_MOVE_NUM];
     int nRootMoves = this->board.genLegalMoves(rootMoves, this->board.getTurn()); // TODO Refactor move gen
-    pthread_mutex_lock(&init_lock);
+    pthread_mutex_lock(&serviceLock);
     int seed = std::random_device()();
     std::mt19937 rng(seed);
     ++SearchContext::nActiveThreads;
-    pthread_mutex_unlock(&init_lock);
+    pthread_mutex_unlock(&serviceLock);
     std::shuffle(rootMoves, &(rootMoves[nRootMoves]), rng);
 
     move_t pv[MAX_DEPTH];
 
     const bool isMainThread = this->threadIndex == 0;
-    for (int16_t d = 1; SearchContext::timeRemaining && d < MAX_DEPTH - 1; ++d) {
+    for (int16_t d = 1; SearchContext::timeRemaining && d < MAX_DEPTH; ++d) {
         int32_t evaluation = MIN_SCORE;
         for (int i = 0; i < nRootMoves; ++i) {
             pv[0] = rootMoves[i];
@@ -500,16 +500,16 @@ void SearchContext::search_t() {
     // Thread tear-down code
     if (isMainThread) {
         while (SearchContext::nActiveThreads > 1);
-        pthread_mutex_destroy(&init_lock);
+        pthread_mutex_destroy(&serviceLock);
         SearchContext::timeManager.resetTimer();
     }
-    if (!isMainThread) pthread_mutex_lock(&init_lock);
+    if (!isMainThread) pthread_mutex_lock(&serviceLock);
     --SearchContext::nActiveThreads;
-    if (!isMainThread) pthread_mutex_unlock(&init_lock);
+    if (!isMainThread) pthread_mutex_unlock(&serviceLock);
 }
 
 SearchContext::SearchContext(const std::string &fen) : board(fen), position(&(this->board)) {
-    pthread_mutex_init(&SearchContext::init_lock, nullptr);
+    pthread_mutex_init(&SearchContext::serviceLock, nullptr);
     SearchContext::transpositionTable.initialize(strtol(uciInstance->getOption(option_t::hashSize).c_str(), nullptr, 10));
 
     std::memset(this->historyTable, 0, sizeof(int) * HTABLE_LEN);
