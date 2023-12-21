@@ -938,7 +938,7 @@ bool Bitboard::containsPromotions() {
 
 int32_t Bitboard::pieceValue(int square) {
     piece_t piece = this->mailbox[square];
-    return (1 - (piece == piece_t::EMPTY)) * SearchContext::pieceValue(piece);
+    return (1 - (piece == piece_t::EMPTY)) * SearchContext::PieceValue(piece);
 }
 
 uint64_t Bitboard::findLVA(uint64_t attadef, piece_t &piece, uint64_t target) {
@@ -1429,6 +1429,10 @@ uint64_t *Bitboard::getBitboard(const piece_t &piece) {
         default:
             return nullptr;
     }
+}
+
+const piece_t *Bitboard::getMailboxBoard() const {
+    return this->mailbox;
 }
 
 uint64_t Bitboard::getHashCode() {

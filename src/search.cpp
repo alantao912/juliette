@@ -1,7 +1,8 @@
+#include <algorithm>
 #include <chrono>
 #include <cstring>
+#include <fstream>
 #include <pthread.h>
-#include <algorithm>
 #include <random>
 #include <unordered_map>
 
@@ -20,19 +21,19 @@
 #define MATE_SCORE(depth) (MIN_SCORE + INT16_MAX + depth)
 
 
-pthread_mutex_t SearchContext::serviceLock;
-TTable SearchContext::transpositionTable;
-const int32_t SearchContext::contempt_value = 0;
+pthread_mutex_t SearchContext::ServiceLock;
+TTable SearchContext::TranspositionTable;
+const int32_t SearchContext::ContemptValue = 0;
 
-info_t SearchContext::result;
-TimeManager SearchContext::timeManager;
+info_t SearchContext::Result;
+TimeManager SearchContext::TimeMan;
 
-const UCI *SearchContext::uciInstance = nullptr;
+const UCI *SearchContext::UciInstance = nullptr;
 
-volatile size_t SearchContext::nActiveThreads = 0;
+volatile size_t SearchContext::NActiveThreads = 0;
 
-volatile bool SearchContext::timeRemaining = false;
-bool SearchContext::blockHelpers = false;
+volatile bool SearchContext::TimeRemaining = false;
+bool SearchContext::BlockHelpers = false;
 
 /**
  * Verifies three-fold repetition claimed by the repetition table.
@@ -92,8 +93,8 @@ size_t SearchContext::hTableIndex(const move_t &mv) {
     return 64 * size_t(this->board.lookupMailbox(mv.from)) + size_t(mv.to);
 }
 
-const info_t &SearchContext::getResult() {
-    return SearchContext::result;
+const info_t &SearchContext::GetResult() {
+    return SearchContext::Result;
 }
 
 /**
@@ -129,7 +130,7 @@ int16_t SearchContext::computeReduction(move_t mv, int16_t currentPly, int i) {
     return reduction;
 }
 
-int32_t SearchContext::pieceValue(piece_t p) {
+int32_t SearchContext::PieceValue(piece_t p) {
     size_t index = static_cast<size_t> (p) % 6;
     return Weights::MATERIAL[index];
 }
@@ -177,7 +178,7 @@ void SearchContext::storeCutoffMove(move_t mv, int16_t depth) {
 }
 
 void SearchContext::orderMoves(move_t mvs[], int n) {
-    const TTEntry *it = SearchContext::transpositionTable.find(board.getHashCode());
+    const TTEntry *it = SearchContext::TranspositionTable.find(board.getHashCode());
     const std::vector<move_t> &kmvs = killerMoves[ply];
 
     move_t hash_move = move_t::NULL_MOVE;
@@ -235,6 +236,12 @@ void SearchContext::pushMove(const move_t &mv) {
     node->next = this->stack;
     this->stack = node;
     this->board.makeMove(mv);
+
+    #ifdef RECORD_TRACE
+    if (isMainThread())
+        SearchContext::Log.pushEntry(mv);
+    #endif
+
     std::unordered_map<uint64_t, RTEntry>::iterator rtPair = repetitionTable.find(this->board.getHashCode());
     if (rtPair != repetitionTable.end()) {
         RTEntry &rtEntry = rtPair->second;
@@ -253,6 +260,11 @@ void SearchContext::popMove() {
     this->stack = head->next;
     --(this->ply);
     delete head;
+
+    #ifdef RECORD_TRACE
+    if (isMainThread())
+        SearchContext::Log.eraseLastParent();
+    #endif
 }
 
 /**
@@ -344,11 +356,11 @@ int32_t SearchContext::qsearch(int32_t alpha, int32_t beta) { // NOLINT
 #pragma ide diagnostic ignored "misc-no-recursion"
 
 int32_t SearchContext::pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *moveHistory) {
-    if (!SearchContext::timeRemaining) {
+    if (!SearchContext::TimeRemaining) {
         return 0;
     }
 
-    TTEntry *t = SearchContext::transpositionTable.find(this->board.getHashCode());
+    TTEntry *t = SearchContext::TranspositionTable.find(this->board.getHashCode());
     if (t != nullptr && t->depth >= depth) {
         switch (t->flag) {
             case BoundType::EXACT:
@@ -431,6 +443,11 @@ int32_t SearchContext::pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *m
         if (alpha < mvScore && mvScore < beta) {
             mvScore = -1 * this->pvs(depth - 1, -beta, -alpha, &variations[1]);
         }
+        #ifdef RECORD_TRACE        
+        if (this->isMainThread())
+            SearchContext::Log.updateScore(mvScore);
+        #endif
+
         this->popMove();
 
         if (mvScore > alpha) {
@@ -454,7 +471,7 @@ int32_t SearchContext::pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *m
         ttEntry.flag = BoundType::LOWER;
     }
 
-    transpositionTable.insert(ttEntry);
+    TranspositionTable.insert(ttEntry);
     
     killerMoves[ply + 1].clear();
     return alpha;
@@ -463,17 +480,17 @@ int32_t SearchContext::pvs(int16_t depth, int32_t alpha, int32_t beta, move_t *m
 void SearchContext::search_t() {
     move_t rootMoves[Bitboard::MAX_MOVE_NUM];
     int nRootMoves = this->board.genLegalMoves(rootMoves, this->board.getTurn()); // TODO Refactor move gen
-    pthread_mutex_lock(&serviceLock);
+    pthread_mutex_lock(&SearchContext::ServiceLock);
     int seed = std::random_device()();
     std::mt19937 rng(seed);
-    ++SearchContext::nActiveThreads;
-    pthread_mutex_unlock(&serviceLock);
+    ++SearchContext::NActiveThreads;
+    pthread_mutex_unlock(&SearchContext::ServiceLock);
     std::shuffle(rootMoves, &(rootMoves[nRootMoves]), rng);
 
     move_t pv[MAX_DEPTH];
 
     const bool isMainThread = this->threadIndex == 0;
-    for (int16_t d = 1; SearchContext::timeRemaining && d < MAX_DEPTH; ++d) {
+    for (int16_t d = 1; SearchContext::TimeRemaining && d < MAX_DEPTH; ++d) {
         int32_t evaluation = MIN_SCORE;
         for (int i = 0; i < nRootMoves; ++i) {
             pv[0] = rootMoves[i];
@@ -487,36 +504,47 @@ void SearchContext::search_t() {
             }
         }
         TTEntry ttEntry(this->board.getHashCode(), evaluation, d, BoundType::EXACT, this->threadPV[0]);
-        SearchContext::transpositionTable.insert(ttEntry);
+        SearchContext::TranspositionTable.insert(ttEntry);
 
-        if (isMainThread && SearchContext::timeRemaining) {
-            SearchContext::result.bestMove = this->threadPV[0];
-            SearchContext::result.score = evaluation;
-            SearchContext::timeManager.finishedIteration(evaluation);
+        if (isMainThread && SearchContext::TimeRemaining) {
+            SearchContext::Result.bestMove = this->threadPV[0];
+            SearchContext::Result.score = evaluation;
+            SearchContext::TimeMan.finishedIteration(evaluation);
+            #ifdef RECORD_TRACE
+            SearchContext::Log.flush();
+            #endif
         }
         this->orderMoves(rootMoves, nRootMoves);
     }
 
     // Thread tear-down code
     if (isMainThread) {
-        while (SearchContext::nActiveThreads > 1);
-        pthread_mutex_destroy(&serviceLock);
-        SearchContext::timeManager.resetTimer();
+        while (SearchContext::NActiveThreads > 1);
+        pthread_mutex_destroy(&SearchContext::ServiceLock);
+        SearchContext::TimeMan.resetTimer();
     }
-    if (!isMainThread) pthread_mutex_lock(&serviceLock);
-    --SearchContext::nActiveThreads;
-    if (!isMainThread) pthread_mutex_unlock(&serviceLock);
+    if (!isMainThread) pthread_mutex_lock(&SearchContext::ServiceLock);
+    --SearchContext::NActiveThreads;
+    if (!isMainThread) pthread_mutex_unlock(&SearchContext::ServiceLock);
+}
+
+bool SearchContext::isMainThread() {
+    return (this->threadIndex == 0);
 }
 
 SearchContext::SearchContext(const std::string &fen) : board(fen), position(&(this->board)) {
-    pthread_mutex_init(&SearchContext::serviceLock, nullptr);
-    SearchContext::transpositionTable.initialize(strtol(uciInstance->getOption(option_t::hashSize).c_str(), nullptr, 10));
+    pthread_mutex_init(&SearchContext::ServiceLock, nullptr);
+    SearchContext::TranspositionTable.initialize(strtol(UciInstance->getOption(option_t::hashSize).c_str(), nullptr, 10));
 
     std::memset(this->historyTable, 0, sizeof(int) * HTABLE_LEN);
     std::memset(this->threadPV, 0, MAX_DEPTH * sizeof(move_t));
     this->ply = 0;
     this->stack = nullptr;
     this->threadIndex = 0;
+
+    #ifdef RECORD_TRACE
+    SearchContext::Log.initialize();
+    #endif
 }
 
 SearchContext::SearchContext(size_t threadIndex, const SearchContext &src) : position(&(this->board)) {
@@ -537,9 +565,9 @@ SearchContext::SearchContext(size_t threadIndex, const SearchContext &src) : pos
     this->threadIndex = threadIndex;
 }
 
-void SearchContext::setUCIInstance(const UCI *uciPtr) {
-    if (SearchContext::uciInstance) return;
-    SearchContext::uciInstance = uciPtr;
+void SearchContext::SetUciInstance(const UCI *uciPtr) {
+    if (SearchContext::UciInstance) return;
+    SearchContext::UciInstance = uciPtr;
 }
 
 SearchContext::~SearchContext() {
@@ -554,3 +582,53 @@ SearchContext::~SearchContext() {
     }
     this->stack = nullptr;
 }
+
+#ifdef RECORD_TRACE
+
+TraceLog SearchContext::Log;
+const std::string TraceLog::outputPath = "trace.bin";
+
+TraceLogEntry::TraceLogEntry(const move_t &move, int parentIndex, int iteration) {
+    this->move = move;
+    this->parentIndex = parentIndex;
+    this->iteration = iteration;
+    this->score = MIN_SCORE;
+}
+
+void TraceLog::flush() {
+    ++finishedIterations;
+    // Write results to file
+    std::ofstream outputFile(outputPath, std::ios::out | std::ios::binary | std::ios_base::app);
+    for (TraceLogEntry &e : logEntries) {
+        outputFile.write((const char *) (&e), sizeof(TraceLogEntry));
+    }
+    this->logEntries.clear();
+    this->parentIndices.clear();
+}
+
+void TraceLog::pushEntry(const move_t &mv) {
+    this->logEntries.push_back(TraceLogEntry(mv, this->parentIndices.top(), this->finishedIterations + 1));
+    this->markNewParent();
+}
+
+void TraceLog::updateScore(int32_t e) {
+    TraceLogEntry &entry = this->logEntries.at(this->parentIndices.top());
+    entry.score = std::max(entry.score, e);
+}
+
+void TraceLog::initialize() {
+    // Root trace log entry gets parent index -1
+    this->logEntries.push_back(TraceLogEntry(move_t::NULL_MOVE, -1, this->finishedIterations + 1));
+    this->markNewParent();
+    this->finishedIterations = 0;
+}
+
+void TraceLog::markNewParent() {
+    this->parentIndices.push(this->logEntries.size() - 1);
+}
+
+void TraceLog::eraseLastParent() {
+    this->parentIndices.pop();
+}
+
+#endif

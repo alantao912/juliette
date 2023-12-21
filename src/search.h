@@ -14,7 +14,55 @@
 #include "uci.h"
 #include "util.h"
 
-#define MAX_DEPTH 128
+#define RECORD_TRACE
+
+#ifdef RECORD_TRACE
+
+struct TraceLogEntry 
+{
+    friend struct TraceLog;
+
+private:
+    // Index of parent trace log entry in the trace log
+    int parentIndex;
+    int iteration;
+    int32_t score;
+    move_t move;
+
+public:
+    TraceLogEntry(const move_t &, int, int);
+};
+
+struct TraceLog
+{
+    friend struct TraceLogEntry;
+
+private:
+    static const std::string outputPath;
+
+    // Side-to-move of root position
+    bool rootSTM;
+    int finishedIterations;
+
+    SearchStack<int> parentIndices;
+
+    std::vector<TraceLogEntry> logEntries;
+
+public:
+    void flush();
+
+    void pushEntry(const move_t &);
+
+    void updateScore(int32_t);
+
+    void initialize();
+
+    void markNewParent();
+
+    void eraseLastParent();
+};
+
+#endif
 
 struct SearchContext
 {
@@ -22,23 +70,28 @@ struct SearchContext
     friend struct UCI;
 
 private:
-    static const UCI *uciInstance;
 
-    static struct info_t result;
+    #ifdef RECORD_TRACE
+    static TraceLog Log;
+    #endif
 
-    static TimeManager timeManager;
+    static const UCI *UciInstance;
 
-    static TTable transpositionTable;
+    static struct info_t Result;
 
-    static pthread_mutex_t serviceLock;
+    static TimeManager TimeMan;
 
-    static const int32_t contempt_value; // TODO: Initialize Later
+    static TTable TranspositionTable;
 
-    static volatile size_t nActiveThreads;
+    static pthread_mutex_t ServiceLock;
 
-    static bool blockHelpers;
+    static const int32_t ContemptValue; // TODO: Initialize Later
 
-    static const info_t &getResult();
+    static volatile size_t NActiveThreads;
+
+    static bool BlockHelpers;
+
+    static const info_t &GetResult();
 
     std::unordered_map<uint64_t, RTEntry> repetitionTable;
 
@@ -84,17 +137,19 @@ private:
 
 public:
 
-    static volatile bool timeRemaining;
+    static volatile bool TimeRemaining;
 
-    static int32_t pieceValue(piece_t);
+    static int32_t PieceValue(piece_t);
 
-    static void setUCIInstance(const UCI *);
+    static void SetUciInstance(const UCI *);
 
     SearchContext(const std::string &);
 
-    SearchContext(size_t threadIndex, const SearchContext &src);
+    SearchContext(size_t, const SearchContext &);
 
     ~SearchContext();
 
     void search_t();
+
+    inline bool isMainThread();
 };

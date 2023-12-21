@@ -98,8 +98,8 @@ void UCI::parseUCIString(const char *uci) {
     } else if (cmd == "setoption") {
         this->setOption(tokens);
     } else if (cmd == "stop") {
-        SearchContext::timeRemaining = false;
-        SearchContext::result.formatData(this->sendbuf, BUFLEN, this->options[option_t::debug] == "on");
+        SearchContext::TimeRemaining = false;
+        SearchContext::Result.formatData(this->sendbuf, BUFLEN, this->options[option_t::debug] == "on");
         this->reply();
         this->joinThreads();
     } else if (cmd == "quit") {
@@ -204,8 +204,8 @@ void UCI::go(const std::vector<std::string> &args) {
             return;
         }
     }
-    SearchContext::timeManager.initializeTimer(mainThread->board.getTurn(), wTime, wInc, bTime, bInc, movesToGo);
-    SearchContext::timeManager.startTimer();
+    SearchContext::TimeMan.initializeTimer(mainThread->board.getTurn(), wTime, wInc, bTime, bInc, movesToGo);
+    SearchContext::TimeMan.startTimer();
     int status = pthread_create(&(this->threads[0]), nullptr, threadFunction, (void *) this->mainThread);
     if (status) {
         std::cout << "juliette:: Failed to spawn thread!\n";
@@ -223,7 +223,7 @@ void UCI::go(const std::vector<std::string> &args) {
 }
 
 void UCI::formatData() {
-    SearchContext::getResult().formatData(this->sendbuf, BUFLEN, this->options[option_t::debug] == "on");
+    SearchContext::GetResult().formatData(this->sendbuf, BUFLEN, this->options[option_t::debug] == "on");
 }
 
 void UCI::reply() {
@@ -255,7 +255,7 @@ void UCI::setOption(const std::vector<std::string> &args) {
         if (args[3] == "on" || args[3] == "off") {
             options[option_t::ownBook] = args[3];
         } else {
-            snprintf(this->sendbuf, BUFLEN, "juliette:: 'own_book' option must be set to 'on' or 'off'");
+            snprintf(this->sendbuf, BUFLEN, "juliette:: 'ownBook' option must be set to 'on' or 'off'");
             this->reply();
         }
     } else if (args[1] == "threadCount") {
@@ -289,7 +289,7 @@ const std::string &UCI::getOption(option_t opt) const {
 }
 
 void UCI::setElapsedTime(const std::chrono::milliseconds &elapsedTime) {
-    SearchContext::result.elapsedTime = elapsedTime;
+    SearchContext::Result.elapsedTime = elapsedTime;
 }
 
 void UCI::joinThreads() {

@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
 
         // Engine is set to CLI mode. Sending and receiving commands through stdout and stdin.
         UCI io;
-        SearchContext::setUCIInstance(&io);
+        SearchContext::SetUciInstance(&io);
         
         
         do {

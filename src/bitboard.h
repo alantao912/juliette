@@ -273,6 +273,8 @@ public:
 
     uint64_t *getBitboard(const piece_t &);
 
+    const piece_t *getMailboxBoard() const;
+
     void printBoard();
 
     uint64_t getHashCode();

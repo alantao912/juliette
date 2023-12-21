@@ -14,14 +14,14 @@ void *timerThread(void *args) {
     size_t i = 0;
     TimerArgs *timerArgs = reinterpret_cast<TimerArgs *> (args);
 
-    SearchContext::timeRemaining = true;
+    SearchContext::TimeRemaining = true;
     std::vector<int> *durationPtr = timerArgs->durationPtr;
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
     while (i < durationPtr->size()) {
         std::this_thread::sleep_for(std::chrono::milliseconds(durationPtr->at(i++)));
     }
     std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-    SearchContext::timeRemaining = false;
+    SearchContext::TimeRemaining = false;
     std::chrono::milliseconds elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
     timerArgs->uciPtr->setElapsedTime(elapsedTime);
     timerArgs->uciPtr->formatData();
@@ -77,11 +77,11 @@ void TimeManager::startTimer() {
         std::cout << "juliette:: Failed to start timer thread\n";
         exit(-1);
     }
-    while (!SearchContext::timeRemaining);
+    while (!SearchContext::TimeRemaining);
 }
 
 void TimeManager::resetTimer() {
-    while (SearchContext::timeRemaining);
+    while (SearchContext::TimeRemaining);
     duration.clear();
     evaluations.clear();
 
