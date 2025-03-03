@@ -127,7 +127,7 @@ void UCI::position(const std::vector<std::string> &args) {
     } else {
         /** Recombine FEN that was split apart earlier */
         std::string fen;
-        for (size_t i = 0; i < 4; ++i) {
+        for (size_t i = 0; i < 6; ++i) {
             fen += args[i];
             fen += ' ';
         }
@@ -184,7 +184,7 @@ void UCI::go(const std::vector<std::string> &args) {
             if (!StringUtils::isNumber(&movesToGo, args[index + 1])) return;
             index += 2;
         } else if (args[index] == "movetime") {
-            int *variable = (this->mainThread->board.fullmove_number % 2) ? &wTime : &bTime;
+            int *variable = this->mainThread->board.getTurn() ? &wTime : &bTime;
             if (!StringUtils::isNumber(variable, args[index + 1])) { 
                 return; 
             }
