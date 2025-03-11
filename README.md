@@ -27,6 +27,13 @@ To compile and run, navigate to the root project directory and invoke the follow
     - ./juliette cli
 ```
 
+In the CLI:
+```
+uci
+ucinewgame
+position [fen string of position]
+go movetime [thinking time in milliseconds]
+```
 ### About
 ---
 
